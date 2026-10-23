@@ -1,0 +1,42 @@
+appId: com.niekes.brooz
+productName: brooz
+copyright: Copyright (c) 2026, Stefan Nieke
+
+directories:
+    output: release
+
+# The application bundles plus the one runtime dependency, electron-updater.
+# Everything else is a devDependency and never reaches the archive.
+files:
+    - dist/**
+
+publish:
+    provider: github
+    owner: Niekes
+    repo: brooz
+
+# Squirrel.Mac rejects updates of an unsigned app, so macOS stays
+# notify-only until signing secrets exist. They are read from the
+# environment; when they are absent electron-builder builds unsigned and
+# the same build turns signed later without a code change.
+mac:
+    category: public.app-category.developer-tools
+    target:
+        - target: dmg
+          arch: [arm64, x64]
+        # The zip target is what the macOS updater installs from.
+        - target: zip
+          arch: [arm64, x64]
+
+win:
+    target: nsis
+
+linux:
+    target: AppImage
+    category: Development
+
+# The Electron fuses (RunAsNode off, NODE_OPTIONS off, inspector args off,
+# only-load-from-asar, asar integrity, cookie encryption) are flipped by
+# the afterPack hook in scripts/fuses.mjs, because electron-builder has no
+# config key for them.
+afterPack: scripts/fuses.mjs

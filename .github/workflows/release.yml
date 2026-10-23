@@ -1,0 +1,94 @@
+name: Release
+
+on:
+    push:
+        branches: [master]
+        paths: [package.json]
+    # Retries a release whose draft is missing.
+    workflow_dispatch:
+
+jobs:
+    build:
+        name: Build (${{ matrix.os }})
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [macos-latest, windows-latest, ubuntu-latest]
+        permissions:
+            contents: write
+        env:
+            # Absent secrets build unsigned; signing joins later without a
+            # code change.
+            CSC_LINK: ${{ secrets.CSC_LINK }}
+            CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+            APPLE_ID: ${{ secrets.APPLE_ID }}
+            APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+            APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: 'npm'
+            - run: npm ci
+            - run: npm test
+            - run: npm run build
+            - name: Package the installers
+              run: npm run package
+            - name: Upload the installers
+              uses: actions/upload-artifact@v7
+              with:
+                  name: brooz-${{ matrix.os }}
+                  path: release/*
+                  if-no-files-found: error
+
+    release:
+        name: Draft the GitHub release
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            id-token: write
+            attestations: write
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+            - name: Check whether the version is released already
+              id: version
+              run: |
+                  VERSION=$(node -p "require('./package.json').version")
+                  # gh shows drafts as well, so a rerun never duplicates one.
+                  if gh release view "v$VERSION" >/dev/null 2>&1; then
+                      echo "new=false" >> "$GITHUB_OUTPUT"
+                      echo "v$VERSION is released on GitHub already, skipping."
+                  else
+                      echo "new=true" >> "$GITHUB_OUTPUT"
+                  fi
+              env:
+                  GH_TOKEN: ${{ github.token }}
+            - name: Download the installers
+              if: steps.version.outputs.new == 'true'
+              uses: actions/download-artifact@v7
+              with:
+                  pattern: brooz-*
+                  path: release
+                  merge-multiple: true
+            - name: Attest the binaries
+              if: steps.version.outputs.new == 'true'
+              uses: actions/attest-build-provenance@v2
+              with:
+                  subject-path: release/*
+            - name: Draft the release
+              # electron-updater only ever sees published releases: the draft
+              # is the approval step. A maintainer downloads it, tests it and
+              # clicks publish - only then the tag exists, users see the
+              # download and the updater offers the update.
+              if: steps.version.outputs.new == 'true'
+              run: |
+                  VERSION=$(node -p "require('./package.json').version")
+                  awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 { f = 1; next } /^## \[/ { f = 0 } f' CHANGELOG.md |
+                      gh release create "v$VERSION" --draft --target "$GITHUB_SHA" --title "v$VERSION" --notes-file - release/*
+              env:
+                  GH_TOKEN: ${{ github.token }}

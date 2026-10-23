@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a new tile, or a change to an existing one
+labels: [enhancement]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Tell me what you are trying to do. That makes it much easier to
+              design a tile that fits.
+
+    - type: textarea
+      id: problem
+      attributes:
+          label: What are you trying to do?
+          description: Describe the problem you are trying to solve, not only the solution you have in mind.
+      validations:
+          required: true
+
+    - type: textarea
+      id: proposal
+      attributes:
+          label: Proposed tile
+          description: If you have a tile in mind, sketch what it should show and do.
+          placeholder: |
+              A tile that ...
+
+    - type: textarea
+      id: alternatives
+      attributes:
+          label: Alternatives you considered
+
+    - type: checkboxes
+      id: contribution
+      attributes:
+          label: Contribution
+          options:
+              - label: I am willing to implement this myself and open a pull request.

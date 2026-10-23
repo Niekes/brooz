@@ -1,0 +1,27 @@
+import { app, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
+
+const RELEASES_URL = 'https://github.com/Niekes/brooz/releases/latest';
+
+/**
+ * Auto-update over GitHub Releases. electron-updater only ever sees
+ * published releases, which is what makes the release draft the approval
+ * step: nothing downloads until a maintainer clicks publish.
+ *
+ * macOS stays notify-only: Squirrel.Mac refuses to update an unsigned app,
+ * so it opens the releases page instead of downloading.
+ */
+export function configureUpdater(): void {
+    if (!app.isPackaged) {
+        return;
+    }
+    if (process.platform === 'darwin') {
+        // ponytail: notify-only on macOS until the app is signed, then drop this branch
+        autoUpdater.autoDownload = false;
+        autoUpdater.on('update-available', () => {
+            void shell.openExternal(RELEASES_URL);
+        });
+        return;
+    }
+    void autoUpdater.checkForUpdatesAndNotify();
+}

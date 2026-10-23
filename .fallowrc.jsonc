@@ -1,0 +1,98 @@
+{
+    "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+    // The renderer build bundles react and react-dom into dist/, and
+    // electron ships as the platform the app runs on, not as a bundled
+    // module: both stay devDependencies. electron-updater is the one
+    // runtime dependency and sits in `dependencies`.
+    "ignoreDependencies": ["electron", "react", "react-dom"],
+
+    // The process entry points. Everything in the repository has to be
+    // reachable from one of them. scripts/fuses.mjs is the afterPack hook
+    // of electron-builder: its importer is electron-builder.yml, which no
+    // import graph can see.
+    "entry": [
+        "src/main/index.ts",
+        "src/preload/index.ts",
+        "src/renderer/main.tsx",
+        "scripts/fuses.mjs"
+    ],
+
+    // The app template. Every rule that can catch a violation of the
+    // documented architecture is an error, so the gates fail the build.
+    "rules": {
+        "unused-files": "error",
+        "unused-exports": "error",
+        "unused-types": "error",
+        "unused-class-members": "error",
+        "private-type-leaks": "error",
+        "unresolved-imports": "error",
+        "unlisted-dependencies": "error",
+        "duplicate-exports": "error",
+        "circular-dependencies": "error",
+        "re-export-cycle": "error",
+        "boundary-violation": "error",
+        "coverage-gaps": "error",
+        "stale-suppressions": "warn"
+    },
+
+    // The architecture:
+    //
+    //   src/shared/**           shared   ->  shared
+    //   src/main/**             main     ->  main, shared
+    //   src/preload/**          preload  ->  shared
+    //   src/renderer/tiles/**   tiles    ->  tiles, shell, shared
+    //   src/renderer/**         shell    ->  shell, tiles, shared
+    //   tests/**                tests    ->  all source zones
+    //   e2e/**                  e2e      ->  (nothing, it launches the binary)
+    //   scripts/**              tooling  ->  (nothing)
+    //
+    // The renderer never touches Electron or Node, the preload talks to the
+    // main process through the typed contract in shared and nothing else,
+    // and a tile never imports from another tile. The `tiles` zone comes
+    // before `shell` on purpose: a file in tiles/** matches both patterns
+    // and the first zone wins.
+    "boundaries": {
+        "zones": [
+            { "name": "shared", "patterns": ["src/shared/**"] },
+            { "name": "main", "patterns": ["src/main/**"] },
+            { "name": "preload", "patterns": ["src/preload/**"] },
+            { "name": "tiles", "patterns": ["src/renderer/tiles/**"] },
+            { "name": "shell", "patterns": ["src/renderer/**"] },
+            { "name": "tests", "patterns": ["tests/**"] },
+            { "name": "e2e", "patterns": ["e2e/**"] },
+            { "name": "tooling", "patterns": ["scripts/**"] }
+        ],
+        "rules": [
+            { "from": "shared", "allow": ["shared"] },
+            { "from": "main", "allow": ["main", "shared"] },
+            { "from": "preload", "allow": ["shared"] },
+            { "from": "tiles", "allow": ["tiles", "shell", "shared"] },
+            { "from": "shell", "allow": ["shell", "tiles", "shared"] },
+            { "from": "tests", "allow": ["shared", "main", "preload", "tiles", "shell"] },
+            { "from": "e2e", "allow": [] },
+            { "from": "tooling", "allow": [] }
+        ],
+        // Every analysed file has to belong to a zone, so a new module cannot
+        // be dropped into src/ without being placed in the architecture.
+        "coverage": {
+            "requireAllFiles": true,
+            "allowUnmatched": ["vite.config.ts", "playwright.config.ts"]
+        },
+        // House rules: the renderer and the shared contract ship inside the
+        // app, so they stay free of logging and debugger statements.
+        "calls": {
+            "forbidden": [
+                { "from": "shared", "callee": ["console.*", "debugger"] },
+                { "from": "tiles", "callee": ["console.*", "debugger"] },
+                { "from": "shell", "callee": ["console.*", "debugger"] }
+            ]
+        }
+    },
+    // Test files have large `describe()` blocks, the e2e suite drives the
+    // whole binary and the tooling is exercised by `npm run lint` and
+    // `npm run dev`. None of them is a unit-size or coverage concern.
+    "health": {
+        "ignore": ["tests/**", "e2e/**", "scripts/**"]
+    }
+}

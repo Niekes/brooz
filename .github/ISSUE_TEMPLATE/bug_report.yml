@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in brooz does not behave the way it should
+labels: [bug]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for taking the time to report this. A reproduction is worth more
+              than a description - the exact steps are ideal.
+
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: What happened
+          description: What did you expect, and what happened instead?
+          placeholder: The about tile shows "brooz unknown" right after the window opens.
+      validations:
+          required: true
+
+    - type: textarea
+      id: reproduction
+      attributes:
+          label: Reproduction
+          description: The exact steps, from launching the app to the problem.
+          placeholder: |
+              1. Launch brooz
+              2. ...
+      validations:
+          required: true
+
+    - type: input
+      id: version
+      attributes:
+          label: brooz version
+          description: Shown by the About tile, or the downloaded file name.
+          placeholder: 0.1.0
+      validations:
+          required: true
+
+    - type: dropdown
+      id: environment
+      attributes:
+          label: Environment
+          options:
+              - macOS (Apple Silicon)
+              - macOS (Intel)
+              - Windows
+              - Linux
+              - Other
+      validations:
+          required: true
+
+    - type: textarea
+      id: anything-else
+      attributes:
+          label: Anything else
+          description: Console output, screenshots, or a link to a related issue.
