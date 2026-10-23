@@ -35,8 +35,15 @@ linux:
     target: AppImage
     category: Development
 
-# The Electron fuses (RunAsNode off, NODE_OPTIONS off, inspector args off,
-# only-load-from-asar, asar integrity, cookie encryption) are flipped by
-# the afterPack hook in scripts/fuses.mjs, because electron-builder has no
-# config key for them.
-afterPack: scripts/fuses.mjs
+# The Electron security checklist, enforced at build time: the fuses are
+# flipped right before signing. Flip one of these and the packaged app no
+# longer behaves like the app that was tested.
+electronFuses:
+    resetAdHocDarwinSignature: true
+    runAsNode: false
+    enableCookieEncryption: true
+    enableNodeOptionsEnvironmentVariable: false
+    enableNodeCliInspectArguments: false
+    enableEmbeddedAsarIntegrityValidation: true
+    onlyLoadAppFromAsar: true
+    grantFileProtocolExtraPrivileges: false

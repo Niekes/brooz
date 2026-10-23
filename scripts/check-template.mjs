@@ -93,6 +93,22 @@ for (const file of collectSourceFiles('src')) {
     }
 }
 
+/**
+ * The sandboxed preload may import `electron` and nothing else from the
+ * package space - no react, no helpers, no accidental Node access through
+ * a transitive import. The relative imports of the shared contract are the
+ * only allowed exception.
+ */
+for (const file of collectSourceFiles('src/preload')) {
+    const source = read(file);
+
+    for (const [, specifier] of source.matchAll(/from\s+'([^']+)'/g)) {
+        if (!specifier.startsWith('.') && specifier !== 'electron') {
+            fail(`${file}: the sandboxed preload may only import electron, not '${specifier}'`);
+        }
+    }
+}
+
 if (violations.length > 0) {
     console.error(`${violations.length} app template violation(s):\n`);
     for (const violation of violations) {

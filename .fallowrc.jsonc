@@ -8,15 +8,8 @@
     "ignoreDependencies": ["electron", "react", "react-dom"],
 
     // The process entry points. Everything in the repository has to be
-    // reachable from one of them. scripts/fuses.mjs is the afterPack hook
-    // of electron-builder: its importer is electron-builder.yml, which no
-    // import graph can see.
-    "entry": [
-        "src/main/index.ts",
-        "src/preload/index.ts",
-        "src/renderer/main.tsx",
-        "scripts/fuses.mjs"
-    ],
+    // reachable from one of them.
+    "entry": ["src/main/index.ts", "src/preload/index.ts", "src/renderer/main.tsx"],
 
     // The app template. Every rule that can catch a violation of the
     // documented architecture is an error, so the gates fail the build.
@@ -44,7 +37,7 @@
     //   src/renderer/tiles/**   tiles    ->  tiles, shell, shared
     //   src/renderer/**         shell    ->  shell, tiles, shared
     //   tests/**                tests    ->  all source zones
-    //   e2e/**                  e2e      ->  (nothing, it launches the binary)
+    //   tests/e2e/**             the Playwright suite, inside the tests zone
     //   scripts/**              tooling  ->  (nothing)
     //
     // The renderer never touches Electron or Node, the preload talks to the
@@ -60,7 +53,6 @@
             { "name": "tiles", "patterns": ["src/renderer/tiles/**"] },
             { "name": "shell", "patterns": ["src/renderer/**"] },
             { "name": "tests", "patterns": ["tests/**"] },
-            { "name": "e2e", "patterns": ["e2e/**"] },
             { "name": "tooling", "patterns": ["scripts/**"] }
         ],
         "rules": [
@@ -70,7 +62,6 @@
             { "from": "tiles", "allow": ["tiles", "shell", "shared"] },
             { "from": "shell", "allow": ["shell", "tiles", "shared"] },
             { "from": "tests", "allow": ["shared", "main", "preload", "tiles", "shell"] },
-            { "from": "e2e", "allow": [] },
             { "from": "tooling", "allow": [] }
         ],
         // Every analysed file has to belong to a zone, so a new module cannot
@@ -93,6 +84,6 @@
     // whole binary and the tooling is exercised by `npm run lint` and
     // `npm run dev`. None of them is a unit-size or coverage concern.
     "health": {
-        "ignore": ["tests/**", "e2e/**", "scripts/**"]
+        "ignore": ["tests/**", "scripts/**"]
     }
 }

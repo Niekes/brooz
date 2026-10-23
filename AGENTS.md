@@ -71,16 +71,15 @@ never publish a release from the command line - the draft is the gate.
 The zones are declared in `.fallowrc.jsonc` and enforced by
 `npm run lint`. A violation fails the build.
 
-| Zone      | Files                   | May import                      |
-| --------- | ----------------------- | ------------------------------- |
-| `shared`  | `src/shared/**`         | `shared`                        |
-| `main`    | `src/main/**`           | `main`, `shared`                |
-| `preload` | `src/preload/**`        | `shared`                        |
-| `tiles`   | `src/renderer/tiles/**` | `tiles`, `shell`, `shared`      |
-| `shell`   | `src/renderer/**`       | `shell`, `tiles`, `shared`      |
-| `tests`   | `tests/**`              | all source zones                |
-| `e2e`     | `e2e/**`                | nothing, it launches the binary |
-| `tooling` | `scripts/**`            | nothing                         |
+| Zone      | Files                   | May import                 |
+| --------- | ----------------------- | -------------------------- |
+| `shared`  | `src/shared/**`         | `shared`                   |
+| `main`    | `src/main/**`           | `main`, `shared`           |
+| `preload` | `src/preload/**`        | `shared`                   |
+| `tiles`   | `src/renderer/tiles/**` | `tiles`, `shell`, `shared` |
+| `shell`   | `src/renderer/**`       | `shell`, `tiles`, `shared` |
+| `tests`   | `tests/**`              | all source zones           |
+| `tooling` | `scripts/**`            | nothing                    |
 
 Two package rules ride on top, enforced by oxlint overrides in
 `vite.config.ts`: `shared` and the whole renderer (`tiles`, `shell`) never
@@ -101,9 +100,9 @@ Not negotiable, and pinned by unit tests:
 - Every IPC handler checks the sender frame's origin against the app.
 - `session.setPermissionRequestHandler` defaults to deny; the allowlist is
   empty until a tile needs a permission (a camera tile adds `media`).
-- Electron fuses are pinned in `electron-builder.yml`: RunAsNode off,
-  NODE_OPTIONS off, inspector args off, only-load-from-asar, asar integrity,
-  cookie encryption.
+- Electron fuses are pinned in `electron-builder.yml` (`electronFuses`):
+  RunAsNode off, NODE_OPTIONS off, inspector args off, only-load-from-asar,
+  asar integrity, cookie encryption.
 
 ## The tile template
 

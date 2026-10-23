@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { join } from 'node:path';
 import { APP_INDEX_URL } from '../../src/main/protocol';
-import { createMainWindow, createWindowOptions } from '../../src/main/window';
+import {
+    createMainWindow,
+    createWindowOptions,
+    installPermissionHandler,
+    PERMISSION_ALLOWLIST
+} from '../../src/main/window';
 
 type NavigateHandler = (event: { preventDefault: () => void }, url: string) => void;
 
@@ -13,6 +18,7 @@ interface MockWindow {
     webContents: {
         on: ReturnType<typeof vi.fn>;
         setWindowOpenHandler: ReturnType<typeof vi.fn>;
+        session: { setPermissionRequestHandler: ReturnType<typeof vi.fn> };
     };
 }
 
@@ -24,7 +30,11 @@ vi.mock('electron', () => ({
         once = vi.fn();
         loadURL = vi.fn();
         show = vi.fn();
-        webContents = { on: vi.fn(), setWindowOpenHandler: vi.fn() };
+        webContents = {
+            on: vi.fn(),
+            setWindowOpenHandler: vi.fn(),
+            session: { setPermissionRequestHandler: vi.fn() }
+        };
         constructor(options: Record<string, unknown>) {
             this.options = options;
             mockInstances.push(this as unknown as MockWindow);
@@ -83,6 +93,23 @@ describe('the main window', () => {
     it('loads the dev server instead while it is running', () => {
         createMainWindow('http://localhost:5173/');
         expect(windowInstance().loadURL).toHaveBeenCalledWith('http://localhost:5173/');
+    });
+
+    it('denies every permission request while the allowlist is empty', () => {
+        expect(PERMISSION_ALLOWLIST).toEqual([]);
+        const handler = vi.fn();
+        installPermissionHandler({
+            setPermissionRequestHandler: handler
+        } as unknown as Electron.Session);
+        const requestHandler = handler.mock.calls[0][0] as (
+            webContents: unknown,
+            permission: string,
+            callback: (granted: boolean) => void
+        ) => void;
+        const granted: boolean[] = [];
+        requestHandler(undefined, 'media', (value) => granted.push(value));
+        requestHandler(undefined, 'notifications', (value) => granted.push(value));
+        expect(granted).toEqual([false, false]);
     });
 
     it('denies every request to open a new window', () => {

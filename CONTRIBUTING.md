@@ -46,7 +46,7 @@ cheapest moment to hold that line.
 | `src/renderer/tiles/**` | `tiles`   | One directory per tile, isolated from each other. |
 | `src/renderer/**`       | `shell`   | The dashboard grid and the renderer entry.        |
 | `tests/**`              | `tests`   | The unit suite, mirroring `src/`.                 |
-| `e2e/**`                | `e2e`     | Playwright against `electron .`.                  |
+| `tests/e2e/**`          | `tests`   | Playwright against `electron .`.                  |
 | `scripts/**`            | `tooling` | Repository tooling. Imports nothing from the app. |
 
 The renderer never imports Electron or Node. A tile never imports from

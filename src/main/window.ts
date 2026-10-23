@@ -1,8 +1,25 @@
 import { BrowserWindow } from 'electron';
-import type { BrowserWindowConstructorOptions } from 'electron';
+import type { BrowserWindowConstructorOptions, Session } from 'electron';
 import { preloadPath } from './paths';
 import { isAppOrigin } from './origin';
 import { APP_INDEX_URL } from './protocol';
+
+/**
+ * The permission allowlist. It starts empty: every request is denied until a
+ * tile needs a permission - a camera tile adds `media` here.
+ */
+export const PERMISSION_ALLOWLIST: readonly string[] = [];
+
+/**
+ * Installs the deny-by-default permission handler on a session. The browser
+ * would grant notifications, geolocation and more on its own; this pins it
+ * to the allowlist.
+ */
+export function installPermissionHandler(session: Session): void {
+    session.setPermissionRequestHandler((_webContents, permission, callback) => {
+        callback(PERMISSION_ALLOWLIST.includes(permission));
+    });
+}
 
 /**
  * The security baseline of every window of the app. The unit test pins each
@@ -28,6 +45,8 @@ export function createWindowOptions(preload: string): BrowserWindowConstructorOp
  */
 export function createMainWindow(devUrl?: string): BrowserWindow {
     const window = new BrowserWindow(createWindowOptions(preloadPath()));
+
+    installPermissionHandler(window.webContents.session);
 
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
