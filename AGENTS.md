@@ -1,8 +1,9 @@
 # brooz
 
-brooz is an open-source desktop app built on Electron: a dashboard grid in
-which every cell is a small app of its own - a tile. The roadmap runs towards
-tiles that run local models (Transformers.js, OpenCV.js) in the browser.
+brooz is an open-source desktop app built on Electron: an infinite dashboard
+grid on a dome, in which every cell is a small app of its own - a tile. An
+ask bar routes an English utterance to a tile, with keyword rules and a
+local decision model (open-jev on Transformers.js) running in a Web Worker.
 
 The repository is the scaffold plus the machinery that keeps it in shape:
 zoned architecture, a template check, fallow gates, 100% coverage, and a
@@ -81,6 +82,13 @@ The zones are declared in `.fallowrc.jsonc` and enforced by
 | `tests`   | `tests/**`              | all source zones           |
 | `tooling` | `scripts/**`            | nothing                    |
 
+The shell is organised by concern: `shell/grid` (the dome geometry, the
+motion engine, the grid component), `shell/command` (the ask bar, the
+rules, the model worker), `shell/glass` (the backdrop and the glass card)
+and `shell/kit` (what several tiles share: seeded mock data, tile and live
+chrome, icons, the data hooks). A tile imports from `shell/kit` and
+`shell/tile.ts`; the kit never imports the registry, so there is no cycle.
+
 Two package rules ride on top, enforced by oxlint overrides in
 `vite.config.ts`: `shared` and the whole renderer (`tiles`, `shell`) never
 import `electron` or anything `node:*`; the preload imports only `electron`
@@ -94,9 +102,16 @@ Not negotiable, and pinned by unit tests:
   `nodeIntegration: false` (`src/main/window.ts`).
 - The window denies every `window.open`, and navigation away from the app is
   prevented (`will-navigate`).
-- The renderer is served over the `app://` protocol with a
-  Content-Security-Policy header, never over `file://`. In dev mode the
-  window loads the Vite dev server instead.
+- The renderer is served over the `app://` protocol, never over `file://`.
+  Every response carries the Content-Security-Policy (a worker takes its
+  policy from its own response) and COOP/COEP (`src/main/protocol.ts`).
+  The policy is `'self'` everywhere, plus `'wasm-unsafe-eval'` for the
+  ONNX Runtime and `https://huggingface.co https://*.hf.co` in
+  `connect-src` for the model weights. In dev mode the window loads the
+  Vite dev server instead.
+- The renderer fetches nothing from the internet itself: Open-Meteo is
+  called by the main process (`src/main/open-meteo.ts`), and the IPC
+  handlers validate every argument before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
 - `session.setPermissionRequestHandler` defaults to deny; the allowlist is
   empty until a tile needs a permission (a camera tile adds `media`).
@@ -106,20 +121,35 @@ Not negotiable, and pinned by unit tests:
 
 ## The tile template
 
-`src/renderer/tiles/about` is the reference. A tile directory
-`src/renderer/tiles/<name>/` owns:
+`src/renderer/tiles/about` is the smallest reference, `tiles/weather` a
+complete one. A tile directory `src/renderer/tiles/<name>/` (camelCase, so
+`<name>Tile` is an identifier) owns:
 
-- `index.tsx`, which exports the tile's component as `export function` and
-  the definition as `export const <name>Tile: TileDefinition = {...}` -
-  camelCase, typed `TileDefinition` from `src/renderer/shell/tile.ts`;
-- nothing else: a tile never imports from another tile, and it reaches the
-  main process only through `window.brooz`.
+- `index.tsx`, which exports the tile's components as `export function`
+  and the definition as `export const <name>Tile: TileDefinition = {...}`,
+  typed `TileDefinition` from `src/renderer/shell/tile.ts`;
+- any helper module of its own (`moonPhase/moon.ts`), and nothing else: a
+  tile never imports from another tile, and it reaches the main process
+  only through `window.brooz`.
 
-A new tile is registered in `src/renderer/tiles/index.ts`. A tile that is
-missing there is dead code - fallow reports its unused export.
+A definition has:
+
+- `id` and `title` - the id is what the ask bar routes to (`'air-quality'`);
+- `Component` - the resting tile, rendered from a per-cell `seed`. It is
+  deterministic: no `Math.random`, no `Date`, no timer;
+- `Live` (optional) - the summoned tile with real data, and `liveKey`,
+  which decides from the utterance's args when it remounts;
+- `route` (optional) - a description for the model, keywords, examples, the
+  rule pattern and its weight, and `args`, which keeps the utterance's args
+  the tile understands. A tile without a route is never summoned.
+
+A new tile is registered in `src/renderer/tiles/index.ts`; its position in
+the list is its place in the grid pattern. A tile that is missing there is
+dead code - fallow reports its unused export.
 
 `scripts/check-template.mjs` enforces the naming and the isolation, fallow
-enforces the zones and the coverage.
+enforces the zones and the coverage. The routing benchmarks in
+`tests/fixtures/routing.ts` must still pass after a change to a route.
 
 ## Adding an IPC channel
 
@@ -129,17 +159,24 @@ enforces the zones and the coverage.
 3. Cover it with a test. The preload needs no change - it is generic.
 
 The renderer calls `window.brooz.invoke('<channel>', ...)`; the preload
-rejects every channel that is not in the contract.
+rejects every channel that is not in the contract. The renderer is
+untrusted input: validate the args in the handler before they reach the
+file system or the network (see `parsePlaceQuery` in `src/main/ipc.ts`).
 
-## ML tiles
+The channels: `brooz:app-version`, `brooz:geocode`, `brooz:weather` and
+`brooz:air-quality`.
 
-The first ML tile runs its inference in a Web Worker inside its own tile
-directory. Two things change when it lands, both in `src/main/protocol.ts`:
+## The local model
 
-- the CSP header grows `'wasm-unsafe-eval'` for the WebAssembly runtime;
-- the responses for the shell document grow COOP/COEP headers, because WASM
-  threads need `SharedArrayBuffer`.
+The ask bar's model runs in a Web Worker (`shell/command/model-worker.ts`,
+with the testable host in `model-host.ts`); `use-local-model.ts` talks to
+it by message. The ONNX Runtime files ship with the app (`?url` imports of
+`onnxruntime-web`, `env.useWasmCache = false`, so no `blob:` copies); only
+the weights come from the Hugging Face hub, and Transformers.js keeps them
+in CacheStorage after the first start. The CSP and COOP/COEP that this
+needs are in place (see the security rules).
 
+A future ML tile follows the same pattern inside its own tile directory.
 A tile that needs the camera adds `media` to the permission allowlist.
 
 ## Code style

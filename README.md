@@ -18,10 +18,17 @@
 
 ---
 
-brooz is a grid of tiles and every tile is a small app of its own. The first
-tile, About, shows the app version; the roadmap runs towards tiles that run
-local models (Transformers.js, OpenCV.js) in the browser - offline, on your
-machine, no cloud.
+brooz is an infinite grid of glass tiles on a dome, and every tile is a
+small app of its own: clocks, weather, a forecast, air quality, the moon, a
+pomodoro timer, a sticky note and more. Drag or scroll to pan. Type what you
+want into the ask bar at the bottom ("weather in Rome", "start a 25 minute
+timer", "note: buy milk") and the matching tile flies to the center and
+comes alive with real data.
+
+The ask bar routes with keyword rules right away and with a small local
+model (open-jev on Transformers.js) once it has loaded: it runs on your
+machine, in a Web Worker, with no cloud service. The model is downloaded
+once from the Hugging Face hub on the first start and cached after that.
 
 ## Download
 
