@@ -13,5 +13,5 @@ const color = pct >= 90 ? 'brightgreen' : pct >= 80 ? 'green' : pct >= 70 ? 'yel
 
 writeFileSync(
     '.github/badges/coverage.json',
-    `${JSON.stringify({ schemaVersion: 1, label: 'coverage', message: `${pct}%`, color })}\n`
+    `${JSON.stringify({ schemaVersion: 1, label: 'coverage', message: `${pct}%`, color }, null, 4)}\n`
 );
