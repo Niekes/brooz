@@ -1,11 +1,21 @@
 {
     "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
 
-    // The renderer build bundles react and react-dom into dist/, and
-    // electron ships as the platform the app runs on, not as a bundled
-    // module: both stay devDependencies. electron-updater is the one
-    // runtime dependency and sits in `dependencies`.
-    "ignoreDependencies": ["electron", "react", "react-dom"],
+    // The renderer build bundles react, react-dom, the Geist Mono font and
+    // the local model (open-jev, Transformers.js and the ONNX Runtime files)
+    // into dist/, and electron ships as the platform the app runs on, not
+    // as a bundled module: all of them stay devDependencies.
+    // electron-updater is the one runtime dependency and sits in
+    // `dependencies`.
+    "ignoreDependencies": [
+        "electron",
+        "react",
+        "react-dom",
+        "@fontsource-variable/geist-mono",
+        "@huggingface/transformers",
+        "onnxruntime-web",
+        "open-jev"
+    ],
 
     // The process entry points. Everything in the repository has to be
     // reachable from one of them.

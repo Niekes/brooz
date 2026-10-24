@@ -14,9 +14,34 @@ export const APP_SCHEME_PRIVILEGES: CustomScheme[] = [
     { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ];
 
-const CSP =
-    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-    "font-src 'self'; connect-src 'self'";
+/**
+ * The Content-Security-Policy of the app. Everything comes from the app
+ * itself, with two exceptions for the local model: 'wasm-unsafe-eval'
+ * compiles the ONNX Runtime's WebAssembly, and connect-src reaches the
+ * Hugging Face hub, where the model weights live (their downloads redirect
+ * to *.hf.co).
+ */
+const CSP = [
+    "default-src 'none'",
+    "script-src 'self' 'wasm-unsafe-eval'",
+    "worker-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self' https://huggingface.co https://*.hf.co"
+].join('; ');
+
+/**
+ * Sent with every response, not only the shell document: a worker script
+ * takes its policy from its own response, so the model worker gets the same
+ * CSP. COOP and COEP make the window cross-origin isolated, which the
+ * WebAssembly threads of the ONNX Runtime need for SharedArrayBuffer.
+ */
+const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+    'Content-Security-Policy': CSP,
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp'
+};
 
 /**
  * Maps a request path to a file below the renderer root. `/` is the shell
@@ -31,7 +56,7 @@ export function resolveRendererPath(rendererRoot: string, pathname: string): str
 
 /**
  * Serves one request of the app:// protocol: the file from the renderer
- * bundle, with the Content-Security-Policy header on the shell document.
+ * bundle, with the security headers.
  */
 export async function serveRenderer(rendererRoot: string, request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
@@ -40,18 +65,17 @@ export async function serveRenderer(rendererRoot: string, request: Request): Pro
             pathToFileURL(resolveRendererPath(rendererRoot, pathname)).toString(),
             { bypassCustomProtocolHandlers: true }
         );
-        return withCsp(response, pathname);
+        return withSecurityHeaders(response);
     } catch {
         return new Response('Not found', { status: 404 });
     }
 }
 
-function withCsp(response: Response, pathname: string): Response {
-    if (pathname !== '/' && pathname !== '/index.html') {
-        return response;
-    }
+function withSecurityHeaders(response: Response): Response {
     const headers = new Headers(response.headers);
-    headers.set('Content-Security-Policy', CSP);
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+        headers.set(name, value);
+    }
     return new Response(response.body, { status: response.status, headers });
 }
 

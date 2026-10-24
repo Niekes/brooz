@@ -8,7 +8,8 @@
  * Usage: npm run dev
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +30,25 @@ const run = (command, args) =>
             }
         });
     });
+
+/**
+ * On macOS the bold app name in the menu bar comes from the bundle that
+ * runs, which in dev is Electron's own Electron.app. Rename that bundle to
+ * the product name, so dev shows the same name as the packaged app. It
+ * lives in node_modules, so this runs on every start: an npm install puts
+ * the original back.
+ */
+function nameDevBundle() {
+    const { productName } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    const plist = join(ROOT, 'node_modules/electron/dist/Electron.app/Contents/Info.plist');
+    for (const key of ['CFBundleName', 'CFBundleDisplayName']) {
+        execFileSync('plutil', ['-replace', key, '-string', productName, plist]);
+    }
+}
+
+if (process.platform === 'darwin') {
+    nameDevBundle();
+}
 
 // The main and preload bundles do not hot-reload: build them once up front.
 await run(bin('vp'), ['pack']);
