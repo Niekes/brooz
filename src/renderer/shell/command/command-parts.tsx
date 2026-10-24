@@ -231,15 +231,50 @@ function statusLabel(model: LocalModel): string {
     }
 }
 
+/** The one thing to do about the model: enable it, or retry after an error. */
+function ModelAction({
+    model,
+    onEnable
+}: {
+    model: LocalModel;
+    onEnable: () => void;
+}): JSX.Element | null {
+    if (model.status === 'idle') {
+        return (
+            <button
+                type="button"
+                onClick={onEnable}
+                className="shrink-0 rounded-full border border-[#7dd3fc]/25 bg-[#7dd3fc]/10 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-[#7dd3fc] uppercase transition-colors hover:bg-[#7dd3fc]/15"
+            >
+                Enable local model · 380 MB
+            </button>
+        );
+    }
+    if (model.status === 'error') {
+        return (
+            <button
+                type="button"
+                onClick={model.load}
+                className="shrink-0 rounded-full border border-[#fda4af]/25 bg-[#fda4af]/10 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-[#fda4af] uppercase transition-colors hover:bg-[#fda4af]/15"
+            >
+                Retry
+            </button>
+        );
+    }
+    return null;
+}
+
 /** The model status left, the hint right, and the download progress below. */
 export function StatusLine({
     model,
     hint,
-    warn
+    warn,
+    onEnable
 }: {
     model: LocalModel;
     hint: string;
     warn: boolean;
+    onEnable: () => void;
 }): JSX.Element {
     return (
         <>
@@ -251,15 +286,7 @@ export function StatusLine({
                     <span className="truncate text-[8px] font-medium tracking-[0.16em] text-white/30 uppercase">
                         {statusLabel(model)}
                     </span>
-                    {model.status === 'error' ? (
-                        <button
-                            type="button"
-                            onClick={model.load}
-                            className="shrink-0 rounded-full border border-[#fda4af]/25 bg-[#fda4af]/10 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-[#fda4af] uppercase transition-colors hover:bg-[#fda4af]/15"
-                        >
-                            Retry
-                        </button>
-                    ) : null}
+                    <ModelAction model={model} onEnable={onEnable} />
                 </span>
 
                 <span

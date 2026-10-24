@@ -53,7 +53,10 @@ export interface FakeWorker {
     readonly posted: unknown[];
     terminated: boolean;
     onmessage: ((event: { data: unknown }) => void) | null;
+    onerror: (() => void) | null;
     emit(data: unknown): void;
+    /** The worker script failed to load or crashed. */
+    fail(): void;
 }
 
 /** Replaces the global Worker; the returned list fills as workers are created. */
@@ -68,11 +71,13 @@ export function stubWorker(): FakeWorker[] {
                 posted: [] as unknown[],
                 terminated: false,
                 onmessage: null as FakeWorker['onmessage'],
+                onerror: null as FakeWorker['onerror'],
                 postMessage: (message: unknown) => worker.posted.push(message),
                 terminate: () => {
                     worker.terminated = true;
                 },
-                emit: (data: unknown) => worker.onmessage!({ data })
+                emit: (data: unknown) => worker.onmessage!({ data }),
+                fail: () => worker.onerror!()
             };
             workers.push(worker);
             return worker;

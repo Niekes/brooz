@@ -52,6 +52,9 @@ interface AirQualityRaw {
 
 const GEOCODE_TTL = 1000 * 60 * 60;
 const DATA_TTL = 1000 * 60 * 10;
+const MAX_ENTRIES = 100;
+/** A request that has not answered by then is given up. */
+const REQUEST_TIMEOUT = 10_000;
 
 const cache = new Map<string, { at: number; value: unknown }>();
 
@@ -67,13 +70,35 @@ function readCache<T>(key: string, ttl: number): T | undefined {
     return entry.value as T;
 }
 
+/**
+ * Stores a value. Entries older than the longest lifetime go on every
+ * write, and the cache never holds more than MAX_ENTRIES: a Map iterates
+ * in insertion order, so the first key is the oldest.
+ */
 function writeCache<T>(key: string, value: T): T {
-    cache.set(key, { at: Date.now(), value });
+    const now = Date.now();
+    for (const [stored, entry] of cache) {
+        if (now - entry.at > GEOCODE_TTL) {
+            cache.delete(stored);
+        }
+    }
+    cache.delete(key);
+    cache.set(key, { at: now, value });
+    if (cache.size > MAX_ENTRIES) {
+        cache.delete(cache.keys().next().value!);
+    }
     return value;
 }
 
 async function fetchJson<T>(url: URL): Promise<T> {
-    const response = await net.fetch(url.toString());
+    const response = await net
+        .fetch(url.toString(), { signal: AbortSignal.timeout(REQUEST_TIMEOUT) })
+        .catch((cause: unknown) => {
+            if (cause instanceof DOMException && cause.name === 'TimeoutError') {
+                throw new Error('The weather service did not answer in time.');
+            }
+            throw cause;
+        });
     if (!response.ok) {
         throw new Error(`The weather service replied with ${response.status}.`);
     }

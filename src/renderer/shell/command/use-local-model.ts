@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import type { RefObject } from 'react';
 import type { HostMessage, HostRequest } from './model-host';
 import { ROUTED_TILES } from './manifest';
 import type { RouteOptions, RouteResult } from './route-intent';
@@ -21,6 +22,8 @@ const OPTIONS: RouteOptions = {
     ids: ROUTED_TILES.map((tile) => tile.id),
     descriptions: Object.fromEntries(ROUTED_TILES.map((tile) => [tile.id, tile.route.description]))
 };
+
+const WORKER_FAILED = 'The local model could not start.';
 
 const INITIAL: ModelState = { status: 'idle', progress: 0, error: null, runtime: null };
 
@@ -47,20 +50,19 @@ interface Pending {
 }
 
 /**
- * The model worker, created on the first request and terminated with the
- * component. Route answers settle their pending promise by id, every other
- * message goes to `onStatus`.
+ * What the page does with the worker's events. Route answers settle their
+ * pending promise by id, every other message goes to `onStatus`. A worker
+ * that fails to load or crashes never answers again: it is reported, every
+ * pending route is settled, and it is dropped, so the next load starts a
+ * fresh one.
  */
-function useModelWorker(onStatus: (event: ModelEvent) => void): {
-    post: (request: HostRequest) => void;
-    pending: Map<number, Pending>;
-} {
-    const workerRef = useRef<Worker | null>(null);
-    const pendingRef = useRef(new Map<number, Pending>());
-
-    const onMessage = useCallback(
-        (message: HostMessage) => {
-            const pending = pendingRef.current;
+function workerHandlers(
+    workerRef: RefObject<Worker | null>,
+    pending: Map<number, Pending>,
+    onStatus: (event: ModelEvent) => void
+): { onMessage: (message: HostMessage) => void; onFailure: () => void } {
+    return {
+        onMessage(message) {
             if (message.type === 'routed') {
                 pending.get(message.id)!.resolve(message.result);
                 pending.delete(message.id);
@@ -71,6 +73,31 @@ function useModelWorker(onStatus: (event: ModelEvent) => void): {
                 onStatus(message);
             }
         },
+        onFailure() {
+            workerRef.current!.terminate();
+            workerRef.current = null;
+            for (const { reject } of pending.values()) {
+                reject(new Error(WORKER_FAILED));
+            }
+            pending.clear();
+            onStatus({ type: 'load-error', message: WORKER_FAILED });
+        }
+    };
+}
+
+/**
+ * The model worker, created on the first request and terminated with the
+ * component.
+ */
+function useModelWorker(onStatus: (event: ModelEvent) => void): {
+    post: (request: HostRequest) => void;
+    pending: Map<number, Pending>;
+} {
+    const workerRef = useRef<Worker | null>(null);
+    const pendingRef = useRef(new Map<number, Pending>());
+
+    const { onMessage, onFailure } = useMemo(
+        () => workerHandlers(workerRef, pendingRef.current, onStatus),
         [onStatus]
     );
 
@@ -82,10 +109,11 @@ function useModelWorker(onStatus: (event: ModelEvent) => void): {
                 });
                 workerRef.current.onmessage = (event: MessageEvent<HostMessage>) =>
                     onMessage(event.data);
+                workerRef.current.onerror = onFailure;
             }
             workerRef.current.postMessage(request);
         },
-        [onMessage]
+        [onMessage, onFailure]
     );
 
     useEffect(

@@ -3,6 +3,7 @@ import type { CSSProperties, ChangeEvent, JSX, KeyboardEvent, RefObject } from '
 import { AppCard } from '../glass/app-card';
 import type { SummonRequest } from '../tile';
 import {
+    enableModel,
     hintFor,
     useAutoSummon,
     useFocusShortcut,
@@ -272,6 +273,7 @@ export function CommandBar({
                     model={model}
                     hint={hintFor(actions.notice, lowConfidence, routing.failure)}
                     warn={Boolean(actions.notice) || lowConfidence}
+                    onEnable={() => enableModel(model.load)}
                 />
             </div>
         </div>

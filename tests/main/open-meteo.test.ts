@@ -201,4 +201,45 @@ describe('Open-Meteo', () => {
         await fetchAirQuality({ latitude: 9.5, longitude: 10.5 });
         expect(mockFetch).toHaveBeenCalledTimes(1);
     });
+
+    it('gives up on a request after ten seconds', async () => {
+        mockFetch.mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'));
+        await expect(geocodeCity('Slowtown')).rejects.toThrow(
+            'The weather service did not answer in time.'
+        );
+        const [, options] = mockFetch.mock.calls[0] as [string, { signal: AbortSignal }];
+        expect(options.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it('passes any other network failure on', async () => {
+        mockFetch.mockRejectedValue(new Error('net::ERR_INTERNET_DISCONNECTED'));
+        await expect(geocodeCity('Offline')).rejects.toThrow('net::ERR_INTERNET_DISCONNECTED');
+    });
+
+    it('keeps at most a hundred places, dropping the oldest first', async () => {
+        mockFetch.mockImplementation((url: string) =>
+            Promise.resolve(json(geocode(new URL(url).searchParams.get('name')!)))
+        );
+        for (let i = 0; i < 101; i++) {
+            await geocodeCity(`Bounded ${i}`);
+        }
+        mockFetch.mockClear();
+        await geocodeCity('Bounded 100');
+        expect(mockFetch).not.toHaveBeenCalled();
+        await geocodeCity('Bounded 0');
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops expired places when it stores a new one', async () => {
+        vi.useFakeTimers();
+        mockFetch.mockImplementation((url: string) =>
+            Promise.resolve(json(geocode(new URL(url).searchParams.get('name')!)))
+        );
+        await geocodeCity('Old town');
+        vi.advanceTimersByTime(1000 * 60 * 60 + 1);
+        await geocodeCity('New town');
+        mockFetch.mockClear();
+        await geocodeCity('Old town');
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
 });

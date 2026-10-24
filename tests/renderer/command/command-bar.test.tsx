@@ -31,6 +31,8 @@ describe('the ask bar with the rules', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         workers = stubWorker();
+        localStorage.clear();
+        localStorage.setItem('brooz.model.enabled', '1');
     });
 
     afterEach(() => {
@@ -216,6 +218,8 @@ describe('the ask bar with the local model', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         workers = stubWorker();
+        localStorage.clear();
+        localStorage.setItem('brooz.model.enabled', '1');
     });
 
     afterEach(() => {
@@ -319,5 +323,77 @@ describe('the ask bar with the local model', () => {
         await expect(result.current.route('weather')).rejects.toThrow(
             'The local model is not ready.'
         );
+    });
+});
+
+describe('the opt-in for the local model', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        workers = stubWorker();
+        localStorage.clear();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('routes with the rules alone until the model is enabled', () => {
+        const { type, onSummon } = setup();
+        expect(workers).toHaveLength(0);
+        expect(screen.getByText('Rules only')).toBeTruthy();
+        type('weather in Rome');
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+        expect(onSummon).toHaveBeenCalledWith(expect.objectContaining({ source: 'rules' }));
+    });
+
+    it('downloads the model on request and remembers the choice', () => {
+        const first = setup();
+        fireEvent.click(screen.getByText('Enable local model · 380 MB'));
+        expect(workers).toHaveLength(1);
+        expect(workers[0].posted).toEqual([{ type: 'load' }]);
+        expect(localStorage.getItem('brooz.model.enabled')).toBe('1');
+        expect(screen.getByText('Loading local model 0%')).toBeTruthy();
+        first.unmount();
+
+        setup();
+        expect(workers).toHaveLength(2);
+        expect(workers[1].posted).toEqual([{ type: 'load' }]);
+    });
+
+    it('stays with the rules when the storage cannot be read, and still enables', () => {
+        vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+            throw new Error('denied');
+        });
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('denied');
+        });
+        setup();
+        expect(workers).toHaveLength(0);
+        fireEvent.click(screen.getByText('Enable local model · 380 MB'));
+        expect(workers).toHaveLength(1);
+    });
+
+    it('reports a worker that cannot start, and starts a new one on retry', async () => {
+        localStorage.setItem('brooz.model.enabled', '1');
+        const { type } = setup();
+        await emit(ready);
+        type('weather tomorrow');
+        act(() => {
+            vi.advanceTimersByTime(240);
+        });
+        await act(async () => {
+            workers[0].fail();
+            await Promise.resolve();
+        });
+        expect(workers[0].terminated).toBe(true);
+        expect(screen.getByText('Local model unavailable')).toBeTruthy();
+        expect(screen.getByText('The local model could not start.')).toBeTruthy();
+        fireEvent.click(screen.getByText('Retry'));
+        expect(workers).toHaveLength(2);
+        expect(workers[1].posted).toEqual([{ type: 'load' }]);
     });
 });
