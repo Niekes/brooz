@@ -3,11 +3,18 @@ import { IPC_CHANNELS, isIpcChannel } from '../../src/shared/ipc';
 
 describe('the IPC contract', () => {
     it('names its channels as const', () => {
-        expect(IPC_CHANNELS.appVersion).toBe('brooz:app-version');
+        expect(IPC_CHANNELS).toEqual({
+            appVersion: 'brooz:app-version',
+            geocode: 'brooz:geocode',
+            weather: 'brooz:weather',
+            airQuality: 'brooz:air-quality'
+        });
     });
 
     it('accepts the channels of the contract', () => {
-        expect(isIpcChannel(IPC_CHANNELS.appVersion)).toBe(true);
+        for (const channel of Object.values(IPC_CHANNELS)) {
+            expect(isIpcChannel(channel)).toBe(true);
+        }
     });
 
     it('rejects everything else', () => {

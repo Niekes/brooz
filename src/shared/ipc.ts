@@ -6,8 +6,13 @@
  * no change.
  */
 
+import type { AirQualitySnapshot, GeoPlace, PlaceQuery, WeatherSnapshot } from './weather';
+
 export const IPC_CHANNELS = {
-    appVersion: 'brooz:app-version'
+    appVersion: 'brooz:app-version',
+    geocode: 'brooz:geocode',
+    weather: 'brooz:weather',
+    airQuality: 'brooz:air-quality'
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -17,6 +22,18 @@ export interface IpcContract {
     [IPC_CHANNELS.appVersion]: {
         args: [];
         result: string;
+    };
+    [IPC_CHANNELS.geocode]: {
+        args: [city: string];
+        result: GeoPlace;
+    };
+    [IPC_CHANNELS.weather]: {
+        args: [query: PlaceQuery];
+        result: WeatherSnapshot;
+    };
+    [IPC_CHANNELS.airQuality]: {
+        args: [query: PlaceQuery];
+        result: AirQualitySnapshot;
     };
 }
 

@@ -73,14 +73,36 @@ describe('the app:// protocol', () => {
         expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
     });
 
-    it('serves an asset without the Content-Security-Policy header', async () => {
+    it('pins the policy: app only, plus WebAssembly and the model hub', async () => {
+        mockFetch.mockResolvedValue(new Response('<html></html>'));
+        const response = await serveRenderer(rendererRoot, { url: APP_INDEX_URL } as Request);
+        expect(response.headers.get('Content-Security-Policy')).toBe(
+            "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; " +
+                "style-src 'self'; img-src 'self' data:; font-src 'self'; " +
+                "connect-src 'self' https://huggingface.co https://*.hf.co"
+        );
+    });
+
+    it('isolates the window for the WebAssembly threads', async () => {
+        mockFetch.mockResolvedValue(new Response('<html></html>'));
+        const response = await serveRenderer(rendererRoot, { url: APP_INDEX_URL } as Request);
+        expect(response.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+        expect(response.headers.get('Cross-Origin-Embedder-Policy')).toBe('require-corp');
+    });
+
+    it('sends the policy with an asset too, so the model worker gets it', async () => {
         mockFetch.mockResolvedValue(
-            new Response('console.log(1)', { headers: { 'Content-Type': 'text/javascript' } })
+            new Response('console.log(1)', {
+                status: 200,
+                headers: { 'Content-Type': 'text/javascript' }
+            })
         );
         const response = await serveRenderer(rendererRoot, {
-            url: 'app://app/assets/app.js'
+            url: 'app://app/assets/model-worker.js'
         } as Request);
-        expect(response.headers.get('Content-Security-Policy')).toBe(null);
+        expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
+        expect(response.headers.get('Content-Type')).toBe('text/javascript');
+        expect(response.status).toBe(200);
     });
 
     it('answers a missing file with 404', async () => {

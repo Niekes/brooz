@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite-plus';
@@ -83,11 +84,17 @@ const config: UserConfig = {
     // test suite and the coverage reach over all of src/.
     root: process.env.VITEST ? repoRoot : rendererRoot,
     base: './',
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     build: {
         outDir: rendererOut,
         emptyOutDir: true
     },
+    // The model worker imports the ONNX Runtime with dynamic imports, so it
+    // is built as an ES module worker. Transformers.js and the runtime stay
+    // out of the dev pre-bundle: they locate their .wasm and .mjs files by
+    // URL, which pre-bundling would break.
+    worker: { format: 'es' },
+    optimizeDeps: { exclude: ['@huggingface/transformers', 'onnxruntime-web'] },
 
     // The Electron bundles. The main process is CJS, the preload must be CJS
     // because the sandboxed preload has no ESM loader. Both keep `electron`
@@ -130,7 +137,7 @@ const config: UserConfig = {
                 test: {
                     name: 'dom',
                     environment: 'jsdom',
-                    include: ['tests/renderer/**/*.test.tsx']
+                    include: ['tests/renderer/**/*.test.{ts,tsx}']
                 }
             }
         ],

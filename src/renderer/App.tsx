@@ -1,19 +1,20 @@
 import type { JSX } from 'react';
+import { CommandBar } from './shell/command/command-bar';
+import { Backdrop } from './shell/glass/backdrop';
+import { InfiniteGrid } from './shell/grid/infinite-grid';
 import { tiles } from './tiles';
 
 /**
- * The dashboard shell: a CSS grid, one cell per registered tile. Drag and
- * resize come later; a plain grid is enough to build tiles against.
+ * The dashboard shell: the backdrop, the infinite grid of every registered
+ * tile, and the ask bar that summons a tile onto it.
  */
 export function App(): JSX.Element {
     return (
-        <main className="tile-grid">
-            {tiles.map((tile) => (
-                <section className="tile" key={tile.id}>
-                    <h2>{tile.title}</h2>
-                    <tile.Component />
-                </section>
-            ))}
-        </main>
+        <>
+            <Backdrop />
+            <InfiniteGrid tiles={tiles}>
+                {(summon) => <CommandBar onSummon={summon} />}
+            </InfiniteGrid>
+        </>
     );
 }
