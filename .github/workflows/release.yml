@@ -1,21 +1,58 @@
 name: Release
 
+# The whole release runs without a click once the release PR is merged:
+#
+#   1. release-please keeps a "chore(master): release X.Y.Z" PR open. It
+#      reads the Conventional Commits on master (feat -> minor, fix -> patch
+#      while the version is 0.x) and writes the version and CHANGELOG.md.
+#   2. Merging that PR makes release-please tag vX.Y.Z and create the
+#      GitHub release as a draft, with the CHANGELOG section as its notes.
+#   3. The installers are built on macOS, Windows and Linux, and every
+#      packaged app is launched once in smoke-test mode (scripts/smoke.mjs).
+#   4. Only when all three pass are the installers attached and the release
+#      published. electron-updater only sees published releases, so a failed
+#      build or smoke test never reaches a user: the release stays a draft.
+
 on:
     push:
         branches: [master]
-        paths: [package.json]
-    # Retries a release whose draft is missing.
+    # Builds, tests and publishes an existing draft again, e.g. after a
+    # flaky runner failed the first attempt.
     workflow_dispatch:
+        inputs:
+            tag:
+                description: The draft release to build, test and publish (vX.Y.Z)
+                required: true
 
 jobs:
+    release-please:
+        name: Release PR
+        if: github.event_name == 'push'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            issues: write
+            pull-requests: write
+        outputs:
+            created: ${{ steps.release.outputs.release_created }}
+            tag: ${{ steps.release.outputs.tag_name }}
+        steps:
+            - uses: googleapis/release-please-action@v4
+              id: release
+              with:
+                  config-file: release-please-config.json
+                  manifest-file: .release-please-manifest.json
+
     build:
-        name: Build (${{ matrix.os }})
+        name: Build and smoke test (${{ matrix.os }})
+        needs: release-please
+        if: >-
+            always() &&
+            (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch')
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
                 os: [macos-latest, windows-latest, ubuntu-latest]
-        permissions:
-            contents: write
         env:
             # Absent secrets build unsigned; signing joins later without a
             # code change.
@@ -26,6 +63,8 @@ jobs:
             APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         steps:
             - uses: actions/checkout@v7
+              with:
+                  ref: ${{ needs.release-please.outputs.tag || inputs.tag }}
             - uses: actions/setup-node@v7
               with:
                   node-version: 22
@@ -42,6 +81,18 @@ jobs:
                       [ -n "${!v}" ] || unset "$v"
                   done
                   npm run package
+            - name: Smoke test the packaged app
+              if: matrix.os != 'ubuntu-latest'
+              run: npm run smoke
+            - name: Smoke test the packaged app (virtual display)
+              if: matrix.os == 'ubuntu-latest'
+              # An installed Electron app has a root-owned setuid sandbox
+              # helper; the unpacked build on the runner does not, and
+              # Chromium refuses to start without it.
+              run: |
+                  sudo chown root:root release/linux-unpacked/chrome-sandbox
+                  sudo chmod 4755 release/linux-unpacked/chrome-sandbox
+                  xvfb-run -a npm run smoke
             - name: Upload the installers
               uses: actions/upload-artifact@v7
               with:
@@ -56,53 +107,32 @@ jobs:
                       release/latest*.yml
                   if-no-files-found: error
 
-    release:
-        name: Draft the GitHub release
-        needs: build
+    publish:
+        name: Publish the release
+        needs: [release-please, build]
+        if: always() && needs.build.result == 'success'
         runs-on: ubuntu-latest
         permissions:
             contents: write
             id-token: write
             attestations: write
+        env:
+            TAG: ${{ needs.release-please.outputs.tag || inputs.tag }}
+            GH_TOKEN: ${{ github.token }}
+            GH_REPO: ${{ github.repository }}
         steps:
-            - uses: actions/checkout@v7
-            - uses: actions/setup-node@v7
-              with:
-                  node-version: 22
-            - name: Check whether the version is released already
-              id: version
-              run: |
-                  VERSION=$(node -p "require('./package.json').version")
-                  # gh shows drafts as well, so a rerun never duplicates one.
-                  if gh release view "v$VERSION" >/dev/null 2>&1; then
-                      echo "new=false" >> "$GITHUB_OUTPUT"
-                      echo "v$VERSION is released on GitHub already, skipping."
-                  else
-                      echo "new=true" >> "$GITHUB_OUTPUT"
-                  fi
-              env:
-                  GH_TOKEN: ${{ github.token }}
             - name: Download the installers
-              if: steps.version.outputs.new == 'true'
               uses: actions/download-artifact@v7
               with:
                   pattern: brooz-*
                   path: release
                   merge-multiple: true
             - name: Attest the binaries
-              if: steps.version.outputs.new == 'true'
               uses: actions/attest-build-provenance@v2
               with:
                   subject-path: release/*
-            - name: Draft the release
-              # electron-updater only ever sees published releases: the draft
-              # is the approval step. A maintainer downloads it, tests it and
-              # clicks publish - only then the tag exists, users see the
-              # download and the updater offers the update.
-              if: steps.version.outputs.new == 'true'
-              run: |
-                  VERSION=$(node -p "require('./package.json').version")
-                  awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 { f = 1; next } /^## \[/ { f = 0 } f' CHANGELOG.md |
-                      gh release create "v$VERSION" --draft --target "$GITHUB_SHA" --title "v$VERSION" --notes-file - release/*
-              env:
-                  GH_TOKEN: ${{ github.token }}
+            - name: Attach the installers to the draft
+              run: gh release upload "$TAG" release/* --clobber
+            - name: Publish
+              # From here on users see the download and the updater offers it.
+              run: gh release edit "$TAG" --draft=false --latest

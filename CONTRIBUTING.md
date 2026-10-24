@@ -86,15 +86,12 @@ another tile. Everything is enforced, not convention - see the zone table in
 
 ## Releasing
 
-A release is a pull request that bumps the version in `package.json` and
-updates `CHANGELOG.md` - for example the `release/0.2.0` branch. Merging it
-into `master` starts it: the
-[Release workflow](.github/workflows/release.yml) builds the installers,
-attests them and creates the `vX.Y.Z` release on GitHub **as a draft**, with
-the version's section of `CHANGELOG.md` as its notes. A maintainer then
-downloads the draft, tests it and clicks publish - only then the tag exists
-and users and the auto-updater see the release. Do not push a version tag
-by hand and do not publish a release from the command line.
+Releases are automatic, see the Releasing section of [AGENTS.md](./AGENTS.md):
+release-please keeps a release pull request open from the Conventional
+Commits on `master`, and merging it builds the installers, smoke tests the
+packaged app on macOS, Windows and Linux, and publishes the release. Write
+`feat:` and `fix:` commits for what users should read in the release notes;
+do not push version tags and do not bump the version by hand.
 
 ## Reporting bugs
 

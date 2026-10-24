@@ -5,8 +5,8 @@ const RELEASES_URL = 'https://github.com/Niekes/brooz/releases/latest';
 
 /**
  * Auto-update over GitHub Releases. electron-updater only ever sees
- * published releases, which is what makes the release draft the approval
- * step: nothing downloads until a maintainer clicks publish.
+ * published releases, and the release workflow publishes only after the
+ * packaged apps passed their smoke test: a broken build stays a draft.
  *
  * macOS stays notify-only: Squirrel.Mac refuses to update an unsigned app,
  * so it opens the releases page instead of downloading.

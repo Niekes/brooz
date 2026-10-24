@@ -26,7 +26,8 @@
         "lint": "vp fmt --check && vp lint && npm run lint:template && npm run lint:fallow",
         "lint:template": "node scripts/check-template.mjs",
         "lint:fallow": "fallow dead-code --ci --format ${FALLOW_FORMAT:-human} && fallow health --ci --coverage-gaps --min-score 98 --format ${FALLOW_FORMAT:-human} && fallow dupes --ci --format ${FALLOW_FORMAT:-human}",
-        "hooks:install": "fallow hooks install --target git && fallow hooks install --target agent --agent claude && fallow hooks install --target agent --agent codex"
+        "hooks:install": "fallow hooks install --target git && fallow hooks install --target agent --agent claude && fallow hooks install --target agent --agent codex",
+        "smoke": "node scripts/smoke.mjs"
     },
     "dependencies": {
         "electron-updater": "^6.8.11"
