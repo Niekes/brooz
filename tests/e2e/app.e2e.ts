@@ -33,7 +33,7 @@ test.afterEach(async () => {
 });
 
 test('the window opens and the about tile shows the app version', async () => {
-    await expect(window.getByText(`brooz ${version}`).first()).toBeVisible();
+    await expect(window.getByText(`Brooz ${version}`).first()).toBeVisible();
 });
 
 test('the dome fills the window with tiles', async () => {

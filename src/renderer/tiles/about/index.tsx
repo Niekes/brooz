@@ -28,7 +28,7 @@ export function AboutTileBody(): JSX.Element {
         <div className={WIDGET_BODY}>
             <TileHeader title="About" tag="DESKTOP" />
             <p className="flex min-h-0 flex-1 items-center text-2xl font-light text-white">
-                brooz {version}
+                Brooz {version}
             </p>
             <span className="text-[10px] tracking-[0.16em] text-white/40 uppercase">
                 Small apps on a dome

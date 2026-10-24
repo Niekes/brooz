@@ -25,7 +25,7 @@ describe('the dashboard shell', () => {
         await act(async () => {
             await Promise.resolve();
         });
-        expect(screen.getAllByText('brooz 0.1.0').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Brooz 0.1.0').length).toBeGreaterThan(0);
     });
 
     it('summons a tile from the ask bar onto the grid', () => {

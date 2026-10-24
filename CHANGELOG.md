@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The app is called Brooz: the window title, the macOS menu, the About
+  tile and the installer names (`Brooz-<version>-arm64.dmg`, ...).
 - The Content-Security-Policy allows WebAssembly and the Hugging Face hub
   for the model weights, and every response of the `app://` protocol now
   carries it, together with COOP/COEP headers.

@@ -37,16 +37,16 @@ Get the installer for your platform from the
 
 | Platform | File                                                      |
 | -------- | --------------------------------------------------------- |
-| macOS    | `brooz-<version>-arm64.dmg`, Intel: `brooz-<version>.dmg` |
-| Windows  | `brooz-Setup-<version>.exe`                               |
-| Linux    | `brooz-<version>.AppImage`                                |
+| macOS    | `Brooz-<version>-arm64.dmg`, Intel: `Brooz-<version>.dmg` |
+| Windows  | `Brooz-Setup-<version>.exe`                               |
+| Linux    | `Brooz-<version>.AppImage`                                |
 
 **The macOS app is unsigned for now.** Gatekeeper blocks it on first launch.
 Open it anyway: right-click the app and choose Open, or clear the quarantine
 attribute before the first start:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/brooz.app
+xattr -dr com.apple.quarantine /Applications/Brooz.app
 ```
 
 The releases carry

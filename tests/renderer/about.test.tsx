@@ -6,7 +6,7 @@ describe('the about tile', () => {
     it('shows the app version over IPC', async () => {
         window.brooz = { invoke: vi.fn().mockResolvedValue('0.1.0') };
         render(<AboutTileBody />);
-        expect(await screen.findByText('brooz 0.1.0')).toBeTruthy();
+        expect(await screen.findByText('Brooz 0.1.0')).toBeTruthy();
     });
 
     it('ignores the version when the tile is gone before it arrives', async () => {
@@ -23,6 +23,6 @@ describe('the about tile', () => {
         unmount();
         resolveVersion('9.9.9');
         await Promise.resolve();
-        expect(screen.queryByText('brooz 9.9.9')).toBe(null);
+        expect(screen.queryByText('Brooz 9.9.9')).toBe(null);
     });
 });

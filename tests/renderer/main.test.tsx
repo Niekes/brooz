@@ -24,6 +24,6 @@ describe('the renderer entry', () => {
             await Promise.resolve();
         });
         expect(screen.getAllByText('About').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('brooz 0.1.0').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Brooz 0.1.0').length).toBeGreaterThan(0);
     });
 });
