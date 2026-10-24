@@ -28,11 +28,11 @@ machine, no cloud.
 Get the installer for your platform from the
 [releases page](https://github.com/Niekes/brooz/releases/latest):
 
-| Platform | File                                      |
-| -------- | ----------------------------------------- |
-| macOS    | `brooz-<version>-arm64.dmg` or `-x64.dmg` |
-| Windows  | `brooz-Setup-<version>.exe`               |
-| Linux    | `brooz-<version>.AppImage`                |
+| Platform | File                                                      |
+| -------- | --------------------------------------------------------- |
+| macOS    | `brooz-<version>-arm64.dmg`, Intel: `brooz-<version>.dmg` |
+| Windows  | `brooz-Setup-<version>.exe`                               |
+| Linux    | `brooz-<version>.AppImage`                                |
 
 **The macOS app is unsigned for now.** Gatekeeper blocks it on first launch.
 Open it anyway: right-click the app and choose Open, or clear the quarantine
