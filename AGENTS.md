@@ -7,7 +7,7 @@ local decision model (open-jev on Transformers.js) running in a Web Worker.
 
 The repository is the scaffold plus the machinery that keeps it in shape:
 zoned architecture, a template check, fallow gates, 100% coverage, and a
-release flow that publishes through a draft GitHub release.
+release flow that publishes automatically once the packaged apps pass a smoke test.
 
 ```bash
 npm install
@@ -55,17 +55,25 @@ For non-skill agents, treat the task map below as the local onboarding source: r
 
 ## Releasing
 
-A release is a pull request that bumps the version in `package.json` and
-updates `CHANGELOG.md` (for example the `release/0.2.0` branch). Merging it
-into `master` triggers `.github/workflows/release.yml`, which builds the
-installers for macOS, Windows and Linux, attests them, and creates the
-`vX.Y.Z` release on GitHub **as a draft**, with the version's section of
-`CHANGELOG.md` as its notes.
+Releases are automatic. release-please reads the Conventional Commits on
+`master` and keeps one release pull request open ("chore(master): release
+X.Y.Z"): `feat` raises the minor version, `fix` the patch version, a `!`
+breaking change the minor version while Brooz is 0.x. It writes the version
+into `package.json` and `.release-please-manifest.json` and generates the
+version's section of `CHANGELOG.md`.
 
-The draft is the approval step: electron-updater only ever sees published
-releases, so nothing reaches users until a maintainer has downloaded the
-draft, tested it and clicked publish. Never push a version tag by hand and
-never publish a release from the command line - the draft is the gate.
+Merging the release PR runs the rest of `.github/workflows/release.yml`
+without a click: release-please tags `vX.Y.Z` and creates the GitHub release
+as a draft; the installers are built on macOS, Windows and Linux; every
+packaged app is launched once in smoke-test mode (`npm run smoke`, see
+`src/main/smoke.ts`); and only when all three pass are the installers
+attested, attached and the release published. electron-updater only sees
+published releases, so a failed build or smoke test never reaches a user -
+the release stays a draft, and `workflow_dispatch` with its tag retries it.
+
+Never push a version tag by hand, never edit the version in `package.json`
+outside the release PR, and keep commit types honest: they decide the next
+version and the release notes.
 
 ## Architecture
 
@@ -194,6 +202,8 @@ A tile that needs the camera adds `media` to the permission allowlist.
 
 ## Commit convention
 
-Emoji plus Conventional Commits, the same convention as
-[d3-3d](https://github.com/Niekes/d3-3d): `🔧 chore: ...`, `✨ feat: ...`,
-`🐛 fix: ...`. Keep the subject line short and put the why in the body.
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), with
+the type first and no emoji: `feat: ...`, `fix: ...`, `chore: ...`,
+`docs: ...`, `ci: ...`. release-please parses them, so a subject that does not
+start with a type is invisible to the release. Keep the subject line short
+and put the why in the body.

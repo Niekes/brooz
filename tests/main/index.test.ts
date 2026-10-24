@@ -8,7 +8,9 @@ const mockRegisterSchemesAsPrivileged = vi.fn();
 const mockRegisterIpcHandlers = vi.fn();
 const mockRegisterAppProtocol = vi.fn();
 const mockConfigureUpdater = vi.fn();
-const mockCreateMainWindow = vi.fn();
+const mockCreateMainWindow = vi.fn((..._args: unknown[]) => 'window');
+const mockIsSmokeTest = vi.fn(() => false);
+const mockRunSmokeTest = vi.fn();
 
 vi.mock('electron', () => ({
     BrowserWindow: {
@@ -35,6 +37,10 @@ vi.mock('../../src/main/protocol', () => ({
 }));
 vi.mock('../../src/main/updater', () => ({
     configureUpdater: () => mockConfigureUpdater()
+}));
+vi.mock('../../src/main/smoke', () => ({
+    isSmokeTest: () => mockIsSmokeTest(),
+    runSmokeTest: (...args: unknown[]) => mockRunSmokeTest(...args)
 }));
 vi.mock('../../src/main/window', () => ({
     createMainWindow: (...args: unknown[]) => mockCreateMainWindow(...args)
@@ -81,6 +87,13 @@ describe('the main process lifecycle', () => {
         expect(mockRegisterIpcHandlers).toHaveBeenCalledWith(undefined);
         expect(mockCreateMainWindow).toHaveBeenCalledWith(undefined);
         expect(mockConfigureUpdater).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs the smoke test instead of the updater when asked', async () => {
+        mockIsSmokeTest.mockReturnValueOnce(true);
+        await startApp();
+        expect(mockRunSmokeTest).toHaveBeenCalledWith('window');
+        expect(mockConfigureUpdater).not.toHaveBeenCalled();
     });
 
     it('quits when the last window closes, except on macOS', async () => {

@@ -73,8 +73,15 @@ jobs:
             - name: Run the e2e suite (virtual display)
               run: xvfb-run -a npm run test:e2e
               if: matrix.os == 'ubuntu-latest'
-            # A packaging smoke test: bundles the app without a disk image.
+            # Bundles the app without a disk image and launches the packaged
+            # app once in smoke-test mode, the same check a release must pass.
             - run: npm run package -- --dir
+            - name: Smoke test the packaged app
+              if: matrix.os != 'ubuntu-latest'
+              run: npm run smoke
+            - name: Smoke test the packaged app (virtual display)
+              if: matrix.os == 'ubuntu-latest'
+              run: xvfb-run -a npm run smoke
 
     build:
         name: Build

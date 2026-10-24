@@ -2,6 +2,7 @@ import { BrowserWindow, app, protocol } from 'electron';
 import { registerIpcHandlers } from './ipc';
 import { rendererRoot } from './paths';
 import { APP_SCHEME_PRIVILEGES, registerAppProtocol } from './protocol';
+import { isSmokeTest, runSmokeTest } from './smoke';
 import { configureUpdater } from './updater';
 import { createMainWindow } from './window';
 
@@ -14,7 +15,12 @@ protocol.registerSchemesAsPrivileged(APP_SCHEME_PRIVILEGES);
 function start(): void {
     registerAppProtocol(rendererRoot());
     registerIpcHandlers(DEV_URL);
-    createMainWindow(DEV_URL);
+    const window = createMainWindow(DEV_URL);
+    // The release smoke test checks the window and quits; it never updates.
+    if (isSmokeTest()) {
+        runSmokeTest(window);
+        return;
+    }
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createMainWindow(DEV_URL);

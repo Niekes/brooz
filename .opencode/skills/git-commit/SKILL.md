@@ -2,7 +2,7 @@
 name: git-commit
 description: >
     Compose and execute a git commit following the project's commit convention
-    (emoji + Conventional Commits). Inspects staged and unstaged changes, composes
+    (Conventional Commits, no emoji). Inspects staged and unstaged changes, composes
     the message, stages related files, commits, and outputs ONLY the final
     message — nothing else.
 license: MIT
@@ -22,34 +22,36 @@ metadata:
 
 ## Convention
 
-[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) with an emoji in front:
+[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), type first, no emoji -
+release-please reads these subjects to pick the next version and write the release notes:
 
 ```
-<emoji> <type>(<scope>): <description>
+<type>(<scope>): <description>
 
 [optional body]
 
 [optional footer(s)]
 ```
 
-| Type     | Emoji | Use for                                                 |
-| -------- | ----- | ------------------------------------------------------- |
-| feat     | ✨    | New feature                                             |
-| fix      | 🐛    | Bug fix                                                 |
-| refactor | ♻️    | Code change that neither fixes a bug nor adds a feature |
-| chore    | 🔧    | Maintenance, config, dependencies                       |
-| build    | 🏗️    | Build system or external dependency changes             |
-| ci       | 👷    | CI configuration changes                                |
-| docs     | 📝    | Documentation only                                      |
-| style    | 💄    | Formatting, whitespace (no logic change)                |
-| test     | ✅    | Adding or correcting tests                              |
-| perf     | ⚡️    | Performance improvement                                 |
-| revert   | ⏪️    | Reverts a previous commit                               |
-| i18n     | 🌐    | Internationalization / localization                     |
+| Type     | Use for                                                 |
+| -------- | ------------------------------------------------------- |
+| feat     | New feature (minor version, listed under Added)         |
+| fix      | Bug fix (patch version, listed under Fixed)             |
+| refactor | Code change that neither fixes a bug nor adds a feature |
+| chore    | Maintenance, config, dependencies                       |
+| build    | Build system or external dependency changes             |
+| ci       | CI configuration changes                                |
+| docs     | Documentation only                                      |
+| style    | Formatting, whitespace (no logic change)                |
+| test     | Adding or correcting tests                              |
+| perf     | Performance improvement (listed under Changed)          |
+| revert   | Reverts a previous commit                               |
+
+A breaking change adds `!` after the type (`feat!: ...`).
 
 **Subject line**
 
-- Emoji first, then type and optional scope
+- Type first, then the optional scope; no emoji
 - Imperative mood, lowercase, no period at the end
 - Max 100 characters
 - Scope when the change targets one module or area; omit it when the change spans many
