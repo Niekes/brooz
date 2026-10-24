@@ -34,7 +34,14 @@ jobs:
             - run: npm test
             - run: npm run build
             - name: Package the installers
-              run: npm run package
+              # A missing secret arrives as an empty string, and electron-builder
+              # reads an empty CSC_LINK as a path - unset the empty ones.
+              shell: bash
+              run: |
+                  for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+                      [ -n "${!v}" ] || unset "$v"
+                  done
+                  npm run package
             - name: Upload the installers
               uses: actions/upload-artifact@v7
               with:
