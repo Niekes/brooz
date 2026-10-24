@@ -31,7 +31,7 @@ Get the installer for your platform from the
 | Platform | File                                      |
 | -------- | ----------------------------------------- |
 | macOS    | `brooz-<version>-arm64.dmg` or `-x64.dmg` |
-| Windows  | `brooz Setup <version>.exe`               |
+| Windows  | `brooz-Setup-<version>.exe`               |
 | Linux    | `brooz-<version>.AppImage`                |
 
 **The macOS app is unsigned for now.** Gatekeeper blocks it on first launch.

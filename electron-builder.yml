@@ -31,6 +31,11 @@ mac:
 win:
     target: nsis
 
+# No spaces: GitHub turns them into dots on upload, and latest.yml would
+# point the updater at a file that does not exist.
+nsis:
+    artifactName: ${productName}-Setup-${version}.${ext}
+
 linux:
     target: AppImage
     category: Development

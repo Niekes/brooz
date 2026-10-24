@@ -46,7 +46,14 @@ jobs:
               uses: actions/upload-artifact@v7
               with:
                   name: brooz-${{ matrix.os }}
-                  path: release/*
+                  # The installers and the updater feeds, not the unpacked apps.
+                  path: |
+                      release/*.dmg
+                      release/*.zip
+                      release/*.exe
+                      release/*.AppImage
+                      release/*.blockmap
+                      release/latest*.yml
                   if-no-files-found: error
 
     release:
