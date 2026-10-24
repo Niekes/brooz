@@ -71,13 +71,38 @@ export function useAutoSummon(
     }, [query, widget, source, confidence, suppress, last, onSummon]);
 }
 
-/** Starts loading the local model as soon as the bar is there. */
+/** Remembers that the person enabled the local model on this machine. */
+const MODEL_FLAG = 'brooz.model.enabled';
+
+function modelEnabled(): boolean {
+    try {
+        return localStorage.getItem(MODEL_FLAG) === '1';
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Loads the local model when the bar mounts, but only once the person
+ * enabled it: the first load downloads about 380 MB. Until then the rules
+ * route alone.
+ */
 export function useModelWarmup(status: ModelStatus, load: () => void): void {
     useEffect(() => {
-        if (status === 'idle') {
+        if (status === 'idle' && modelEnabled()) {
             load();
         }
     }, [status, load]);
+}
+
+/** Enables the local model: loaded now, and on every later start. */
+export function enableModel(load: () => void): void {
+    try {
+        localStorage.setItem(MODEL_FLAG, '1');
+    } catch {
+        // Without storage the model still loads now, just not on the next start.
+    }
+    load();
 }
 
 /** The line under the field: a notice, a warning, a failure or the keys. */

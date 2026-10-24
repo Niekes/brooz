@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The local model is opt-in: the ask bar routes with the rules until you
+  click "Enable local model" (about 380 MB, downloaded once). The choice is
+  remembered. Fresh installs and the CI e2e runs no longer download it.
+- electron-builder 26.18, electron-updater 6.8.11, fallow 3.35.
+
+### Fixed
+
+- A model worker that fails to start no longer leaves the ask bar in
+  "Loading local model" forever; it reports the error and can be retried.
+- Open-Meteo requests give up after 10 seconds instead of leaving a live
+  tile loading forever.
+- The weather cache drops old entries and holds at most 100 places.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added

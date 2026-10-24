@@ -110,8 +110,9 @@ Not negotiable, and pinned by unit tests:
   `connect-src` for the model weights. In dev mode the window loads the
   Vite dev server instead.
 - The renderer fetches nothing from the internet itself: Open-Meteo is
-  called by the main process (`src/main/open-meteo.ts`), and the IPC
-  handlers validate every argument before it reaches the network.
+  called by the main process (`src/main/open-meteo.ts`, 10 s timeout,
+  bounded cache), and the IPC handlers validate every argument
+  (`src/main/validate.ts`) before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
 - `session.setPermissionRequestHandler` defaults to deny; the allowlist is
   empty until a tile needs a permission (a camera tile adds `media`).
@@ -161,7 +162,8 @@ enforces the zones and the coverage. The routing benchmarks in
 The renderer calls `window.brooz.invoke('<channel>', ...)`; the preload
 rejects every channel that is not in the contract. The renderer is
 untrusted input: validate the args in the handler before they reach the
-file system or the network (see `parsePlaceQuery` in `src/main/ipc.ts`).
+file system or the network, with a parser in `src/main/validate.ts` (see
+`parsePlaceQuery`).
 
 The channels: `brooz:app-version`, `brooz:geocode`, `brooz:weather` and
 `brooz:air-quality`.
@@ -173,8 +175,11 @@ with the testable host in `model-host.ts`); `use-local-model.ts` talks to
 it by message. The ONNX Runtime files ship with the app (`?url` imports of
 `onnxruntime-web`, `env.useWasmCache = false`, so no `blob:` copies); only
 the weights come from the Hugging Face hub, and Transformers.js keeps them
-in CacheStorage after the first start. The CSP and COOP/COEP that this
-needs are in place (see the security rules).
+in CacheStorage after the first start. The model is opt-in: nothing is
+downloaded until the person clicks "Enable local model" under the ask bar,
+and the choice is remembered (`brooz.model.enabled` in localStorage). A
+worker that fails to start reports an error instead of hanging. The CSP and
+COOP/COEP that this needs are in place (see the security rules).
 
 A future ML tile follows the same pattern inside its own tile directory.
 A tile that needs the camera adds `media` to the permission allowlist.

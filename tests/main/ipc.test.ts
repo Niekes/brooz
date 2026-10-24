@@ -105,30 +105,15 @@ describe('the IPC handlers', () => {
         expect(mockAirQuality).toHaveBeenCalledWith({ latitude: 52.5, longitude: 13.4 });
     });
 
-    it.each([
-        ['a number', 42, /must be a string/],
-        ['an empty string', '   ', /1 to 100 characters/],
-        ['a long string', 'x'.repeat(101), /1 to 100 characters/]
-    ])('refuses %s as a city', (_name, city, error) => {
+    it('validates the arguments before anything reaches the network', () => {
         registerIpcHandlers();
-        expect(() => handlerFor('brooz:geocode')(app, city)).toThrow(error);
-        expect(() => handlerFor('brooz:weather')(app, { city })).toThrow(error);
+        expect(() => handlerFor('brooz:geocode')(app, 42)).toThrow(/must be a string/);
+        expect(() => handlerFor('brooz:weather')(app, null)).toThrow(/city or coordinates/);
+        expect(() => handlerFor('brooz:air-quality')(app, { latitude: 91, longitude: 0 })).toThrow(
+            /out of range/
+        );
         expect(mockGeocode).not.toHaveBeenCalled();
         expect(mockWeather).not.toHaveBeenCalled();
-    });
-
-    it.each([
-        ['nothing', undefined, /city or coordinates/],
-        ['null', null, /city or coordinates/],
-        ['a string', 'Rome', /city or coordinates/],
-        ['missing coordinates', {}, /out of range/],
-        ['a latitude past the pole', { latitude: 90.5, longitude: 0 }, /out of range/],
-        ['a longitude past the date line', { latitude: 0, longitude: -181 }, /out of range/],
-        ['a non-finite coordinate', { latitude: NaN, longitude: 0 }, /out of range/],
-        ['string coordinates', { latitude: '1', longitude: '2' }, /out of range/]
-    ])('refuses %s as a place', (_name, place, error) => {
-        registerIpcHandlers();
-        expect(() => handlerFor('brooz:air-quality')(app, place)).toThrow(error);
         expect(mockAirQuality).not.toHaveBeenCalled();
     });
 });

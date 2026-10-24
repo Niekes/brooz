@@ -18,17 +18,32 @@
 
 ---
 
-brooz is an infinite grid of glass tiles on a dome, and every tile is a
-small app of its own: clocks, weather, a forecast, air quality, the moon, a
-pomodoro timer, a sticky note and more. Drag or scroll to pan. Type what you
-want into the ask bar at the bottom ("weather in Rome", "start a 25 minute
-timer", "note: buy milk") and the matching tile flies to the center and
-comes alive with real data.
+Brooz is an infinite grid of glass tiles on a dome, and every tile is a
+small app of its own. Drag or scroll to pan. Type what you want into the ask
+bar at the bottom (Cmd+K) - "weather in Rome", "start a 25 minute timer",
+"note: buy milk" - and the matching tile flies to the center and comes alive.
 
-The ask bar routes with keyword rules right away and with a small local
-model (open-jev on Transformers.js) once it has loaded: it runs on your
-machine, in a Web Worker, with no cloud service. The model is downloaded
-once from the Hugging Face hub on the first start and cached after that.
+| Live tiles                                                                                         | Demo tiles (seeded data for now)                                    |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Analog Clock, World Clock, Weather, 5-Day Forecast, Air Quality, Moon Phase, Pomodoro, Sticky Note | Now Playing, Activity Rings, System Stats, Markets, Calendar, Photo |
+
+The ask bar routes with keyword rules out of the box. For harder phrasings
+you can enable a small local model (open-jev on Transformers.js) from the
+line under the ask bar: it runs on your machine, in a Web Worker, with no
+cloud service. Enabling it downloads about 380 MB once; later starts load it
+from the cache in a few seconds.
+
+### What leaves your machine
+
+- The city of a weather, forecast, air quality or world clock tile, sent by
+  the app's main process to [Open-Meteo](https://open-meteo.com) (keyless,
+  no account).
+- The one-time model download from the Hugging Face hub, only after you
+  enable the local model.
+- The update check against this repository's GitHub releases.
+
+Nothing else: the sticky note and the model choice stay in the app's local
+storage.
 
 ## Download
 

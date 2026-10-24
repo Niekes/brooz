@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
 import type { ElectronApplication, Page } from 'playwright';
@@ -15,11 +16,15 @@ const { version } = JSON.parse(
 // on the release draft.
 let app: ElectronApplication;
 let window: Page;
+let profile: string;
 const violations: string[] = [];
 
 test.beforeEach(async () => {
     violations.length = 0;
-    app = await _electron.launch({ args: ['.'] });
+    // A fresh profile per test: the model opt-in and the sticky note of a
+    // developer's own runs never leak into the suite.
+    profile = mkdtempSync(join(tmpdir(), 'brooz-e2e-'));
+    app = await _electron.launch({ args: ['.', `--user-data-dir=${profile}`] });
     window = await app.firstWindow();
     window.on('console', (message) => {
         if (/Content.Security.Policy|Refused to/i.test(message.text())) {
@@ -30,6 +35,7 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
     await app.close();
+    rmSync(profile, { recursive: true, force: true });
 });
 
 test('the window opens and the about tile shows the app version', async () => {
@@ -53,4 +59,10 @@ test('the window is cross-origin isolated and breaks no policy', async () => {
     expect(await window.evaluate(() => crossOriginIsolated)).toBe(true);
     await expect(window.getByLabel('Ask your dashboard')).toBeVisible();
     expect(violations).toEqual([]);
+});
+
+test('a fresh start routes with the rules and downloads no model', async () => {
+    await expect(window.getByText('Rules only')).toBeVisible();
+    await expect(window.getByText('Enable local model · 380 MB')).toBeVisible();
+    expect(await window.evaluate(() => caches.keys())).toEqual([]);
 });
