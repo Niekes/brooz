@@ -80,7 +80,12 @@ export const DEVELOPMENT_SET: readonly RoutingCase[] = [
     // photo-tile
     { text: 'show me a photo of mountains', expected: 'photo-tile' },
     { text: 'find a picture of the ocean', expected: 'photo-tile' },
-    { text: 'display a photo of a city at night', expected: 'photo-tile' }
+    { text: 'display a photo of a city at night', expected: 'photo-tile' },
+
+    // settings
+    { text: 'open the settings', expected: 'settings' },
+    { text: 'add an api key', expected: 'settings' },
+    { text: 'manage my api keys', expected: 'settings' }
 ];
 
 export const HOLDOUT_SET: readonly RoutingCase[] = [

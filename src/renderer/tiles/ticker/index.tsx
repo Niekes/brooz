@@ -1,7 +1,13 @@
 import type { JSX } from 'react';
 import { TileHeader, WIDGET_BODY } from '../../shell/kit/chrome';
+import { useQuotes } from '../../shell/kit/hooks';
+import { ProviderData } from '../../shell/kit/live';
 import { rng } from '../../shell/kit/seed';
-import type { TileDefinition, TileProps } from '../../shell/tile';
+import { FINNHUB } from '../../../shared/providers';
+import { MAX_QUOTE_SYMBOLS } from '../../../shared/quotes';
+import { formatChange, formatPrice } from '../../../shared/quotes';
+import type { StockQuote } from '../../../shared/quotes';
+import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
 
 const MARKETS = [
     { sym: 'BTC', name: 'Bitcoin', price: 67420 },
@@ -14,13 +20,30 @@ const MARKETS = [
     { sym: 'SPY', name: 'S&P 500', price: 523.7 }
 ];
 
-const PRICE = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-});
 /** Semantic red and green: the one place where hue is the data itself. */
 const UP = '#4ade80';
 const DOWN = '#f87171';
+
+/** The names a person knows the tickers of the ask bar by. */
+const NAMES: Record<string, string> = {
+    AAPL: 'Apple',
+    MSFT: 'Microsoft',
+    NVDA: 'Nvidia',
+    TSLA: 'Tesla',
+    AMZN: 'Amazon',
+    GOOGL: 'Alphabet',
+    META: 'Meta',
+    'BTC-USD': 'Bitcoin',
+    'ETH-USD': 'Ethereum'
+};
+
+/** What the live ticker shows when the utterance named no symbols. */
+const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'NVDA'];
+
+/** The symbols of a live tile, capped the one way every layer caps them. */
+function liveSymbols(symbols: string[] | undefined): string[] {
+    return symbols && symbols.length > 0 ? symbols.slice(0, MAX_QUOTE_SYMBOLS) : DEFAULT_SYMBOLS;
+}
 
 /** A seeded random walk, biased toward the row's delta so the line agrees with the number. */
 function sparkline(next: () => number, up: boolean): string {
@@ -81,10 +104,10 @@ export function Ticker({ seed }: TileProps): JSX.Element {
                             </svg>
                             <div className="shrink-0 text-right">
                                 <div className="font-mono text-[11px] text-white/85">
-                                    {PRICE.format(market.price * (1 + delta / 100))}
+                                    {formatPrice(market.price * (1 + delta / 100))}
                                 </div>
                                 <div className="font-mono text-[9px]" style={{ color }}>
-                                    {up ? '▲' : '▼'} {Math.abs(delta).toFixed(2)}%
+                                    {formatChange(delta)}
                                 </div>
                             </div>
                         </div>
@@ -100,10 +123,57 @@ export function Ticker({ seed }: TileProps): JSX.Element {
     );
 }
 
+/** One row of real quotes: a ticker, its price and the day's change. */
+function QuoteRow({ quote }: { quote: StockQuote }): JSX.Element {
+    const up = (quote.changePercent ?? 0) >= 0;
+    const color = up ? UP : DOWN;
+    return (
+        <div className="flex items-center gap-2.5">
+            <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium text-white">{quote.symbol}</div>
+                <div className="truncate text-[9px] text-white/35">
+                    {NAMES[quote.symbol] ?? 'Market'}
+                </div>
+            </div>
+            <div className="shrink-0 text-right">
+                <div className="font-mono text-[11px] text-white/85">
+                    {formatPrice(quote.price)}
+                </div>
+                <div className="font-mono text-[9px]" style={{ color }}>
+                    {formatChange(quote.changePercent)}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** The quotes of the symbols the utterance named, over the provider channel. */
+export function LiveTicker({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
+    const symbols = liveSymbols(args.symbols);
+    return (
+        <ProviderData
+            label={label}
+            lowConfidence={lowConfidence}
+            provider={FINNHUB}
+            state={useQuotes(symbols)}
+        >
+            {(quotes) => (
+                <div className="flex min-h-0 flex-col justify-between gap-2 py-1">
+                    {quotes.map((quote) => (
+                        <QuoteRow key={quote.symbol} quote={quote} />
+                    ))}
+                </div>
+            )}
+        </ProviderData>
+    );
+}
+
 export const tickerTile: TileDefinition = {
     id: 'ticker',
     title: 'Markets',
     Component: Ticker,
+    Live: LiveTicker,
+    liveKey: ({ symbols }) => `ticker:${liveSymbols(symbols).join(',')}`,
     route: {
         description:
             'Stock, cryptocurrency and market prices for symbols, including market overviews.',

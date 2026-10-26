@@ -104,9 +104,9 @@ describe('the ask bar with the rules', () => {
 
     it('says when a summoned tile is only demo data, for a while', () => {
         const { type, press } = setup();
-        type('price of bitcoin');
+        type('show me a photo of mountains');
         press('Enter');
-        expect(screen.getByText(/^Markets is still demo data — its live source/)).toBeTruthy();
+        expect(screen.getByText(/^Photo is still demo data — its live source/)).toBeTruthy();
         act(() => {
             vi.advanceTimersByTime(6000);
         });

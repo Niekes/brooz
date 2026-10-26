@@ -7,7 +7,12 @@ describe('the IPC contract', () => {
             appVersion: 'brooz:app-version',
             geocode: 'brooz:geocode',
             weather: 'brooz:weather',
-            airQuality: 'brooz:air-quality'
+            airQuality: 'brooz:air-quality',
+            keySet: 'brooz:key-set',
+            keyDelete: 'brooz:key-delete',
+            keyStatus: 'brooz:key-status',
+            keyTest: 'brooz:key-test',
+            stockQuotes: 'brooz:stock-quotes'
         });
     });
 

@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import type { MissingKeyReason, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
 
 export interface LiveFrameProps {
     label: string;
@@ -131,6 +132,86 @@ export function LiveData<T>({
     return (
         <LiveFrame label={label} meta={meta(data)} lowConfidence={lowConfidence}>
             {children(data)}
+        </LiveFrame>
+    );
+}
+
+/** What a tile shows while its provider has no key: a pointer, not a form. */
+function MissingKey({
+    provider,
+    reason
+}: {
+    provider: ProviderInfo;
+    reason: MissingKeyReason;
+}): JSX.Element {
+    return (
+        <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-center">
+            <span className="grid h-7 w-7 place-items-center rounded-full border border-white/20 bg-white/5 font-mono text-sm text-white/70">
+                ?
+            </span>
+            <p className="line-clamp-3 text-[10px] leading-snug text-white/60">
+                {reason === 'encryption-unavailable'
+                    ? `This system offers no encrypted place for a ${provider.title} key.`
+                    : `Needs a ${provider.title} API key.`}
+            </p>
+            <p className="text-[9px] tracking-[0.14em] text-white/35 uppercase">
+                Ask for "settings"
+            </p>
+        </div>
+    );
+}
+
+/**
+ * The chrome of a live tile backed by a provider: the states of `LiveData`,
+ * plus the state a tile without its provider's key renders. That state is
+ * an invitation to the settings - a tile never takes a key itself
+ * (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`).
+ */
+export function ProviderData<T>({
+    label,
+    lowConfidence,
+    provider,
+    state,
+    children
+}: {
+    label: string;
+    lowConfidence: boolean;
+    provider: ProviderInfo;
+    state: AsyncView<ProviderOutcome<T>>;
+    children: (data: T) => ReactNode;
+}): JSX.Element {
+    const { data: outcome, error, reload } = state;
+    if (!outcome && error) {
+        return (
+            <LiveFrame label={label} lowConfidence={lowConfidence}>
+                <LiveError message={error} onRetry={reload} />
+            </LiveFrame>
+        );
+    }
+    if (!outcome) {
+        return (
+            <LiveFrame label={label} lowConfidence={lowConfidence}>
+                <LiveSkeleton />
+            </LiveFrame>
+        );
+    }
+    if (outcome.status === 'missing-key') {
+        return (
+            <LiveFrame label={label} lowConfidence={lowConfidence}>
+                <MissingKey provider={provider} reason={outcome.reason} />
+            </LiveFrame>
+        );
+    }
+    if (outcome.status === 'provider-error') {
+        return (
+            <LiveFrame label={label} lowConfidence={lowConfidence}>
+                <LiveError message={outcome.message} onRetry={reload} />
+            </LiveFrame>
+        );
+    }
+    return (
+        <LiveFrame label={label} meta={provider.title} lowConfidence={lowConfidence}>
+            {children(outcome.data)}
         </LiveFrame>
     );
 }

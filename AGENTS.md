@@ -173,8 +173,26 @@ untrusted input: validate the args in the handler before they reach the
 file system or the network, with a parser in `src/main/validate.ts` (see
 `parsePlaceQuery`).
 
-The channels: `brooz:app-version`, `brooz:geocode`, `brooz:weather` and
-`brooz:air-quality`.
+The channels: `brooz:app-version`, `brooz:geocode`, `brooz:weather`,
+`brooz:air-quality`, the key channels `brooz:key-set`, `brooz:key-delete`,
+`brooz:key-status` and `brooz:key-test`, and the provider channel
+`brooz:stock-quotes`.
+
+## Provider keys
+
+Tiles that need a keyed service never see its key: the renderer invokes a
+provider channel, the main process holds the key and makes the request
+(`docs/adr/0001-provider-keys-never-reach-the-renderer.md`). Keys belong to
+a _provider_ of the manifest in `src/shared/providers.ts` (today: Finnhub),
+never to a tile. The key channels are write-only - the renderer can set,
+delete and ask for the status of a key, but no channel returns one. The
+keys live encrypted under `userData` through `safeStorage`, and the app
+fails closed where the OS offers no encryption
+(`docs/adr/0002-safe-storage-fail-closed.md`). A provider channel answers
+with the union `ok | missing-key | provider-error` instead of throwing, so
+every tile handles the invitation to the settings. The settings tile
+(`src/renderer/tiles/settings`) is the only surface that takes a key; a
+tile without one renders that invitation, never an input of its own.
 
 ## The local model
 
