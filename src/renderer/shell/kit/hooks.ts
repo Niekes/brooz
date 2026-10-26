@@ -8,6 +8,8 @@ import type {
     WeatherSnapshot
 } from '../../../shared/weather';
 import type { AsyncView } from './live';
+import type { KeyStatus, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
+import type { StockQuote } from '../../../shared/quotes';
 
 /** Where a live tile falls back when there is no device location for it. */
 const FALLBACK_CITY = 'Berlin';
@@ -39,7 +41,7 @@ function requestCoordinates(): Promise<PlaceQuery | null> {
  * "Error invoking remote method '<channel>': Error: <message>"; a tile shows
  * the message only.
  */
-function errorMessage(cause: unknown): string {
+export function errorMessage(cause: unknown): string {
     if (!(cause instanceof Error)) {
         return 'Something went wrong while loading.';
     }
@@ -146,6 +148,24 @@ export function useAirQuality(query: PlaceQuery | null): AsyncView<AirQualitySna
 export function usePlace(city: string | undefined): AsyncView<GeoPlace> {
     return useAsync(city ? `place:${city}` : null, () =>
         window.brooz.invoke(IPC_CHANNELS.geocode, city!)
+    );
+}
+
+/**
+ * Live market quotes over the provider channel. The result is the provider
+ * union, so the tile can answer a missing key with an invitation instead
+ * of an error.
+ */
+export function useQuotes(symbols: string[] | null): AsyncView<ProviderOutcome<StockQuote[]>> {
+    return useAsync(symbols && `quotes:${symbols.join(' ')}`, () =>
+        window.brooz.invoke(IPC_CHANNELS.stockQuotes, symbols!)
+    );
+}
+
+/** Whether a provider's key is stored, and whether this system can store keys. */
+export function useKeyStatus(provider: ProviderInfo): AsyncView<KeyStatus> {
+    return useAsync(`key-status:${provider.id}`, () =>
+        window.brooz.invoke(IPC_CHANNELS.keyStatus, provider.id)
     );
 }
 

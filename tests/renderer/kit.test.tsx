@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { AppCard } from '../../src/renderer/shell/glass/app-card';
 import { Backdrop } from '../../src/renderer/shell/glass/backdrop';
 import { TileHeader } from '../../src/renderer/shell/kit/chrome';
-import { LiveData, LiveError, LiveFrame } from '../../src/renderer/shell/kit/live';
+import { LiveData, LiveError, LiveFrame, ProviderData } from '../../src/renderer/shell/kit/live';
+import { FINNHUB } from '../../src/shared/providers';
+import type { ProviderOutcome } from '../../src/shared/providers';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
 import { HUES, clock, pick, rng } from '../../src/renderer/shell/kit/seed';
 import { weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
@@ -286,5 +288,103 @@ describe('the live data hooks', () => {
         });
         expect(result.current.getSeconds()).toBe(2);
         unmount();
+    });
+});
+
+describe('the quotes hook', () => {
+    afterEach(() => {
+        vi.resetModules();
+        vi.unstubAllGlobals();
+    });
+
+    async function hooks() {
+        return import('../../src/renderer/shell/kit/hooks');
+    }
+
+    it('loads quotes over the provider channel', async () => {
+        const QUOTES = [
+            { symbol: 'AAPL', price: 189.4, changePercent: -1.2 },
+            { symbol: 'BTC-USD', price: 67420, changePercent: 0.8 }
+        ];
+        const invoke = stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'ok', data: QUOTES }) });
+        const { useQuotes } = await hooks();
+        const { result } = renderHook(() => useQuotes(['AAPL', 'BTC-USD']));
+        await waitFor(() => expect(result.current.data).toEqual({ status: 'ok', data: QUOTES }));
+        expect(invoke).toHaveBeenCalledWith('brooz:stock-quotes', ['AAPL', 'BTC-USD']);
+    });
+
+    it('asks nothing without symbols', async () => {
+        const invoke = stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'ok', data: [] }) });
+        const { useQuotes } = await hooks();
+        const { result } = renderHook(() => useQuotes(null));
+        expect(result.current).toMatchObject({ data: null, loading: false });
+        expect(invoke).not.toHaveBeenCalled();
+    });
+});
+
+describe('the provider chrome', () => {
+    const view = (state: {
+        data?: ProviderOutcome<string> | null;
+        error?: string | null;
+        loading?: boolean;
+        reload?: () => void;
+    }) => (
+        <ProviderData
+            label="Markets"
+            lowConfidence={false}
+            provider={FINNHUB}
+            state={{
+                data: null,
+                error: null,
+                loading: false,
+                reload: vi.fn(),
+                ...state
+            }}
+        >
+            {(data: string) => <p>quotes {data}</p>}
+        </ProviderData>
+    );
+
+    it('shows a skeleton while it loads and when it is idle', () => {
+        const { rerender } = render(view({ loading: true }));
+        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
+        rerender(view({}));
+        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
+    });
+
+    it('renders the data and names the provider', () => {
+        render(view({ data: { status: 'ok', data: 'AAPL 189.4' } }));
+        expect(screen.getByText('quotes AAPL 189.4')).toBeTruthy();
+        expect(screen.getByText('Finnhub')).toBeTruthy();
+    });
+
+    it('invites to the settings while the key is missing', () => {
+        render(view({ data: { status: 'missing-key', reason: 'not-set' } }));
+        expect(screen.getByText('Needs a Finnhub API key.')).toBeTruthy();
+    });
+
+    it('explains when the system cannot store keys', () => {
+        render(view({ data: { status: 'missing-key', reason: 'encryption-unavailable' } }));
+        expect(
+            screen.getByText('This system offers no encrypted place for a Finnhub key.')
+        ).toBeTruthy();
+    });
+
+    it('shows the provider error with a retry', () => {
+        const reload = vi.fn();
+        render(
+            view({
+                data: { status: 'provider-error', message: 'Finnhub replied with 401.' },
+                reload
+            })
+        );
+        expect(screen.getByText('Finnhub replied with 401.')).toBeTruthy();
+        fireEvent.click(screen.getByText('Retry'));
+        expect(reload).toHaveBeenCalled();
+    });
+
+    it('shows the error when the channel itself rejects', () => {
+        render(view({ error: 'Unknown IPC channel' }));
+        expect(screen.getByText('Unknown IPC channel')).toBeTruthy();
     });
 });
