@@ -6,6 +6,21 @@ From 0.2.1 on, release-please writes the entries from the Conventional
 Commits on `master`; the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/Niekes/brooz/compare/v0.2.0...v0.3.0) (2026-10-26)
+
+
+### Added
+
+* live tiles behind provider keys, and a settings tile to manage them ([af59141](https://github.com/Niekes/brooz/commit/af591414897ff19a9aad4136585f761c7054d35c))
+* live tiles behind provider keys, and a settings tile to manage them ([6a89e13](https://github.com/Niekes/brooz/commit/6a89e13345864a24b9779931508fc615bf193836))
+
+
+### Fixed
+
+* give up on weather requests after 10 seconds and bound the weather cache ([92030f8](https://github.com/Niekes/brooz/commit/92030f8fd95fa3916d751ba70a2d4b884335292a))
+* make the local model opt-in, a fresh install downloads nothing until asked ([92030f8](https://github.com/Niekes/brooz/commit/92030f8fd95fa3916d751ba70a2d4b884335292a))
+* report a model worker that cannot start instead of loading forever ([92030f8](https://github.com/Niekes/brooz/commit/92030f8fd95fa3916d751ba70a2d4b884335292a))
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
