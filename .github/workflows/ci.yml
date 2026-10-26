@@ -1,8 +1,12 @@
 name: CI
 
+# A pull request runs its checks once, through the pull_request event; the
+# push event stays for master alone, so no commit is ever checked twice and
+# the scarce macOS runners are not queued twice per change.
 on:
-    - pull_request
-    - push
+    pull_request:
+    push:
+        branches: [master]
 
 jobs:
     typecheck:
