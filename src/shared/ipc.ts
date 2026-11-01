@@ -19,7 +19,8 @@ export const IPC_CHANNELS = {
     keyDelete: 'brooz:key-delete',
     keyStatus: 'brooz:key-status',
     keyTest: 'brooz:key-test',
-    stockQuotes: 'brooz:stock-quotes'
+    stockQuotes: 'brooz:stock-quotes',
+    styleNonce: 'brooz:style-nonce'
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -36,11 +37,11 @@ export interface IpcContract {
     };
     [IPC_CHANNELS.weather]: {
         args: [query: PlaceQuery];
-        result: WeatherSnapshot;
+        result: ProviderOutcome<WeatherSnapshot>;
     };
     [IPC_CHANNELS.airQuality]: {
         args: [query: PlaceQuery];
-        result: AirQualitySnapshot;
+        result: ProviderOutcome<AirQualitySnapshot>;
     };
     [IPC_CHANNELS.keySet]: {
         args: [provider: ProviderId, key: string];
@@ -61,6 +62,10 @@ export interface IpcContract {
     [IPC_CHANNELS.stockQuotes]: {
         args: [symbols: string[]];
         result: ProviderOutcome<StockQuote[]>;
+    };
+    [IPC_CHANNELS.styleNonce]: {
+        args: [];
+        result: string;
     };
 }
 

@@ -14,8 +14,18 @@
         "@fontsource-variable/geist-mono",
         "@huggingface/transformers",
         "onnxruntime-web",
-        "open-jev"
+        "open-jev",
+        "cn",
+        "radix-ui",
+        "class-variance-authority",
+        "lucide-react",
+        "get-nonce"
     ],
+
+    // The shadcn primitives stay as generated (docs/adr/0004): they export
+    // every part of a component, and only the parts the app-* wrappers use
+    // are imported.
+    "ignoreExports": [{ "file": "src/renderer/shell/ui/primitives/**", "exports": ["*"] }],
 
     // The process entry points. Everything in the repository has to be
     // reachable from one of them.
@@ -44,8 +54,10 @@
     //   src/shared/**           shared   ->  shared
     //   src/main/**             main     ->  main, shared
     //   src/preload/**          preload  ->  shared
-    //   src/renderer/tiles/**   tiles    ->  tiles, shell, shared
-    //   src/renderer/**         shell    ->  shell, tiles, shared
+    //   src/renderer/shell/ui/primitives/**  primitives  ->  primitives
+    //   src/renderer/shell/ui/app-*.tsx      ui          ->  primitives
+    //   src/renderer/tiles/**   tiles    ->  tiles, shell, ui, shared
+    //   src/renderer/**         shell    ->  shell, tiles, ui, shared
     //   tests/**                tests    ->  all source zones
     //   tests/e2e/**             the Playwright suite, inside the tests zone
     //   scripts/**              tooling  ->  (nothing)
@@ -54,12 +66,15 @@
     // main process through the typed contract in shared and nothing else,
     // and a tile never imports from another tile. The `tiles` zone comes
     // before `shell` on purpose: a file in tiles/** matches both patterns
-    // and the first zone wins.
+    // and the first zone wins. The same goes for `primitives` and `ui`: the
+    // shadcn primitives are reached only through their app-* wrappers.
     "boundaries": {
         "zones": [
             { "name": "shared", "patterns": ["src/shared/**"] },
             { "name": "main", "patterns": ["src/main/**"] },
             { "name": "preload", "patterns": ["src/preload/**"] },
+            { "name": "primitives", "patterns": ["src/renderer/shell/ui/primitives/**"] },
+            { "name": "ui", "patterns": ["src/renderer/shell/ui/app-*.tsx"] },
             { "name": "tiles", "patterns": ["src/renderer/tiles/**"] },
             { "name": "shell", "patterns": ["src/renderer/**"] },
             { "name": "tests", "patterns": ["tests/**"] },
@@ -69,9 +84,11 @@
             { "from": "shared", "allow": ["shared"] },
             { "from": "main", "allow": ["main", "shared"] },
             { "from": "preload", "allow": ["shared"] },
-            { "from": "tiles", "allow": ["tiles", "shell", "shared"] },
-            { "from": "shell", "allow": ["shell", "tiles", "shared"] },
-            { "from": "tests", "allow": ["shared", "main", "preload", "tiles", "shell"] },
+            { "from": "primitives", "allow": ["primitives"] },
+            { "from": "ui", "allow": ["primitives"] },
+            { "from": "tiles", "allow": ["tiles", "shell", "ui", "shared"] },
+            { "from": "shell", "allow": ["shell", "tiles", "ui", "shared"] },
+            { "from": "tests", "allow": ["shared", "main", "preload", "tiles", "shell", "ui"] },
             { "from": "tooling", "allow": [] }
         ],
         // Every analysed file has to belong to a zone, so a new module cannot
@@ -85,6 +102,7 @@
         "calls": {
             "forbidden": [
                 { "from": "shared", "callee": ["console.*", "debugger"] },
+                { "from": "ui", "callee": ["console.*", "debugger"] },
                 { "from": "tiles", "callee": ["console.*", "debugger"] },
                 { "from": "shell", "callee": ["console.*", "debugger"] }
             ]
@@ -92,8 +110,23 @@
     },
     // Test files have large `describe()` blocks, the e2e suite drives the
     // whole binary and the tooling is exercised by `npm run lint` and
-    // `npm run dev`. None of them is a unit-size or coverage concern.
+    // `npm run dev`. The shadcn primitives are vendored as generated, their
+    // app-* wrappers carry the tests. None of them is a unit-size or
+    // coverage concern.
+    //
+    // `npm run lint` gates the health score at 97, not 98: the provider
+    // manifest (src/shared/providers.ts) is the hub of the keyed providers,
+    // imported by the main process, the kit, the settings and the tiles
+    // that declare a provider, like shared/ipc for the channels. Its
+    // fan-in costs the coupling score a point that splitting it would only
+    // hide.
     "health": {
-        "ignore": ["tests/**", "scripts/**"]
-    }
+        "ignore": ["tests/**", "scripts/**", "src/renderer/shell/ui/primitives/**"]
+    },
+    "overrides": [
+        {
+            "files": ["src/renderer/shell/ui/primitives/**"],
+            "rules": { "coverage-gaps": "off" }
+        }
+    ]
 }

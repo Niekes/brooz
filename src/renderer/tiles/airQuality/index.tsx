@@ -1,8 +1,7 @@
 import type { JSX } from 'react';
 import { Eyebrow, WIDGET_BODY } from '../../shell/kit/chrome';
-import { LiveData } from '../../shell/kit/live';
-import { useAirQuality, useLiveLocation } from '../../shell/kit/hooks';
 import { pick, rng } from '../../shell/kit/seed';
+import { LiveAirFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
 import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
 
 const CITIES = ['Berlin', 'Tokyo', 'Lisbon', 'Oslo', 'Cairo', 'Melbourne'];
@@ -62,34 +61,23 @@ export function AirQuality({ seed }: TileProps): JSX.Element {
     );
 }
 
-const EU_BAND =
-    'linear-gradient(to right, #4ade80 0%, #bef264 16%, #facc15 33%, #fb923c 50%, #f87171 67%, #f43f5e 84%, #f43f5e 100%)';
+const OWM_BAND = 'linear-gradient(to right, #4ade80, #bef264, #facc15, #fb923c, #f87171)';
 
-/** The European AQI bands. */
-const EU_CATEGORIES = [
-    { limit: 20, label: 'Good', color: '#4ade80' },
-    { limit: 40, label: 'Fair', color: '#bef264' },
-    { limit: 60, label: 'Moderate', color: '#facc15' },
-    { limit: 80, label: 'Poor', color: '#fb923c' },
-    { limit: 100, label: 'Very poor', color: '#f87171' },
-    { limit: Infinity, label: 'Extremely poor', color: '#f43f5e' }
+/** OpenWeatherMap's air quality index, 1 to 5, as it names its bands. */
+const OWM_CATEGORIES = [
+    { label: 'Good', color: '#4ade80' },
+    { label: 'Fair', color: '#bef264' },
+    { label: 'Moderate', color: '#facc15' },
+    { label: 'Poor', color: '#fb923c' },
+    { label: 'Very poor', color: '#f87171' }
 ];
 
-/** The current European AQI of a city, or of the device location. */
+/** The current air quality of a city, or of the device location. */
 export function LiveAirQuality({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
-    const { query, pending } = useLiveLocation(args.city);
-    const state = useAirQuality(query);
-
     return (
-        <LiveData
-            label={label}
-            lowConfidence={lowConfidence}
-            pending={pending}
-            state={state}
-            meta={(data) => data.place.name}
-        >
+        <LiveAirFrame label={label} lowConfidence={lowConfidence} city={args.city}>
             {(data) => {
-                const category = EU_CATEGORIES.find((entry) => data.aqi <= entry.limit)!;
+                const category = OWM_CATEGORIES[data.aqi - 1];
                 return (
                     <div className="flex h-full min-h-0 flex-col justify-between gap-2">
                         <div className="flex min-h-0 flex-1 items-center justify-between gap-3">
@@ -103,18 +91,20 @@ export function LiveAirQuality({ label, lowConfidence, args }: LiveTileProps): J
                                 <div className="text-[10px] font-medium tracking-[0.16em] text-white/70 uppercase">
                                     {category.label}
                                 </div>
-                                <div className="mt-0.5 text-[9px] text-white/30">European AQI</div>
+                                <div className="mt-0.5 text-[9px] text-white/30">
+                                    OpenWeatherMap index
+                                </div>
                             </div>
                         </div>
 
                         <div className="relative h-2">
                             <div
                                 className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                                style={{ background: EU_BAND }}
+                                style={{ background: OWM_BAND }}
                             />
                             <span
                                 className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-white/20 shadow-[0_1px_4px_rgba(0,0,0,0.45)]"
-                                style={{ left: `${Math.min(100, (data.aqi / 120) * 100)}%` }}
+                                style={{ left: `${(data.aqi - 0.5) * 20}%` }}
                             />
                         </div>
 
@@ -126,7 +116,7 @@ export function LiveAirQuality({ label, lowConfidence, args }: LiveTileProps): J
                     </div>
                 );
             }}
-        </LiveData>
+        </LiveAirFrame>
     );
 }
 
@@ -135,6 +125,8 @@ export const airQualityTile: TileDefinition = {
     title: 'Air Quality',
     Component: AirQuality,
     Live: LiveAirQuality,
+    providers: WEATHER_PROVIDERS,
+    deviceLocation: true,
     liveKey: ({ city }) => `air-quality:${city ?? ''}`,
     route: {
         description: 'Air quality index and pollution levels for a city.',

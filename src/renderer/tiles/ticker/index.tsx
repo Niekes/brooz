@@ -173,6 +173,7 @@ export const tickerTile: TileDefinition = {
     title: 'Markets',
     Component: Ticker,
     Live: LiveTicker,
+    providers: [FINNHUB],
     liveKey: ({ symbols }) => `ticker:${liveSymbols(symbols).join(',')}`,
     route: {
         description:

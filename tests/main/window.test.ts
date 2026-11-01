@@ -95,8 +95,8 @@ describe('the main window', () => {
         expect(windowInstance().loadURL).toHaveBeenCalledWith('http://localhost:5173/');
     });
 
-    it('denies every permission request while the allowlist is empty', () => {
-        expect(PERMISSION_ALLOWLIST).toEqual([]);
+    it('grants only the device location, and denies every other request', () => {
+        expect(PERMISSION_ALLOWLIST).toEqual(['geolocation']);
         const handler = vi.fn();
         installPermissionHandler({
             setPermissionRequestHandler: handler
@@ -109,7 +109,8 @@ describe('the main window', () => {
         const granted: boolean[] = [];
         requestHandler(undefined, 'media', (value) => granted.push(value));
         requestHandler(undefined, 'notifications', (value) => granted.push(value));
-        expect(granted).toEqual([false, false]);
+        requestHandler(undefined, 'geolocation', (value) => granted.push(value));
+        expect(granted).toEqual([false, false, true]);
     });
 
     it('denies every request to open a new window', () => {

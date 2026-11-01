@@ -1,7 +1,7 @@
 /**
  * The data the weather channels carry. The main process fetches it from
- * Open-Meteo, the live tiles render it; both sides import these types and
- * the cache key of a place from here.
+ * OpenWeatherMap and geocodes with Open-Meteo, the live tiles render it;
+ * both sides import these types and the cache key of a place from here.
  */
 
 export interface GeoPlace {
@@ -53,6 +53,7 @@ export interface WeatherSnapshot {
 
 export interface AirQualitySnapshot {
     place: GeoPlace;
+    /** OpenWeatherMap's index: 1 (good) to 5 (very poor). */
     aqi: number;
     pm25: number;
     pm10: number;

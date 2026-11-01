@@ -2,8 +2,9 @@ import { app, ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc';
 import type { IpcChannel } from '../shared/ipc';
-import { fetchAirQuality, fetchWeather, geocodeCity } from './open-meteo';
+import { geocodeCity } from './open-meteo';
 import { isAppOrigin } from './origin';
+import { STYLE_NONCE } from './protocol';
 import {
     parseCity,
     parseKeyInput,
@@ -12,7 +13,7 @@ import {
     parseSymbols
 } from './validate';
 import { canStoreKeys, deleteKey, providerKey, saveKey } from './key-store';
-import { probeProvider, stockQuotes } from './providers';
+import { airQuality, probeProvider, stockQuotes, weather } from './providers';
 
 /**
  * Registers one handler behind the sender check: it only answers frames from
@@ -36,8 +37,8 @@ function handle(
 export function registerIpcHandlers(devUrl?: string): void {
     handle(IPC_CHANNELS.appVersion, devUrl, () => app.getVersion());
     handle(IPC_CHANNELS.geocode, devUrl, (city) => geocodeCity(parseCity(city)));
-    handle(IPC_CHANNELS.weather, devUrl, (query) => fetchWeather(parsePlaceQuery(query)));
-    handle(IPC_CHANNELS.airQuality, devUrl, (query) => fetchAirQuality(parsePlaceQuery(query)));
+    handle(IPC_CHANNELS.weather, devUrl, (query) => weather(parsePlaceQuery(query)));
+    handle(IPC_CHANNELS.airQuality, devUrl, (query) => airQuality(parsePlaceQuery(query)));
     // The key channels: the renderer writes and asks, it never reads a key.
     handle(IPC_CHANNELS.keySet, devUrl, (provider, key) =>
         saveKey(parseProviderId(provider), parseKeyInput(key))
@@ -51,4 +52,5 @@ export function registerIpcHandlers(devUrl?: string): void {
     }));
     handle(IPC_CHANNELS.keyTest, devUrl, (provider) => probeProvider(parseProviderId(provider)));
     handle(IPC_CHANNELS.stockQuotes, devUrl, (symbols) => stockQuotes(parseSymbols(symbols)));
+    handle(IPC_CHANNELS.styleNonce, devUrl, () => STYLE_NONCE);
 }

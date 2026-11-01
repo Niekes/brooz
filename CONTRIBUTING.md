@@ -18,8 +18,7 @@ Node 22, 24 or newer is required.
 ## The checks that have to pass
 
 ```bash
-npm run lint     # the whole gate
-npm test         # the unit suite
+npm run verify   # typecheck + lint + the unit suite with coverage
 npm run build    # typecheck + renderer build + electron bundles
 ```
 
@@ -28,7 +27,8 @@ npm run build    # typecheck + renderer build + electron bundles
 - `vp fmt --check` checks the formatting,
 - `vp lint` runs oxlint, including the zone import rules,
 - `npm run lint:template` checks the tile template in
-  [AGENTS.md](./AGENTS.md),
+  [AGENTS.md](./AGENTS.md) and that the shadcn primitives still match
+  their locked hashes,
 - `npm run lint:fallow` checks zones, dead code, coverage gaps and
   duplication.
 
@@ -38,19 +38,22 @@ cheapest moment to hold that line.
 
 ## Repository layout
 
-| Path                    | Zone      | What lives there                                  |
-| ----------------------- | --------- | ------------------------------------------------- |
-| `src/shared/**`         | `shared`  | The typed IPC contract. The only shared file.     |
-| `src/main/**`           | `main`    | The Electron main process.                        |
-| `src/preload/**`        | `preload` | The sandboxed bridge: `window.brooz`.             |
-| `src/renderer/tiles/**` | `tiles`   | One directory per tile, isolated from each other. |
-| `src/renderer/**`       | `shell`   | The dashboard grid and the renderer entry.        |
-| `tests/**`              | `tests`   | The unit suite, mirroring `src/`.                 |
-| `tests/e2e/**`          | `tests`   | Playwright against `electron .`.                  |
-| `scripts/**`            | `tooling` | Repository tooling. Imports nothing from the app. |
+| Path                                  | Zone         | What lives there                                      |
+| ------------------------------------- | ------------ | ----------------------------------------------------- |
+| `src/shared/**`                       | `shared`     | The typed IPC contract and the provider manifest.     |
+| `src/main/**`                         | `main`       | The Electron main process.                            |
+| `src/preload/**`                      | `preload`    | The sandboxed bridge: `window.brooz`.                 |
+| `src/renderer/shell/ui/primitives/**` | `primitives` | shadcn components as generated. Never edited by hand. |
+| `src/renderer/shell/ui/app-*.tsx`     | `ui`         | The wrappers: the only way into a primitive.          |
+| `src/renderer/tiles/**`               | `tiles`      | One directory per tile, isolated from each other.     |
+| `src/renderer/**`                     | `shell`      | The dashboard grid and the renderer entry.            |
+| `tests/**`                            | `tests`      | The unit suite, mirroring `src/`.                     |
+| `tests/e2e/**`                        | `tests`      | Playwright against `electron .`.                      |
+| `scripts/**`                          | `tooling`    | Repository tooling. Imports nothing from the app.     |
 
 The renderer never imports Electron or Node. A tile never imports from
-another tile. Everything is enforced, not convention - see the zone table in
+another tile. A primitive is added or updated only with
+`npm run ui:add -- <name>` (docs/adr/0004). Everything is enforced, not convention - see the zone table in
 [AGENTS.md](./AGENTS.md).
 
 ## Adding a tile

@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 import type { MissingKeyReason, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
+import { settingsShortcut } from './shortcut';
 
 export interface LiveFrameProps {
     label: string;
@@ -62,6 +63,18 @@ export function LiveSkeleton(): JSX.Element {
     );
 }
 
+function RetryButton({ onRetry }: { onRetry: () => void }): JSX.Element {
+    return (
+        <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[8px] font-medium tracking-[0.16em] text-white/70 uppercase transition-colors hover:bg-white/10 hover:text-white"
+        >
+            Retry
+        </button>
+    );
+}
+
 export function LiveError({
     message,
     onRetry
@@ -77,13 +90,7 @@ export function LiveError({
             <p className="line-clamp-2 text-[10px] leading-snug text-white/60">
                 {message ?? "I couldn't load that right now."}
             </p>
-            <button
-                type="button"
-                onClick={onRetry}
-                className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[8px] font-medium tracking-[0.16em] text-white/70 uppercase transition-colors hover:bg-white/10 hover:text-white"
-            >
-                Retry
-            </button>
+            <RetryButton onRetry={onRetry} />
         </div>
     );
 }
@@ -96,53 +103,17 @@ export interface AsyncView<T> {
 }
 
 /**
- * The three states of a live tile that loads data: a skeleton while it
- * loads, the error with a retry, and the data once it is there.
+ * What a tile shows while its provider has no key: a pointer, not a form,
+ * and a retry for when the key was added meanwhile.
  */
-export function LiveData<T>({
-    label,
-    lowConfidence,
-    pending,
-    state,
-    meta,
-    children
-}: {
-    label: string;
-    lowConfidence: boolean;
-    pending: boolean;
-    state: AsyncView<T>;
-    meta: (data: T) => string;
-    children: (data: T) => ReactNode;
-}): JSX.Element {
-    const { data, error, loading, reload } = state;
-    if (pending || (loading && !data)) {
-        return (
-            <LiveFrame label={label} lowConfidence={lowConfidence}>
-                <LiveSkeleton />
-            </LiveFrame>
-        );
-    }
-    if (error || !data) {
-        return (
-            <LiveFrame label={label} lowConfidence={lowConfidence}>
-                <LiveError message={error} onRetry={reload} />
-            </LiveFrame>
-        );
-    }
-    return (
-        <LiveFrame label={label} meta={meta(data)} lowConfidence={lowConfidence}>
-            {children(data)}
-        </LiveFrame>
-    );
-}
-
-/** What a tile shows while its provider has no key: a pointer, not a form. */
 function MissingKey({
     provider,
-    reason
+    reason,
+    onRetry
 }: {
     provider: ProviderInfo;
     reason: MissingKeyReason;
+    onRetry: () => void;
 }): JSX.Element {
     return (
         <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-center">
@@ -152,19 +123,22 @@ function MissingKey({
             <p className="line-clamp-3 text-[10px] leading-snug text-white/60">
                 {reason === 'encryption-unavailable'
                     ? `This system offers no encrypted place for a ${provider.title} key.`
-                    : `Needs a ${provider.title} API key.`}
+                    : `Needs an API key from ${provider.title}.`}
             </p>
             <p className="text-[9px] tracking-[0.14em] text-white/35 uppercase">
-                Ask for "settings"
+                Press {settingsShortcut()} for the settings
             </p>
+            <RetryButton onRetry={onRetry} />
         </div>
     );
 }
 
 /**
- * The chrome of a live tile backed by a provider: the states of `LiveData`,
- * plus the state a tile without its provider's key renders. That state is
- * an invitation to the settings - a tile never takes a key itself
+ * The chrome of a live tile backed by a provider: a skeleton while it loads
+ * (or while `pending`, the device location, is unsettled), the error with a
+ * retry, the data with its `meta` - the provider by default - and the state
+ * a tile without its provider's key renders. That state is an invitation to
+ * the settings - a tile never takes a key itself
  * (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`).
  */
 export function ProviderData<T>({
@@ -172,23 +146,27 @@ export function ProviderData<T>({
     lowConfidence,
     provider,
     state,
+    pending = false,
+    meta = () => provider.title,
     children
 }: {
     label: string;
     lowConfidence: boolean;
     provider: ProviderInfo;
     state: AsyncView<ProviderOutcome<T>>;
+    pending?: boolean;
+    meta?: (data: T) => string;
     children: (data: T) => ReactNode;
 }): JSX.Element {
     const { data: outcome, error, reload } = state;
-    if (!outcome && error) {
+    if (!pending && !outcome && error) {
         return (
             <LiveFrame label={label} lowConfidence={lowConfidence}>
                 <LiveError message={error} onRetry={reload} />
             </LiveFrame>
         );
     }
-    if (!outcome) {
+    if (pending || !outcome) {
         return (
             <LiveFrame label={label} lowConfidence={lowConfidence}>
                 <LiveSkeleton />
@@ -198,7 +176,7 @@ export function ProviderData<T>({
     if (outcome.status === 'missing-key') {
         return (
             <LiveFrame label={label} lowConfidence={lowConfidence}>
-                <MissingKey provider={provider} reason={outcome.reason} />
+                <MissingKey provider={provider} reason={outcome.reason} onRetry={reload} />
             </LiveFrame>
         );
     }
@@ -210,7 +188,7 @@ export function ProviderData<T>({
         );
     }
     return (
-        <LiveFrame label={label} meta={provider.title} lowConfidence={lowConfidence}>
+        <LiveFrame label={label} meta={meta(outcome.data)} lowConfidence={lowConfidence}>
             {children(outcome.data)}
         </LiveFrame>
     );

@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { Eyebrow, WIDGET_BODY } from '../../shell/kit/chrome';
-import { LiveWeatherFrame } from '../../shell/kit/weather-frame';
+import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { HUES, pick, rng } from '../../shell/kit/seed';
@@ -100,6 +100,8 @@ export const weatherTile: TileDefinition = {
     title: 'Weather',
     Component: Weather,
     Live: LiveWeather,
+    providers: WEATHER_PROVIDERS,
+    deviceLocation: true,
     liveKey: ({ city }) => `weather:${city ?? ''}`,
     route: {
         description: 'Current weather conditions and temperature right now for a city.',

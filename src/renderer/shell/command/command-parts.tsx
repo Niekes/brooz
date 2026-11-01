@@ -3,6 +3,7 @@ import type { CommandArgs } from '../tile';
 import { routedTile } from './manifest';
 import type { CommandMatch } from './parse';
 import type { LocalModel } from './use-local-model';
+import { settingsShortcut } from '../kit/shortcut';
 
 /** Rules are trusted a little sooner than the model. */
 const RULE_THRESHOLD = 0.62;
@@ -269,12 +270,14 @@ export function StatusLine({
     model,
     hint,
     warn,
-    onEnable
+    onEnable,
+    onOpenSettings
 }: {
     model: LocalModel;
     hint: string;
     warn: boolean;
     onEnable: () => void;
+    onOpenSettings: () => void;
 }): JSX.Element {
     return (
         <>
@@ -287,6 +290,13 @@ export function StatusLine({
                         {statusLabel(model)}
                     </span>
                     <ModelAction model={model} onEnable={onEnable} />
+                    <button
+                        type="button"
+                        onClick={onOpenSettings}
+                        className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-white/50 uppercase transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                        Settings {settingsShortcut()}
+                    </button>
                 </span>
 
                 <span

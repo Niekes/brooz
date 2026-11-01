@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { TileHeader, WIDGET_BODY } from '../../shell/kit/chrome';
-import { LiveWeatherFrame } from '../../shell/kit/weather-frame';
+import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { HUES, pick, rng } from '../../shell/kit/seed';
@@ -156,6 +156,8 @@ export const forecastTile: TileDefinition = {
     title: '5-Day Forecast',
     Component: Forecast,
     Live: LiveForecast,
+    providers: WEATHER_PROVIDERS,
+    deviceLocation: true,
     liveKey: ({ city }) => `forecast:${city ?? ''}`,
     route: {
         description: 'Multi-day weather forecast, rain outlook or weekend prediction for a city.',

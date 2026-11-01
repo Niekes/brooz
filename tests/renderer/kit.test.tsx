@@ -1,15 +1,23 @@
-import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import {
+    act,
+    cleanup,
+    fireEvent,
+    render,
+    renderHook,
+    screen,
+    waitFor
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { AppCard } from '../../src/renderer/shell/glass/app-card';
 import { Backdrop } from '../../src/renderer/shell/glass/backdrop';
 import { TileHeader } from '../../src/renderer/shell/kit/chrome';
-import { LiveData, LiveError, LiveFrame, ProviderData } from '../../src/renderer/shell/kit/live';
+import { LiveError, LiveFrame, ProviderData } from '../../src/renderer/shell/kit/live';
 import { FINNHUB } from '../../src/shared/providers';
 import type { ProviderOutcome } from '../../src/shared/providers';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
 import { HUES, clock, pick, rng } from '../../src/renderer/shell/kit/seed';
 import { weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
-import { AIR, PLACE, WEATHER, stubBrooz } from './stubs';
+import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 describe('the seeded data', () => {
     it('picks deterministically, negative seeds too', () => {
@@ -63,32 +71,6 @@ describe('the tile chrome', () => {
         expect(screen.getByText("I couldn't load that right now.")).toBeTruthy();
     });
 
-    it('walks a live tile through loading, error and data', () => {
-        const state = { data: null, error: null, loading: true, reload: vi.fn() };
-        const view = (overrides: object, pending = false) => (
-            <LiveData
-                label="Weather"
-                lowConfidence={false}
-                pending={pending}
-                state={{ ...state, ...overrides }}
-                meta={(data: string) => `meta ${data}`}
-            >
-                {(data: string) => <p>data {data}</p>}
-            </LiveData>
-        );
-        const { rerender } = render(view({}, true));
-        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
-        rerender(view({}));
-        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
-        rerender(view({ loading: false, error: 'Nope' }));
-        expect(screen.getByText('Nope')).toBeTruthy();
-        rerender(view({ loading: false }));
-        expect(screen.getByText("I couldn't load that right now.")).toBeTruthy();
-        rerender(view({ loading: true, data: 'x' }));
-        expect(screen.getByText('data x')).toBeTruthy();
-        expect(screen.getByText('meta x')).toBeTruthy();
-    });
-
     it('draws every weather condition', () => {
         for (const name of ['sun', 'cloud', 'rain', 'snow', 'storm'] as const) {
             const { container } = render(<ConditionIcon name={name} />);
@@ -136,6 +118,8 @@ describe('the weather codes', () => {
 
 describe('the live data hooks', () => {
     afterEach(() => {
+        // The location watch is cleared on unmount, so unmount before unstubbing.
+        cleanup();
         vi.useRealTimers();
         vi.resetModules();
         vi.unstubAllGlobals();
@@ -145,64 +129,60 @@ describe('the live data hooks', () => {
         return import('../../src/renderer/shell/kit/hooks');
     }
 
-    it('uses the city of the utterance right away', async () => {
-        const { useLiveLocation } = await hooks();
-        const { result } = renderHook(() => useLiveLocation('Rome'));
-        expect(result.current).toEqual({ query: { city: 'Rome' }, pending: false });
-    });
-
-    it('falls back to Berlin without a device location', async () => {
-        const { useLiveLocation } = await hooks();
-        const { result } = renderHook(() => useLiveLocation());
-        expect(result.current.pending).toBe(true);
+    it('follows the device location, a kilometre at a time', async () => {
+        const { clearWatch } = stubGeolocation({ latitude: 53.5511, longitude: 9.9937 });
+        const { useDeviceLocation } = await hooks();
+        const { result, unmount } = renderHook(() => useDeviceLocation());
         await waitFor(() =>
-            expect(result.current).toEqual({ query: { city: 'Berlin' }, pending: false })
+            expect(result.current).toEqual({
+                query: { latitude: 53.55, longitude: 9.99 },
+                pending: false,
+                fallback: false
+            })
         );
+        unmount();
+        expect(clearWatch).toHaveBeenCalledWith(7);
     });
 
-    it('uses the device location when it is granted, and asks only once', async () => {
-        const getCurrentPosition = vi.fn((success: PositionCallback) =>
-            success({ coords: { latitude: 1, longitude: 2 } } as GeolocationPosition)
-        );
-        vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } });
-        const { useLiveLocation } = await hooks();
-        const first = renderHook(() => useLiveLocation());
+    it('falls back to Berlin, marked, when the location is denied', async () => {
+        stubGeolocation();
+        const { useDeviceLocation } = await hooks();
+        const { result } = renderHook(() => useDeviceLocation());
         await waitFor(() =>
-            expect(first.result.current.query).toEqual({ latitude: 1, longitude: 2 })
+            expect(result.current).toEqual({
+                query: { city: 'Berlin' },
+                pending: false,
+                fallback: true
+            })
         );
-        const second = renderHook(() => useLiveLocation());
-        await waitFor(() => expect(second.result.current.pending).toBe(false));
-        expect(getCurrentPosition).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to Berlin when the location is denied, and ignores a late answer', async () => {
-        let deny!: () => void;
+    it('waits while the device location is unsettled', async () => {
         vi.stubGlobal('navigator', {
             geolocation: {
-                getCurrentPosition: (_success: PositionCallback, error: () => void) => {
-                    deny = error;
-                }
+                getCurrentPosition: () => undefined,
+                watchPosition: () => 1,
+                clearWatch: () => undefined
             }
         });
-        const { useLiveLocation } = await hooks();
-        const gone = renderHook(() => useLiveLocation());
-        gone.unmount();
-        const { result } = renderHook(() => useLiveLocation());
-        act(() => deny());
-        await waitFor(() => expect(result.current.query).toEqual({ city: 'Berlin' }));
+        const { useDeviceLocation } = await hooks();
+        const { result } = renderHook(() => useDeviceLocation());
+        expect(result.current).toEqual({ query: null, pending: true, fallback: false });
     });
 
     it('loads the weather and the air quality over IPC', async () => {
+        const weatherOk = { status: 'ok', data: WEATHER };
+        const airOk = { status: 'ok', data: AIR };
         const invoke = stubBrooz({
-            'brooz:weather': () => WEATHER,
-            'brooz:air-quality': () => AIR
+            'brooz:weather': () => weatherOk,
+            'brooz:air-quality': () => airOk
         });
         const { useAirQuality, useWeather } = await hooks();
         const weather = renderHook(() => useWeather({ city: 'Rome' }));
         expect(weather.result.current.loading).toBe(true);
-        await waitFor(() => expect(weather.result.current.data).toBe(WEATHER));
+        await waitFor(() => expect(weather.result.current.data).toEqual(weatherOk));
         const air = renderHook(() => useAirQuality({ latitude: 1, longitude: 2 }));
-        await waitFor(() => expect(air.result.current.data).toBe(AIR));
+        await waitFor(() => expect(air.result.current.data).toEqual(airOk));
         expect(invoke).toHaveBeenCalledWith('brooz:air-quality', {
             latitude: 1,
             longitude: 2
@@ -323,16 +303,20 @@ describe('the quotes hook', () => {
 });
 
 describe('the provider chrome', () => {
-    const view = (state: {
-        data?: ProviderOutcome<string> | null;
-        error?: string | null;
-        loading?: boolean;
-        reload?: () => void;
-    }) => (
+    const view = (
+        state: {
+            data?: ProviderOutcome<string> | null;
+            error?: string | null;
+            loading?: boolean;
+            reload?: () => void;
+        },
+        extra: { pending?: boolean; meta?: (data: string) => string } = {}
+    ) => (
         <ProviderData
             label="Markets"
             lowConfidence={false}
             provider={FINNHUB}
+            {...extra}
             state={{
                 data: null,
                 error: null,
@@ -360,7 +344,32 @@ describe('the provider chrome', () => {
 
     it('invites to the settings while the key is missing', () => {
         render(view({ data: { status: 'missing-key', reason: 'not-set' } }));
-        expect(screen.getByText('Needs a Finnhub API key.')).toBeTruthy();
+        expect(screen.getByText('Needs an API key from Finnhub.')).toBeTruthy();
+        expect(screen.getByText('Press Ctrl+, for the settings')).toBeTruthy();
+    });
+
+    it('loads again from the invitation once a key was added', () => {
+        const reload = vi.fn();
+        render(view({ data: { status: 'missing-key', reason: 'not-set' }, reload }));
+        fireEvent.click(screen.getByText('Retry'));
+        expect(reload).toHaveBeenCalled();
+    });
+
+    it('names the macOS shortcut on a Mac', () => {
+        const agent = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Macintosh');
+        render(view({ data: { status: 'missing-key', reason: 'not-set' } }));
+        expect(screen.getByText('Press ⌘, for the settings')).toBeTruthy();
+        agent.mockRestore();
+    });
+
+    it('waits for a pending location, even over an error', () => {
+        render(view({ error: 'Offline' }, { pending: true }));
+        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
+    });
+
+    it('names its data with the given meta instead of the provider', () => {
+        render(view({ data: { status: 'ok', data: 'x' } }, { meta: (data) => `meta ${data}` }));
+        expect(screen.getByText('meta x')).toBeTruthy();
     });
 
     it('explains when the system cannot store keys', () => {

@@ -1,3 +1,4 @@
+import { useLocalStorage } from '@uidotdev/usehooks';
 import { useEffect, useState } from 'react';
 import type { RefObject } from 'react';
 import type { SummonRequest } from '../tile';
@@ -74,35 +75,24 @@ export function useAutoSummon(
 /** Remembers that the person enabled the local model on this machine. */
 const MODEL_FLAG = 'brooz.model.enabled';
 
-function modelEnabled(): boolean {
-    try {
-        return localStorage.getItem(MODEL_FLAG) === '1';
-    } catch {
-        return false;
-    }
-}
-
 /**
  * Loads the local model when the bar mounts, but only once the person
  * enabled it: the first load downloads about 380 MB. Until then the rules
- * route alone.
+ * route alone. Returns the switch that enables it: loaded now, and on every
+ * later start.
  */
-export function useModelWarmup(status: ModelStatus, load: () => void): void {
+export function useModelWarmup(status: ModelStatus, load: () => void): () => void {
+    // An older build stored '1', which reads back as the truthy 1.
+    const [enabled, setEnabled] = useLocalStorage<boolean>(MODEL_FLAG, false);
     useEffect(() => {
-        if (status === 'idle' && modelEnabled()) {
+        if (status === 'idle' && enabled) {
             load();
         }
-    }, [status, load]);
-}
-
-/** Enables the local model: loaded now, and on every later start. */
-export function enableModel(load: () => void): void {
-    try {
-        localStorage.setItem(MODEL_FLAG, '1');
-    } catch {
-        // Without storage the model still loads now, just not on the next start.
-    }
-    load();
+    }, [status, enabled, load]);
+    return () => {
+        setEnabled(true);
+        load();
+    };
 }
 
 /** The line under the field: a notice, a warning, a failure or the keys. */

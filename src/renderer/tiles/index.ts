@@ -8,7 +8,6 @@ import { moonPhaseTile } from './moonPhase';
 import { nowPlayingTile } from './nowPlaying';
 import { photoTile } from './photo';
 import { pomodoroTile } from './pomodoro';
-import { settingsTile } from './settings';
 import { stickyNoteTile } from './stickyNote';
 import { systemStatsTile } from './systemStats';
 import { tickerTile } from './ticker';
@@ -37,6 +36,5 @@ export const tiles: readonly TileDefinition[] = [
     airQualityTile,
     stickyNoteTile,
     photoTile,
-    aboutTile,
-    settingsTile
+    aboutTile
 ];

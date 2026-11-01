@@ -36,4 +36,15 @@ describe('the dashboard shell', () => {
         expect(screen.getByText('10:00')).toBeTruthy();
         expect(screen.getByText('10 min')).toBeTruthy();
     });
+
+    it('opens and closes the settings with the shortcut and the button', () => {
+        render(<App />);
+        expect(screen.queryByRole('dialog')).toBe(null);
+        fireEvent.keyDown(window, { key: ',', metaKey: true });
+        expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+        fireEvent.keyDown(window, { key: ',', ctrlKey: true });
+        expect(screen.queryByRole('dialog')).toBe(null);
+        fireEvent.click(screen.getByText('Settings Ctrl+,'));
+        expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+    });
 });

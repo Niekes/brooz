@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import type { ProviderInfo } from '../../shared/providers';
 
 /**
  * The arguments an utterance can carry. The ask bar extracts all of them,
@@ -68,4 +69,8 @@ export interface TileDefinition {
     readonly Live?: ComponentType<LiveTileProps>;
     readonly liveKey?: (args: CommandArgs) => string;
     readonly route?: TileRoute;
+    /** The providers whose keys the live tile needs: each gets it a settings section. */
+    readonly providers?: readonly ProviderInfo[];
+    /** The live tile follows the device location; its settings section can turn that off. */
+    readonly deviceLocation?: boolean;
 }

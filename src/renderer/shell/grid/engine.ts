@@ -75,13 +75,14 @@ export class DomeEngine {
         this.invalidate();
     }
 
+    /** Lays the grid flat, and jumps instead of flying, for reduced motion. */
+    setReducedMotion(reduced: boolean): void {
+        this.flat = reduced;
+        this.invalidate();
+    }
+
     /** Wires the engine to the stage element; the returned function undoes it. */
     attach(stage: HTMLElement): () => void {
-        const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const onMotion = (): void => {
-            this.flat = motion.matches;
-            this.invalidate();
-        };
         const onResize = (): void => this.resize(window.innerWidth, window.innerHeight);
 
         const listeners: Array<
@@ -92,14 +93,12 @@ export class DomeEngine {
             [stage, 'pointerup', (event: PointerEvent) => this.pointerUp(stage, event)],
             [stage, 'pointercancel', (event: PointerEvent) => this.pointerUp(stage, event)],
             [stage, 'wheel', (event: WheelEvent) => this.wheel(event), { passive: false }],
-            [window, 'resize', onResize],
-            [motion, 'change', onMotion]
+            [window, 'resize', onResize]
         ];
         for (const [target, type, listener, options] of listeners) {
             target.addEventListener(type, listener as EventListener, options);
         }
         onResize();
-        onMotion();
 
         return () => {
             for (const [target, type, listener] of listeners) {
