@@ -5,7 +5,6 @@ import type { TileDefinition } from '../tile';
 import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
-import { AppScrollArea } from '../ui/app-scroll-area';
 import { ProviderKey } from './provider-key';
 import { useDeviceLocationSetting } from '../kit/hooks';
 
@@ -68,7 +67,7 @@ function SectionNav({
                 placeholder="Search settings"
                 aria-label="Search settings"
             />
-            <AppScrollArea className="min-h-0 flex-1">
+            <div className="min-h-0 flex-1 overflow-y-auto">
                 <ul className="flex flex-col gap-0.5">
                     {visible.map((tile) => (
                         <li key={tile.id}>
@@ -86,7 +85,7 @@ function SectionNav({
                 {visible.length === 0 ? (
                     <p className="px-2.5 py-1.5 text-xs text-white/40">No setting matches.</p>
                 ) : null}
-            </AppScrollArea>
+            </div>
         </nav>
     );
 }
@@ -140,7 +139,7 @@ export function Settings({
                 current={current}
                 onSelect={setSelected}
             />
-            <AppScrollArea className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 overflow-y-auto">
                 {current ? (
                     <section aria-label={current.title} className="flex flex-col gap-4 p-8">
                         <h2 className="text-xl font-medium">{current.title}</h2>
@@ -150,7 +149,7 @@ export function Settings({
                         {current.deviceLocation ? <DeviceLocationOption /> : null}
                     </section>
                 ) : null}
-            </AppScrollArea>
+            </div>
         </AppDialog>
     );
 }

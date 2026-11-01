@@ -2,6 +2,5 @@
     "badge.tsx": "13a9380dfff853ee730c14a52df49f22aecd31f40f2998d7c1e7ec458b6e1650",
     "button.tsx": "79dd6f75f8136394442202d6b8b922fb269eaad0a5dba579397c9d5b41f893bb",
     "dialog.tsx": "818537c959ec53c00aa99022a4f447cb0b03db350ae35711bec4216b582629db",
-    "input.tsx": "0c9457181f6ddc80969bcf854e92c362903a55b6e889fbef3fd85343ecc4af5b",
-    "scroll-area.tsx": "8b73bb9be51300079c7f561bafbe43ee10f6f464cf39c8c1b25123cd4edb94dd"
+    "input.tsx": "0c9457181f6ddc80969bcf854e92c362903a55b6e889fbef3fd85343ecc4af5b"
 }
