@@ -1,5 +1,6 @@
 import { net, protocol } from 'electron';
 import type { CustomScheme } from 'electron';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -15,17 +16,24 @@ export const APP_SCHEME_PRIVILEGES: CustomScheme[] = [
 ];
 
 /**
+ * A nonce per launch for the one inline style the app writes: the scroll
+ * lock of the settings dialog (react-remove-scroll). The renderer gets it
+ * over the `brooz:style-nonce` channel and hands it to get-nonce.
+ */
+export const STYLE_NONCE = randomBytes(16).toString('base64');
+
+/**
  * The Content-Security-Policy of the app. Everything comes from the app
- * itself, with two exceptions for the local model: 'wasm-unsafe-eval'
- * compiles the ONNX Runtime's WebAssembly, and connect-src reaches the
- * Hugging Face hub, where the model weights live (their downloads redirect
- * to *.hf.co).
+ * itself, with three exceptions: 'wasm-unsafe-eval' compiles the ONNX
+ * Runtime's WebAssembly, connect-src reaches the Hugging Face hub, where
+ * the model weights live (their downloads redirect to *.hf.co), and a style
+ * tag carrying this launch's nonce may apply.
  */
 const CSP = [
     "default-src 'none'",
     "script-src 'self' 'wasm-unsafe-eval'",
     "worker-src 'self'",
-    "style-src 'self'",
+    `style-src 'self' 'nonce-${STYLE_NONCE}'`,
     "img-src 'self' data:",
     "font-src 'self'",
     "connect-src 'self' https://huggingface.co https://*.hf.co"

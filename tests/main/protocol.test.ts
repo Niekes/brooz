@@ -7,7 +7,8 @@ import {
     APP_SCHEME_PRIVILEGES,
     registerAppProtocol,
     resolveRendererPath,
-    serveRenderer
+    serveRenderer,
+    STYLE_NONCE
 } from '../../src/main/protocol';
 
 const mockHandle = vi.fn();
@@ -73,12 +74,13 @@ describe('the app:// protocol', () => {
         expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
     });
 
-    it('pins the policy: app only, plus WebAssembly and the model hub', async () => {
+    it('pins the policy: app only, plus WebAssembly, the model hub and the style nonce', async () => {
         mockFetch.mockResolvedValue(new Response('<html></html>'));
         const response = await serveRenderer(rendererRoot, { url: APP_INDEX_URL } as Request);
+        expect(STYLE_NONCE).toMatch(/^[A-Za-z0-9+/]{22}==$/);
         expect(response.headers.get('Content-Security-Policy')).toBe(
             "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; " +
-                "style-src 'self'; img-src 'self' data:; font-src 'self'; " +
+                `style-src 'self' 'nonce-${STYLE_NONCE}'; img-src 'self' data:; font-src 'self'; ` +
                 "connect-src 'self' https://huggingface.co https://*.hf.co"
         );
     });

@@ -3,7 +3,6 @@ import type { CSSProperties, ChangeEvent, JSX, KeyboardEvent, RefObject } from '
 import { AppCard } from '../glass/app-card';
 import type { SummonRequest } from '../tile';
 import {
-    enableModel,
     hintFor,
     useAutoSummon,
     useFocusShortcut,
@@ -98,6 +97,7 @@ interface AskBar {
     active: CommandMatch | undefined;
     lowConfidence: boolean;
     model: LocalModel;
+    enableModel: () => void;
     routing: ModelRouting;
     inputRef: RefObject<HTMLInputElement | null>;
     setSelected: (index: number) => void;
@@ -119,7 +119,7 @@ function useAskBar(
     const model = useLocalModel();
     const routing = useModelRouting(query, model.status, model.route);
     const parsed = useMemo(() => parseCommand(query), [query]);
-    useModelWarmup(model.status, model.load);
+    const enableModel = useModelWarmup(model.status, model.load);
     useFocusShortcut(inputRef);
 
     const suggestions = model.status === 'ready' ? routing.matches : parsed.matches;
@@ -144,6 +144,7 @@ function useAskBar(
         active,
         lowConfidence: active !== undefined && isLowConfidence(active),
         model,
+        enableModel,
         routing,
         inputRef,
         setSelected,
@@ -230,9 +231,11 @@ function useAskActions(
  * everything the utterance said.
  */
 export function CommandBar({
-    onSummon
+    onSummon,
+    onOpenSettings
 }: {
     onSummon: (request: SummonRequest) => void;
+    onOpenSettings: () => void;
 }): JSX.Element {
     /** Set when a chip filled the field: the person chose it, so Enter decides. */
     const suppressAutoRef = useRef(false);
@@ -240,7 +243,8 @@ export function CommandBar({
     const autoWidgetRef = useRef<string | null>(null);
     const bar = useAskBar(onSummon, suppressAutoRef, autoWidgetRef);
     const actions = useAskActions(bar, onSummon, suppressAutoRef, autoWidgetRef);
-    const { query, suggestions, activeIndex, active, lowConfidence, model, routing } = bar;
+    const { query, suggestions, activeIndex, active, lowConfidence, model, enableModel, routing } =
+        bar;
     const typing = query.trim().length > 0;
 
     return (
@@ -273,7 +277,8 @@ export function CommandBar({
                     model={model}
                     hint={hintFor(actions.notice, lowConfidence, routing.failure)}
                     warn={Boolean(actions.notice) || lowConfidence}
-                    onEnable={() => enableModel(model.load)}
+                    onEnable={enableModel}
+                    onOpenSettings={onOpenSettings}
                 />
             </div>
         </div>

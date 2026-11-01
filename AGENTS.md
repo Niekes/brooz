@@ -17,6 +17,8 @@ npm test         # the unit suite
 npm run build    # typecheck + renderer build + electron bundles
 npm run test:e2e # against `electron .`, needs `npm run build` first
 npm run package  # the installers, unsigned for now
+npm run verify   # typecheck + lint + the unit suite with coverage, the gate before a commit
+npm run ui:add -- <name>  # add or update a shadcn primitive, and re-lock its hash
 ```
 
 <!-- fallow:setup-hooks:start -->
@@ -80,21 +82,24 @@ version and the release notes.
 The zones are declared in `.fallowrc.jsonc` and enforced by
 `npm run lint`. A violation fails the build.
 
-| Zone      | Files                   | May import                 |
-| --------- | ----------------------- | -------------------------- |
-| `shared`  | `src/shared/**`         | `shared`                   |
-| `main`    | `src/main/**`           | `main`, `shared`           |
-| `preload` | `src/preload/**`        | `shared`                   |
-| `tiles`   | `src/renderer/tiles/**` | `tiles`, `shell`, `shared` |
-| `shell`   | `src/renderer/**`       | `shell`, `tiles`, `shared` |
-| `tests`   | `tests/**`              | all source zones           |
-| `tooling` | `scripts/**`            | nothing                    |
+| Zone         | Files                                 | May import                       |
+| ------------ | ------------------------------------- | -------------------------------- |
+| `shared`     | `src/shared/**`                       | `shared`                         |
+| `main`       | `src/main/**`                         | `main`, `shared`                 |
+| `preload`    | `src/preload/**`                      | `shared`                         |
+| `primitives` | `src/renderer/shell/ui/primitives/**` | `primitives`                     |
+| `ui`         | `src/renderer/shell/ui/app-*.tsx`     | `primitives`                     |
+| `tiles`      | `src/renderer/tiles/**`               | `tiles`, `shell`, `ui`, `shared` |
+| `shell`      | `src/renderer/**`                     | `shell`, `tiles`, `ui`, `shared` |
+| `tests`      | `tests/**`                            | all source zones                 |
+| `tooling`    | `scripts/**`                          | nothing                          |
 
 The shell is organised by concern: `shell/grid` (the dome geometry, the
 motion engine, the grid component), `shell/command` (the ask bar, the
-rules, the model worker), `shell/glass` (the backdrop and the glass card)
-and `shell/kit` (what several tiles share: seeded mock data, tile and live
-chrome, icons, the data hooks). A tile imports from `shell/kit` and
+rules, the model worker), `shell/glass` (the backdrop and the glass card),
+`shell/kit` (what several tiles share: seeded mock data, tile and live
+chrome, icons, the data hooks), `shell/settings` (the settings overlay) and
+`shell/ui` (the shadcn primitives and their `app-*` wrappers). A tile imports from `shell/kit` and
 `shell/tile.ts`; the kit never imports the registry, so there is no cycle.
 
 Two package rules ride on top, enforced by oxlint overrides in
@@ -114,16 +119,21 @@ Not negotiable, and pinned by unit tests:
   Every response carries the Content-Security-Policy (a worker takes its
   policy from its own response) and COOP/COEP (`src/main/protocol.ts`).
   The policy is `'self'` everywhere, plus `'wasm-unsafe-eval'` for the
-  ONNX Runtime and `https://huggingface.co https://*.hf.co` in
-  `connect-src` for the model weights. In dev mode the window loads the
+  ONNX Runtime, `https://huggingface.co https://*.hf.co` in
+  `connect-src` for the model weights, and a per-launch nonce in
+  `style-src` for the settings dialog's scroll lock (`brooz:style-nonce`
+  hands it to get-nonce). In dev mode the window loads the
   Vite dev server instead.
-- The renderer fetches nothing from the internet itself: Open-Meteo is
-  called by the main process (`src/main/open-meteo.ts`, 10 s timeout,
+- The renderer fetches nothing from the internet itself: OpenWeatherMap
+  and the Open-Meteo geocoder are called by the main process
+  (`src/main/openweathermap.ts`, `src/main/open-meteo.ts`, 10 s timeout,
   bounded cache), and the IPC handlers validate every argument
   (`src/main/validate.ts`) before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
-- `session.setPermissionRequestHandler` defaults to deny; the allowlist is
-  empty until a tile needs a permission (a camera tile adds `media`).
+- `session.setPermissionRequestHandler` defaults to deny; the allowlist
+  holds `geolocation` alone, for the weather tiles' device location
+  (`docs/adr/0005-the-app-may-ask-for-the-device-location.md`). A camera
+  tile would add `media`.
 - Electron fuses are pinned in `electron-builder.yml` (`electronFuses`):
   RunAsNode off, NODE_OPTIONS off, inspector args off, only-load-from-asar,
   asar integrity, cookie encryption.
@@ -150,7 +160,9 @@ A definition has:
   which decides from the utterance's args when it remounts;
 - `route` (optional) - a description for the model, keywords, examples, the
   rule pattern and its weight, and `args`, which keeps the utterance's args
-  the tile understands. A tile without a route is never summoned.
+  the tile understands. A tile without a route is never summoned;
+- `providers` (optional) - the providers whose keys the live tile needs.
+  Each such tile gets a section in the settings.
 
 A new tile is registered in `src/renderer/tiles/index.ts`; its position in
 the list is its place in the grid pattern. A tile that is missing there is
@@ -173,26 +185,28 @@ untrusted input: validate the args in the handler before they reach the
 file system or the network, with a parser in `src/main/validate.ts` (see
 `parsePlaceQuery`).
 
-The channels: `brooz:app-version`, `brooz:geocode`, `brooz:weather`,
-`brooz:air-quality`, the key channels `brooz:key-set`, `brooz:key-delete`,
-`brooz:key-status` and `brooz:key-test`, and the provider channel
-`brooz:stock-quotes`.
+The channels: `brooz:app-version`, `brooz:geocode`, `brooz:style-nonce`,
+the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`
+and `brooz:key-test`, and the provider channels `brooz:weather`,
+`brooz:air-quality` and `brooz:stock-quotes`.
 
 ## Provider keys
 
 Tiles that need a keyed service never see its key: the renderer invokes a
 provider channel, the main process holds the key and makes the request
 (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`). Keys belong to
-a _provider_ of the manifest in `src/shared/providers.ts` (today: Finnhub),
-never to a tile. The key channels are write-only - the renderer can set,
+a _provider_ of the manifest in `src/shared/providers.ts` (today:
+OpenWeatherMap and Finnhub), never to a tile. The key channels are write-only - the renderer can set,
 delete and ask for the status of a key, but no channel returns one. The
 keys live encrypted under `userData` through `safeStorage`, and the app
 fails closed where the OS offers no encryption
 (`docs/adr/0002-safe-storage-fail-closed.md`). A provider channel answers
 with the union `ok | missing-key | provider-error` instead of throwing, so
-every tile handles the invitation to the settings. The settings tile
-(`src/renderer/tiles/settings`) is the only surface that takes a key; a
-tile without one renders that invitation, never an input of its own.
+every tile handles the invitation to the settings. The settings overlay
+(`src/renderer/shell/settings`, ⌘, or Ctrl+,) is the only surface that
+takes a key: one section per tile with `providers`, each showing its
+providers' keys. A tile without its key renders that invitation, never an
+input of its own.
 
 ## The local model
 
@@ -209,6 +223,29 @@ COOP/COEP that this needs are in place (see the security rules).
 
 A future ML tile follows the same pattern inside its own tile directory.
 A tile that needs the camera adds `media` to the permission allowlist.
+
+## The shadcn primitives
+
+`src/renderer/shell/ui/primitives/` holds the shadcn components exactly as
+generated (`docs/adr/0004-shadcn-primitives-are-untouched.md`). Never edit
+them: style and extend them in an `app-*` wrapper next to them, the only
+files that may import a primitive (fallow's `primitives` zone). Their hashes
+are locked in `primitives.lock.json`; `npm run lint` fails on any drift, and
+`npm run ui:add -- <name>` is the only way to add or update one.
+
+## Hooks: usehooks first
+
+A React hook that `@uidotdev/usehooks` already offers is taken from there,
+never written again: `useLocalStorage`, `useSessionStorage`,
+`useGeolocation`, `useMediaQuery`, `useDebounce`, and the rest of its stable
+export list (`node_modules/@uidotdev/usehooks/index.d.ts`). Write a hook of
+your own in `shell/kit` only for what it lacks - timers and key shortcuts,
+because its `useInterval`, `useTimeout`, `useEventListener` and
+`useKeyPress` need React experimental. oxlint enforces the browser APIs in
+`src/renderer/**`: `localStorage`, `sessionStorage`, `matchMedia` and
+`navigator.geolocation` fail the lint with the hook to use instead. The one
+exception is the sticky note's storage migration in `main.tsx`, which must
+read the raw text the hook cannot parse.
 
 ## Code style
 

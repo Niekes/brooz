@@ -1,3 +1,4 @@
+import { useMediaQuery } from '@uidotdev/usehooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, JSX, ReactNode } from 'react';
 import type { SummonRequest, TileDefinition } from '../tile';
@@ -108,6 +109,8 @@ interface Dome {
 function useDome(tileCount: number, onInteract: () => void): Dome {
     const [pool, setPool] = useState<Pool>({ cols: 0, rows: 0 });
     const [engine] = useState(() => new DomeEngine(DOME_PRESETS.current, setPool, onInteract));
+    const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+    useEffect(() => engine.setReducedMotion(reducedMotion), [engine, reducedMotion]);
 
     const stageRef = useCallback((stage: HTMLDivElement) => engine.attach(stage), [engine]);
     const cardRef = useCallback(

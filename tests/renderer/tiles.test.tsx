@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { tiles } from '../../src/renderer/tiles';
 import { AboutTileBody } from '../../src/renderer/tiles/about';
@@ -12,15 +12,19 @@ import { getMoonPhase } from '../../src/renderer/tiles/moonPhase/moon';
 import { NowPlaying } from '../../src/renderer/tiles/nowPlaying';
 import { Photo } from '../../src/renderer/tiles/photo';
 import { LivePomodoro, Pomodoro } from '../../src/renderer/tiles/pomodoro';
-import { LiveSettings, Settings } from '../../src/renderer/tiles/settings';
-import { LiveNote, StickyNote } from '../../src/renderer/tiles/stickyNote';
+import { LiveNote, StickyNote, migrateStoredNote } from '../../src/renderer/tiles/stickyNote';
 import { SystemStats } from '../../src/renderer/tiles/systemStats';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
 import { LiveWorldClock, WorldClock } from '../../src/renderer/tiles/worldClock';
-import { AIR, PLACE, WEATHER, stubBrooz } from './stubs';
+import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 const live = { label: 'Live', lowConfidence: false };
+
+/** A provider channel's answer with data. */
+function ok<T>(data: T): { status: 'ok'; data: T } {
+    return { status: 'ok', data };
+}
 
 describe('every resting tile', () => {
     beforeEach(() => {
@@ -54,8 +58,7 @@ describe('every resting tile', () => {
             AirQuality,
             StickyNote,
             Photo,
-            AboutTileBody,
-            Settings
+            AboutTileBody
         ]);
     });
 
@@ -88,15 +91,20 @@ describe('every resting tile', () => {
             pomodoro: ['pomodoro:25:', 'pomodoro:5:pause'],
             'sticky-note': ['sticky-note:', 'sticky-note:x'],
             'analog-clock': [undefined, undefined],
-            ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA'],
-            settings: ['settings', 'settings']
+            ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA']
         });
     });
 });
 
 describe('the live weather tiles', () => {
+    afterEach(() => {
+        // The location watch is cleared on unmount, so unmount before unstubbing.
+        cleanup();
+        vi.unstubAllGlobals();
+    });
+
     it('shows the current weather of a city', async () => {
-        stubBrooz({ 'brooz:weather': () => WEATHER });
+        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
         expect(screen.getByLabelText('Loading live data')).toBeTruthy();
         expect(await screen.findByText('Rain')).toBeTruthy();
@@ -105,42 +113,74 @@ describe('the live weather tiles', () => {
     });
 
     it('shows five days and how many are rainy', async () => {
-        stubBrooz({ 'brooz:weather': () => WEATHER });
+        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         const { rerender } = render(<LiveForecast {...live} args={{ city: 'Rome' }} />);
         expect(await screen.findByText('Today')).toBeTruthy();
         expect(screen.getByText('Rain likely on 1 day')).toBeTruthy();
 
         const rainy = WEATHER.daily.map((day) => ({ ...day, precipitationProbability: 90 }));
-        stubBrooz({ 'brooz:weather': () => ({ ...WEATHER, daily: rainy }) });
+        stubBrooz({ 'brooz:weather': () => ok({ ...WEATHER, daily: rainy }) });
         rerender(<LiveForecast {...live} args={{ city: 'Oslo' }} />);
         expect(await screen.findByText('Rain likely on 5 days')).toBeTruthy();
 
         const dry = WEATHER.daily.map((day) => ({ ...day, precipitationProbability: 0 }));
-        stubBrooz({ 'brooz:weather': () => ({ ...WEATHER, daily: dry }) });
+        stubBrooz({ 'brooz:weather': () => ok({ ...WEATHER, daily: dry }) });
         rerender(<LiveForecast {...live} args={{ city: 'Cairo' }} />);
         expect(await screen.findByText('No rain expected')).toBeTruthy();
     });
 
     it.each([
-        [10, 'Good'],
-        [30, 'Fair'],
-        [50, 'Moderate'],
-        [70, 'Poor'],
-        [90, 'Very poor'],
-        [150, 'Extremely poor']
-    ])('reads a European AQI of %i as %s', async (aqi, label) => {
-        stubBrooz({ 'brooz:air-quality': () => ({ ...AIR, aqi }) });
+        [1, 'Good'],
+        [2, 'Fair'],
+        [3, 'Moderate'],
+        [4, 'Poor'],
+        [5, 'Very poor']
+    ])('reads an OpenWeatherMap index of %i as %s', async (aqi, label) => {
+        stubBrooz({ 'brooz:air-quality': () => ok({ ...AIR, aqi }) });
         render(<LiveAirQuality {...live} args={{ city: 'Rome' }} />);
         expect(await screen.findByText(label)).toBeTruthy();
     });
 
     it('offers a retry when the weather cannot be loaded', async () => {
+        stubGeolocation();
         const invoke = stubBrooz({
             'brooz:air-quality': () => Promise.reject(new Error('Offline'))
         });
         render(<LiveAirQuality {...live} args={{}} />);
         expect(await screen.findByText('Offline')).toBeTruthy();
         expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Berlin' });
+    });
+
+    it('invites to the settings without an OpenWeatherMap key', async () => {
+        stubBrooz({ 'brooz:weather': () => ({ status: 'missing-key', reason: 'not-set' }) });
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('Needs an API key from OpenWeatherMap.')).toBeTruthy();
+    });
+
+    it('shows the device location, and marks the fallback without one', async () => {
+        stubGeolocation({ latitude: 53.55, longitude: 9.99 });
+        const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
+        const { unmount } = render(<LiveWeather {...live} args={{}} />);
+        expect(await screen.findByText(WEATHER.place.name)).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 53.55, longitude: 9.99 });
+        unmount();
+
+        stubGeolocation();
+        render(<LiveWeather {...live} args={{}} />);
+        expect(
+            await screen.findByText(`${WEATHER.place.name} · location unavailable`)
+        ).toBeTruthy();
+    });
+
+    it('never asks for the device location once the person turned it off', async () => {
+        localStorage.setItem('brooz.location.enabled', 'false');
+        const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
+        render(<LiveWeather {...live} args={{}} />);
+        expect(
+            await screen.findByText(`${WEATHER.place.name} · location unavailable`)
+        ).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { city: 'Berlin' });
+        localStorage.clear();
     });
 });
 
@@ -274,7 +314,7 @@ describe('the live sticky note', () => {
         act(() => {
             vi.advanceTimersByTime(350);
         });
-        expect(localStorage.getItem('brooz.note.v1')).toBe('buy milk');
+        expect(localStorage.getItem('brooz.note.v1')).toBe('"buy milk"');
         expect(screen.getByText('Saved')).toBeTruthy();
         act(() => {
             vi.advanceTimersByTime(1600);
@@ -294,24 +334,25 @@ describe('the live sticky note', () => {
     });
 
     it('starts from the saved note', () => {
-        localStorage.setItem('brooz.note.v1', 'saved before');
+        localStorage.setItem('brooz.note.v1', '"saved before"');
         render(<LiveNote {...live} args={{}} />);
         expect(screen.getByDisplayValue('saved before')).toBeTruthy();
     });
 
-    it('works without storage', () => {
-        vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-            throw new Error('denied');
-        });
-        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-            throw new Error('denied');
-        });
-        render(<LiveNote {...live} args={{}} />);
-        expect(screen.getByDisplayValue('')).toBeTruthy();
-        act(() => {
-            vi.advanceTimersByTime(350);
-        });
-        expect(screen.getByText('Local')).toBeTruthy();
+    it('migrates a note saved as raw text, and leaves a JSON note alone', () => {
+        localStorage.setItem('brooz.note.v1', 'buy milk');
+        migrateStoredNote(localStorage);
+        expect(localStorage.getItem('brooz.note.v1')).toBe('"buy milk"');
+        migrateStoredNote(localStorage);
+        expect(localStorage.getItem('brooz.note.v1')).toBe('"buy milk"');
+
+        localStorage.setItem('brooz.note.v1', '42');
+        migrateStoredNote(localStorage);
+        expect(localStorage.getItem('brooz.note.v1')).toBe('"42"');
+
+        localStorage.clear();
+        migrateStoredNote(localStorage);
+        expect(localStorage.getItem('brooz.note.v1')).toBeNull();
     });
 });
 
@@ -347,7 +388,7 @@ describe('the live markets tile', () => {
     it('invites to the settings while the key is missing', async () => {
         stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'missing-key', reason: 'not-set' }) });
         render(<LiveTicker {...live} args={{}} />);
-        expect(await screen.findByText('Needs a Finnhub API key.')).toBeTruthy();
+        expect(await screen.findByText('Needs an API key from Finnhub.')).toBeTruthy();
     });
 
     it('explains when the system cannot store keys', async () => {
@@ -380,129 +421,5 @@ describe('the live markets tile', () => {
         });
         render(<LiveTicker {...live} args={{}} />);
         expect(await screen.findByText('Finnhub replied with 401.')).toBeTruthy();
-    });
-});
-
-describe('the live settings tile', () => {
-    it('lists the providers with the status of their keys', async () => {
-        stubBrooz({ 'brooz:key-status': () => ({ present: true, canStore: true }) });
-        render(<LiveSettings {...live} args={{}} />);
-        expect(await screen.findByText('Key stored')).toBeTruthy();
-        expect(screen.getByText('Finnhub')).toBeTruthy();
-        expect(screen.getByText('Test')).toBeTruthy();
-        expect(screen.getByText('Delete')).toBeTruthy();
-    });
-
-    it('takes a key and saves it, then asks for the new status', async () => {
-        const invoke = stubBrooz({
-            'brooz:key-status': () => ({ present: false, canStore: true }),
-            'brooz:key-set': () => ({ status: 'ok' })
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        expect(await screen.findByText('No key')).toBeTruthy();
-        expect(screen.queryByText('Test')).toBe(null);
-        const input = screen.getByLabelText('Finnhub API key');
-        expect(input).toBeTruthy();
-        fireEvent.change(input, { target: { value: '  k1 ' } });
-        fireEvent.click(screen.getByText('Save'));
-        await screen.findByText('Key saved.');
-        expect(invoke).toHaveBeenCalledWith('brooz:key-set', 'finnhub', '  k1 ');
-        expect(invoke).toHaveBeenCalledWith('brooz:key-status', 'finnhub');
-        expect((screen.getByLabelText('Finnhub API key') as HTMLInputElement).value).toBe('');
-    });
-
-    it('refuses to save when the system cannot store keys', async () => {
-        stubBrooz({
-            'brooz:key-status': () => ({ present: false, canStore: true }),
-            'brooz:key-set': () => ({ status: 'encryption-unavailable' })
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        const input = await screen.findByLabelText('Finnhub API key');
-        fireEvent.change(input, { target: { value: 'k1' } });
-        fireEvent.click(screen.getByText('Save'));
-        expect(await screen.findByText(/no encrypted place for keys/)).toBeTruthy();
-    });
-
-    it('locks the input when the system has no keyring', async () => {
-        stubBrooz({ 'brooz:key-status': () => ({ present: false, canStore: false }) });
-        render(<LiveSettings {...live} args={{}} />);
-        expect(await screen.findByText('No keyring')).toBeTruthy();
-        expect(screen.getByText(/no encrypted place for keys/)).toBeTruthy();
-        expect((screen.getByLabelText('Finnhub API key') as HTMLInputElement).disabled).toBe(true);
-        expect((screen.getByText('Save') as HTMLButtonElement).disabled).toBe(true);
-    });
-
-    it('tests a stored key and shows what the provider said', async () => {
-        stubBrooz({
-            'brooz:key-status': () => ({ present: true, canStore: true }),
-            'brooz:key-test': () => ({
-                status: 'provider-error',
-                message: 'Finnhub replied with 403.'
-            })
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        fireEvent.click(await screen.findByText('Test'));
-        expect(
-            await screen.findByText('The provider said: Finnhub replied with 403.')
-        ).toBeTruthy();
-    });
-
-    it('celebrates a key that works', async () => {
-        stubBrooz({
-            'brooz:key-status': () => ({ present: true, canStore: true }),
-            'brooz:key-test': () => ({ status: 'ok' })
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        fireEvent.click(await screen.findByText('Test'));
-        expect(await screen.findByText('The key works.')).toBeTruthy();
-    });
-
-    it('says there is no key to test when the probe finds none', async () => {
-        stubBrooz({
-            'brooz:key-status': () => ({ present: true, canStore: true }),
-            'brooz:key-test': () => ({ status: 'missing-key', reason: 'not-set' })
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        fireEvent.click(await screen.findByText('Test'));
-        expect(await screen.findByText('There is no key to test.')).toBeTruthy();
-    });
-
-    it('deletes a stored key and refreshes the status', async () => {
-        const invoke = stubBrooz({
-            'brooz:key-status': () => ({ present: true, canStore: true }),
-            'brooz:key-delete': () => undefined
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        fireEvent.click(await screen.findByText('Delete'));
-        expect(await screen.findByText('Key removed.')).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:key-delete', 'finnhub');
-        expect(invoke).toHaveBeenCalledWith('brooz:key-status', 'finnhub');
-    });
-
-    it('shows the error and recovers when an action rejects', async () => {
-        stubBrooz({
-            'brooz:key-status': () => ({ present: false, canStore: true }),
-            'brooz:key-set': () => {
-                throw new Error(
-                    "Error invoking remote method 'brooz:key-set': RangeError: A key has 1 to 256 characters."
-                );
-            }
-        });
-        render(<LiveSettings {...live} args={{}} />);
-        const input = await screen.findByLabelText('Finnhub API key');
-        fireEvent.change(input, { target: { value: 'k1' } });
-        fireEvent.click(screen.getByText('Save'));
-        expect(await screen.findByText('A key has 1 to 256 characters.')).toBeTruthy();
-        fireEvent.change(input, { target: { value: 'k2' } });
-        expect((screen.getByText('Save') as HTMLButtonElement).disabled).toBe(false);
-    });
-
-    it('says it is checking while the status loads', async () => {
-        window.brooz = {
-            invoke: vi.fn(() => new Promise(() => undefined))
-        } as never;
-        render(<LiveSettings {...live} args={{}} />);
-        expect(screen.getByText('Checking')).toBeTruthy();
-        expect(screen.getByText('Save')).toBeTruthy();
     });
 });

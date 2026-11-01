@@ -1,3 +1,4 @@
+import { useGeolocation, useLocalStorage } from '@uidotdev/usehooks';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import { placeKey } from '../../../shared/weather';
@@ -13,28 +14,6 @@ import type { StockQuote } from '../../../shared/quotes';
 
 /** Where a live tile falls back when there is no device location for it. */
 const FALLBACK_CITY = 'Berlin';
-
-/** One location request per window, shared by every location-aware tile. */
-let coordinatesPromise: Promise<PlaceQuery | null> | null = null;
-
-function requestCoordinates(): Promise<PlaceQuery | null> {
-    coordinatesPromise ??= new Promise((resolve) => {
-        if (!('geolocation' in navigator)) {
-            resolve(null);
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (position) =>
-                resolve({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                }),
-            () => resolve(null),
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }
-        );
-    });
-    return coordinatesPromise;
-}
 
 /**
  * Electron wraps an error thrown by an IPC handler as
@@ -101,45 +80,65 @@ function useAsync<T>(key: string | null, loader: () => Promise<T>): AsyncView<T>
     };
 }
 
-/**
- * Resolves an utterance's optional city. No city means the device location;
- * when there is none (the permission is denied by default), the tile falls
- * back to Berlin instead of failing.
- */
-export function useLiveLocation(city?: string): { query: PlaceQuery | null; pending: boolean } {
-    const [settled, setSettled] = useState<{ coordinates: PlaceQuery | null } | null>(null);
-
-    useEffect(() => {
-        if (city) {
-            return;
-        }
-        let cancelled = false;
-        void requestCoordinates().then((coordinates) => {
-            if (!cancelled) {
-                setSettled({ coordinates });
-            }
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [city]);
-
-    if (city) {
-        return { query: { city }, pending: false };
-    }
-    if (!settled) {
-        return { query: null, pending: true };
-    }
-    return { query: settled.coordinates ?? { city: FALLBACK_CITY }, pending: false };
+/** Where a tile shows live data: a place, or null while it is still unsettled. */
+export interface LiveLocation {
+    query: PlaceQuery | null;
+    pending: boolean;
+    /** The device location is unavailable, so the query is the fallback city. */
+    fallback: boolean;
 }
 
-export function useWeather(query: PlaceQuery | null): AsyncView<WeatherSnapshot> {
+const GEO_OPTIONS: PositionOptions = {
+    enableHighAccuracy: false,
+    timeout: 8000,
+    maximumAge: 60_000
+};
+
+/** Two decimals, about a kilometre: a tile reloads when the device moves that far. */
+function coarse(degrees: number): number {
+    return Math.round(degrees * 100) / 100;
+}
+
+/** Whether tiles may follow the device location: on until the person turns it off. */
+export function useDeviceLocationSetting(): [boolean, (on: boolean) => void] {
+    return useLocalStorage<boolean>('brooz.location.enabled', true);
+}
+
+/** The fallback a tile shows when it may not, or cannot, follow the device. */
+export const FALLBACK_LOCATION: LiveLocation = {
+    query: { city: FALLBACK_CITY },
+    pending: false,
+    fallback: true
+};
+
+/**
+ * The device location, followed while the tile is open. Without one (denied,
+ * switched off, or unsupported) the tile falls back to Berlin and says so.
+ */
+export function useDeviceLocation(): LiveLocation {
+    const { latitude, longitude, loading } = useGeolocation(GEO_OPTIONS);
+    if (latitude !== null && longitude !== null) {
+        return {
+            query: { latitude: coarse(latitude), longitude: coarse(longitude) },
+            pending: false,
+            fallback: false
+        };
+    }
+    if (loading) {
+        return { query: null, pending: true, fallback: false };
+    }
+    return FALLBACK_LOCATION;
+}
+
+export function useWeather(query: PlaceQuery | null): AsyncView<ProviderOutcome<WeatherSnapshot>> {
     return useAsync(query && `weather:${placeKey(query)}`, () =>
         window.brooz.invoke(IPC_CHANNELS.weather, query!)
     );
 }
 
-export function useAirQuality(query: PlaceQuery | null): AsyncView<AirQualitySnapshot> {
+export function useAirQuality(
+    query: PlaceQuery | null
+): AsyncView<ProviderOutcome<AirQualitySnapshot>> {
     return useAsync(query && `air:${placeKey(query)}`, () =>
         window.brooz.invoke(IPC_CHANNELS.airQuality, query!)
     );

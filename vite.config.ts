@@ -12,6 +12,10 @@ const mainOut = fileURLToPath(new URL('./dist/main', import.meta.url));
 const preloadOut = fileURLToPath(new URL('./dist/preload', import.meta.url));
 const mainEntry = fileURLToPath(new URL('./src/main/index.ts', import.meta.url));
 const preloadEntry = fileURLToPath(new URL('./src/preload/index.ts', import.meta.url));
+const srcRoot = fileURLToPath(new URL('./src', import.meta.url));
+// The shadcn primitives are kept as generated (docs/adr/0004): they are not
+// formatted or linted, only their app-* wrappers are.
+const primitives = 'src/renderer/shell/ui/primitives/**';
 
 // The import rules of the zones in .fallowrc.jsonc. Fallow enforces which
 // zone may import which zone; oxlint enforces which package a zone may touch:
@@ -26,6 +30,26 @@ const noNodeBuiltins = {
     message: 'this zone has no Node access: the main zone owns everything node:*'
 };
 
+// The renderer reaches these browser APIs through @uidotdev/usehooks only
+// (AGENTS.md, "Hooks"), so storage and location stay reactive and shared.
+const usehooksFirst = [
+    { name: 'localStorage', message: 'use useLocalStorage from @uidotdev/usehooks' },
+    { name: 'sessionStorage', message: 'use useSessionStorage from @uidotdev/usehooks' },
+    { name: 'matchMedia', message: 'use useMediaQuery from @uidotdev/usehooks' }
+];
+const usehooksFirstProperties = [
+    ...usehooksFirst.map((global) => ({
+        object: 'window',
+        property: global.name,
+        message: global.message
+    })),
+    {
+        object: 'navigator',
+        property: 'geolocation',
+        message: 'use useGeolocation from @uidotdev/usehooks'
+    }
+];
+
 const config: UserConfig = {
     fmt: {
         semi: true,
@@ -35,6 +59,7 @@ const config: UserConfig = {
         tabWidth: 4
     },
     lint: {
+        ignorePatterns: [primitives],
         jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
         rules: {
             'vite-plus/prefer-vite-plus-imports': 'error'
@@ -55,7 +80,9 @@ const config: UserConfig = {
                     'no-restricted-imports': [
                         'error',
                         { paths: [noElectron], patterns: [noNodeBuiltins] }
-                    ]
+                    ],
+                    'no-restricted-globals': ['error', ...usehooksFirst],
+                    'no-restricted-properties': ['error', ...usehooksFirstProperties]
                 }
             },
             {
@@ -85,6 +112,8 @@ const config: UserConfig = {
     root: process.env.VITEST ? repoRoot : rendererRoot,
     base: './',
     plugins: [react(), tailwindcss()],
+    // The `@/` alias the shadcn primitives import each other with.
+    resolve: { alias: { '@': srcRoot } },
     build: {
         outDir: rendererOut,
         emptyOutDir: true
@@ -151,7 +180,9 @@ const config: UserConfig = {
                 // no coverable code.
                 '**/*.css',
                 // The tile contract is types only: nothing to cover.
-                'src/renderer/shell/tile.ts'
+                'src/renderer/shell/tile.ts',
+                // Vendored as generated; the app-* wrappers carry the coverage.
+                primitives
             ],
             thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 }
         }

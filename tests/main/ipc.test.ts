@@ -23,10 +23,10 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('../../src/main/open-meteo', () => ({
-    geocodeCity: (...args: unknown[]) => mockGeocode(...args),
-    fetchWeather: (...args: unknown[]) => mockWeather(...args),
-    fetchAirQuality: (...args: unknown[]) => mockAirQuality(...args)
+    geocodeCity: (...args: unknown[]) => mockGeocode(...args)
 }));
+
+vi.mock('../../src/main/protocol', () => ({ STYLE_NONCE: 'n0nce' }));
 
 vi.mock('../../src/main/key-store', () => ({
     saveKey: (...args: unknown[]) => mockSaveKey(...args),
@@ -37,7 +37,9 @@ vi.mock('../../src/main/key-store', () => ({
 
 vi.mock('../../src/main/providers', () => ({
     probeProvider: (...args: unknown[]) => mockProbeProvider(...args),
-    stockQuotes: (...args: unknown[]) => mockStockQuotes(...args)
+    stockQuotes: (...args: unknown[]) => mockStockQuotes(...args),
+    weather: (...args: unknown[]) => mockWeather(...args),
+    airQuality: (...args: unknown[]) => mockAirQuality(...args)
 }));
 
 type Handler = (event: { senderFrame: { url: string } | null }, ...args: unknown[]) => unknown;
@@ -68,7 +70,8 @@ describe('the IPC handlers', () => {
             'brooz:key-delete',
             'brooz:key-status',
             'brooz:key-test',
-            'brooz:stock-quotes'
+            'brooz:stock-quotes',
+            'brooz:style-nonce'
         ]);
     });
 
@@ -98,7 +101,8 @@ describe('the IPC handlers', () => {
         'brooz:key-delete',
         'brooz:key-status',
         'brooz:key-test',
-        'brooz:stock-quotes'
+        'brooz:stock-quotes',
+        'brooz:style-nonce'
     ])('rejects any other sender on %s', (channel) => {
         registerIpcHandlers('http://localhost:5173/');
         expect(() => handlerFor(channel)(sender('https://example.com'), { city: 'Rome' })).toThrow(
@@ -180,6 +184,11 @@ describe('the IPC handlers', () => {
         const quotes = handlerFor('brooz:stock-quotes')(app, ['aapl', 'AAPL']);
         await expect(quotes).resolves.toEqual({ status: 'ok', data: [] });
         expect(mockStockQuotes).toHaveBeenCalledWith(['AAPL']);
+    });
+
+    it('hands the renderer the style nonce of this launch', () => {
+        registerIpcHandlers();
+        expect(handlerFor('brooz:style-nonce')(app)).toBe('n0nce');
     });
 
     it('validates the arguments before anything reaches the network', () => {

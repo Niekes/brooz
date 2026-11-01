@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { DOME_PRESETS, SIZES } from '../../src/renderer/shell/grid/dome';
 import { DomeEngine } from '../../src/renderer/shell/grid/engine';
-import { stubMatchMedia } from './stubs';
 
 let frames: FrameRequestCallback[] = [];
 const cancelFrame = vi.fn();
@@ -43,7 +42,6 @@ function numbers(transform: string): number[] {
 }
 
 function setup(reduced = false) {
-    const motion = stubMatchMedia(reduced);
     const onPool = vi.fn();
     const onInteract = vi.fn();
     const engine = new DomeEngine(DOME_PRESETS.current, onPool, onInteract);
@@ -57,8 +55,9 @@ function setup(reduced = false) {
     Object.assign(stage, capture);
     const card = document.createElement('div');
     engine.setCard(0, card);
+    engine.setReducedMotion(reduced);
     const detach = engine.attach(stage);
-    return { engine, stage, card, onPool, onInteract, detach, motion, capture };
+    return { engine, stage, card, onPool, onInteract, detach, capture };
 }
 
 describe('the dome engine', () => {
@@ -174,7 +173,7 @@ describe('the dome engine', () => {
     });
 
     it('lays the grid flat and jumps instead of flying for reduced motion', () => {
-        const { engine, card, stage, motion } = setup(true);
+        const { engine, card, stage } = setup(true);
         step();
         expect(numbers(card.style.transform)).toEqual(
             numbers(`translate3d(${512 + SIZES.cellW / 2}px, ${384 + SIZES.cellH / 2}px, 0)`)
@@ -191,7 +190,7 @@ describe('the dome engine', () => {
         expect(numbers(card.style.transform)).toEqual([3, 512, 384, 0]);
         expect(frames).toHaveLength(0);
 
-        motion.set(false);
+        engine.setReducedMotion(false);
         step();
         expect(card.style.transform).toContain('rotateY');
     });

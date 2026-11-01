@@ -12,5 +12,13 @@
                 ]
             }
         ]
+    },
+    "permissions": {
+        "deny": [
+            "Edit(src/renderer/shell/ui/primitives/**)",
+            "Write(src/renderer/shell/ui/primitives/**)",
+            "Edit(src/renderer/shell/ui/primitives.lock.json)",
+            "Write(src/renderer/shell/ui/primitives.lock.json)"
+        ]
     }
 }

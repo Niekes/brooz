@@ -7,6 +7,12 @@ const fetchQuotes = vi.fn(async (_key: string, _symbols: string[]) => ({
     data: [{ symbol: 'AAPL', price: 1, changePercent: null }]
 }));
 const probeKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
+const fetchWeather = vi.fn(async (_key: string, _query: unknown) => ({ status: 'ok', data: 'w' }));
+const fetchAirQuality = vi.fn(async (_key: string, _query: unknown) => ({
+    status: 'ok',
+    data: 'a'
+}));
+const probeWeatherKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
 
 vi.mock('electron', () => ({}));
 vi.mock('../../src/main/key-store', () => ({
@@ -16,6 +22,11 @@ vi.mock('../../src/main/key-store', () => ({
 vi.mock('../../src/main/finnhub', () => ({
     fetchQuotes: (key: string, symbols: string[]) => fetchQuotes(key, symbols),
     probeKey: (key: string) => probeKey(key)
+}));
+vi.mock('../../src/main/openweathermap', () => ({
+    fetchWeather: (key: string, query: unknown) => fetchWeather(key, query),
+    fetchAirQuality: (key: string, query: unknown) => fetchAirQuality(key, query),
+    probeKey: (key: string) => probeWeatherKey(key)
 }));
 
 describe('the provider side of the contract', () => {
@@ -75,6 +86,35 @@ describe('the provider side of the contract', () => {
             api.probeProvider('finnhub')
         );
         expect(result).toEqual({ status: 'missing-key', reason: 'not-set' });
+        expect(probeKey).not.toHaveBeenCalled();
+    });
+
+    it('fetches the weather and the air quality with the OpenWeatherMap key', async () => {
+        const api = await import('../../src/main/providers');
+        await expect(api.weather({ city: 'Oslo' })).resolves.toEqual({ status: 'ok', data: 'w' });
+        await expect(api.airQuality({ city: 'Oslo' })).resolves.toEqual({
+            status: 'ok',
+            data: 'a'
+        });
+        expect(providerKey).toHaveBeenCalledWith('openweathermap');
+        expect(fetchWeather).toHaveBeenCalledWith('k1', { city: 'Oslo' });
+        expect(fetchAirQuality).toHaveBeenCalledWith('k1', { city: 'Oslo' });
+    });
+
+    it('answers missing-key for the weather without a key', async () => {
+        providerKey.mockReturnValue(null);
+        const api = await import('../../src/main/providers');
+        await expect(api.weather({ city: 'Oslo' })).resolves.toEqual({
+            status: 'missing-key',
+            reason: 'not-set'
+        });
+        expect(fetchWeather).not.toHaveBeenCalled();
+    });
+
+    it('probes each provider with its own service', async () => {
+        const api = await import('../../src/main/providers');
+        await api.probeProvider('openweathermap');
+        expect(probeWeatherKey).toHaveBeenCalledWith('k1');
         expect(probeKey).not.toHaveBeenCalled();
     });
 });

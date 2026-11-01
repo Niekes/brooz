@@ -2,15 +2,19 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { KeyStatus, ProviderInfo, ProviderProbe } from '../../../shared/providers';
-import { errorMessage, useKeyStatus } from '../../shell/kit/hooks';
+import { errorMessage, useKeyStatus } from '../kit/hooks';
+import { AppBadge } from '../ui/app-badge';
+import { AppButton } from '../ui/app-button';
+import { AppInput } from '../ui/app-input';
 
 /**
- * One provider of the settings: the status of its key, and the controls
- * that manage it. A key crosses this component once, on its way from the
- * input to the `key-set` channel, and is never shown again.
+ * A provider's key in a settings section: its status, and the controls that
+ * manage it. A key crosses this component once, on its way from the input
+ * to the `key-set` channel, and is never shown again. Every section of a
+ * provider shows the same key.
  */
 
-/** What a probe of a stored key tells its provider's row. */
+/** What a probe of a stored key tells its provider's section. */
 function probeNotice(probe: ProviderProbe): string {
     switch (probe.status) {
         case 'ok':
@@ -22,7 +26,7 @@ function probeNotice(probe: ProviderProbe): string {
     }
 }
 
-/** What the row says about the state of its provider's key. */
+/** What the badge says about the state of the provider's key. */
 function statusText(status: { loading: boolean; data: KeyStatus | null }): string {
     if (status.loading) {
         return 'Checking';
@@ -32,28 +36,6 @@ function statusText(status: { loading: boolean; data: KeyStatus | null }): strin
         return state?.present ? 'Key stored' : 'No key';
     }
     return 'No keyring';
-}
-
-/** The one shape of the settings' buttons. */
-function KeyButton({
-    label,
-    onClick,
-    disabled
-}: {
-    label: string;
-    onClick: () => void;
-    disabled: boolean;
-}): JSX.Element {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[8px] font-medium tracking-[0.16em] text-white/70 uppercase transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
-        >
-            {label}
-        </button>
-    );
 }
 
 /** The input that takes a key, and the button that stores it. */
@@ -73,16 +55,16 @@ function KeyField({
     const [value, setValue] = useState('');
     return (
         <>
-            <input
+            <AppInput
+                type="password"
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 placeholder={`${provider.title} API key`}
                 aria-label={`${provider.title} API key`}
                 disabled={busy || locked}
-                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-white placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+                className="font-mono"
             />
-            <KeyButton
-                label="Save"
+            <AppButton
                 disabled={busy || locked || value.trim().length === 0}
                 onClick={() =>
                     run(async () => {
@@ -95,7 +77,9 @@ function KeyField({
                         onSaved(result.status === 'ok');
                     })
                 }
-            />
+            >
+                Save
+            </AppButton>
         </>
     );
 }
@@ -116,8 +100,7 @@ function StoredKeyActions({
 }): JSX.Element {
     return (
         <>
-            <KeyButton
-                label="Test"
+            <AppButton
                 disabled={busy}
                 onClick={() =>
                     run(async () => {
@@ -125,9 +108,10 @@ function StoredKeyActions({
                         onNotice(probeNotice(probe));
                     })
                 }
-            />
-            <KeyButton
-                label="Delete"
+            >
+                Test
+            </AppButton>
+            <AppButton
                 disabled={busy}
                 onClick={() =>
                     run(async () => {
@@ -135,13 +119,15 @@ function StoredKeyActions({
                         onRemoved();
                     })
                 }
-            />
+            >
+                Delete
+            </AppButton>
         </>
     );
 }
 
-/** The provider's name, the state of its key, and where the key comes from. */
-function RowHeader({
+/** The key's name and status, and where a key comes from. */
+function KeyHeader({
     provider,
     status,
     locked
@@ -153,24 +139,20 @@ function RowHeader({
     return (
         <>
             <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-[12px] font-medium text-white">
-                    {provider.title}
-                </span>
-                <span className="shrink-0 text-[9px] tracking-[0.12em] text-white/40 uppercase">
-                    {statusText(status)}
-                </span>
+                <span className="truncate text-sm font-medium">{provider.title} API key</span>
+                <AppBadge>{statusText(status)}</AppBadge>
             </div>
-            <p className="text-[9px] leading-snug text-white/40">
+            <p className="text-xs text-white/45">
                 {locked
                     ? 'This system offers no encrypted place for keys, so none can be stored here.'
-                    : `${provider.description} Key at ${provider.keyUrl}.`}
+                    : `${provider.description} Get a key at ${provider.keyUrl}. One key serves every tile of ${provider.title}.`}
             </p>
         </>
     );
 }
 
-/** One provider of the settings: its status line and the controls around it. */
-export function ProviderRow({ provider }: { provider: ProviderInfo }): JSX.Element {
+/** One provider's key: its status, where it comes from, and its controls. */
+export function ProviderKey({ provider }: { provider: ProviderInfo }): JSX.Element {
     const status = useKeyStatus(provider);
     const [notice, setNotice] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -191,9 +173,9 @@ export function ProviderRow({ provider }: { provider: ProviderInfo }): JSX.Eleme
     const locked = state !== null && !state.canStore;
 
     return (
-        <div className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
-            <RowHeader provider={provider} status={status} locked={locked} />
-            <div className="flex items-center gap-1.5">
+        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <KeyHeader provider={provider} status={status} locked={locked} />
+            <div className="flex items-center gap-2">
                 <KeyField
                     provider={provider}
                     busy={busy}
@@ -221,7 +203,11 @@ export function ProviderRow({ provider }: { provider: ProviderInfo }): JSX.Eleme
                     />
                 ) : null}
             </div>
-            {notice !== null ? <p className="text-[9px] text-white/50">{notice}</p> : null}
+            {notice !== null ? (
+                <p role="status" className="text-xs text-white/60">
+                    {notice}
+                </p>
+            ) : null}
         </div>
     );
 }

@@ -66,3 +66,16 @@ test('a fresh start routes with the rules and downloads no model', async () => {
     await expect(window.getByText('Enable local model · 380 MB')).toBeVisible();
     expect(await window.evaluate(() => caches.keys())).toEqual([]);
 });
+
+test('the settings open on the shortcut, close on Esc, and break no policy', async () => {
+    await expect(window.getByLabel('Ask your dashboard')).toBeVisible();
+    await window.keyboard.press(process.platform === 'darwin' ? 'Meta+Comma' : 'Control+Comma');
+    const settings = window.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible();
+    await expect(settings.getByRole('heading', { name: 'Weather' })).toBeVisible();
+    await expect(settings.getByText('No key')).toBeVisible();
+    await window.screenshot({ path: 'test-results/settings.png' });
+    await window.keyboard.press('Escape');
+    await expect(settings).toBeHidden();
+    expect(violations).toEqual([]);
+});

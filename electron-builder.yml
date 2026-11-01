@@ -21,6 +21,10 @@ publish:
 # the same build turns signed later without a code change.
 mac:
     category: public.app-category.developer-tools
+    # macOS shows this when a weather tile first asks for the device location.
+    extendInfo:
+        NSLocationUsageDescription: Brooz shows the weather where you are.
+        NSLocationWhenInUseUsageDescription: Brooz shows the weather where you are.
     target:
         - target: dmg
           arch: [arm64, x64]

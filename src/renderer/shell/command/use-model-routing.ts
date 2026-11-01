@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useDebounce } from '@uidotdev/usehooks';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { argsFor } from './manifest';
 import { parseCommand } from './parse';
 import type { CommandMatch } from './parse';
@@ -45,38 +46,43 @@ export function useModelRouting(
     const [pending, setPending] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
 
+    const settled = useDebounce(query, MODEL_DELAY);
+    // An answer is dropped as soon as the person types on, not only once the debounce settles.
+    const latest = useRef(query);
     useEffect(() => {
-        const text = query.trim();
+        latest.current = query;
+    });
+
+    useEffect(() => {
+        const text = settled.trim();
         if (status !== 'ready' || text.length < 2) {
             return;
         }
         let stale = false;
-        const timer = setTimeout(() => {
-            setPending(true);
-            route(text)
-                .then(
-                    (result) => {
-                        if (!stale) {
-                            setMatches(toMatches(result, query));
-                        }
-                    },
-                    (cause: Error) => {
-                        if (!stale) {
-                            setFailure(cause.message);
-                        }
+        const current = (): boolean => !stale && latest.current === settled;
+        setPending(true);
+        route(text)
+            .then(
+                (result) => {
+                    if (current()) {
+                        setMatches(toMatches(result, settled));
                     }
-                )
-                .finally(() => {
-                    if (!stale) {
-                        setPending(false);
+                },
+                (cause: Error) => {
+                    if (current()) {
+                        setFailure(cause.message);
                     }
-                });
-        }, MODEL_DELAY);
+                }
+            )
+            .finally(() => {
+                if (!stale) {
+                    setPending(false);
+                }
+            });
         return () => {
             stale = true;
-            clearTimeout(timer);
         };
-    }, [query, status, route]);
+    }, [settled, status, route]);
 
     const reset = useCallback(() => {
         setMatches([]);

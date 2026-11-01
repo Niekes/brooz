@@ -22,5 +22,24 @@ app.
 _Avoid_: Token, secret, credential
 
 **Settings**:
-The single surface where keys are managed, shown as a list of providers.
+The single surface where keys and tile options are managed, shown over the
+dashboard rather than as a tile of it. It is divided
+into one section per tile; a tile whose provider needs a key shows that
+provider's key in its section, so a key shared by several tiles appears in
+each of their sections and is still one key.
 _Avoid_: Preferences, config
+
+**Section**:
+The part of the settings that belongs to one tile, listed in the settings'
+sidebar.
+_Avoid_: Area, page, tab
+
+**Location**:
+The place a tile shows live data for. A city named in the utterance is the
+location; without one, the device location is; without that, a fallback.
+_Avoid_: Place (for this meaning), position, city
+
+**Device location**:
+Where the device is right now, followed for as long as a tile uses it,
+with the person's permission.
+_Avoid_: Real-time location, GPS, current location

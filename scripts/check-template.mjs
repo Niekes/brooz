@@ -9,6 +9,7 @@
  *   one tile directory                   never imports from another tile
  *   every source file                    `export function` for public
  *                                       functions, no default exports
+ *   the shadcn primitives                unchanged since `npm run ui:add`
  *
  * Fallow covers the parts of the template that need a real dependency graph
  * (zones, dead code, test coverage). This script covers the parts that are
@@ -24,6 +25,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { PRIMITIVES, hashPrimitives, nextLock, readLock } from './primitives-lock.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -82,6 +85,9 @@ for (const name of tileNames) {
  * and the stack traces predictable. There are no default exports.
  */
 for (const file of collectSourceFiles('src')) {
+    if (file.startsWith(`${PRIMITIVES}/`)) {
+        continue;
+    }
     const source = read(file);
 
     if (/^export\s+const\s+\w+\s*=\s*(async\s*)?(\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/m.test(source)) {
@@ -106,6 +112,33 @@ for (const file of collectSourceFiles('src/preload')) {
         if (!specifier.startsWith('.') && specifier !== 'electron') {
             fail(`${file}: the sandboxed preload may only import electron, not '${specifier}'`);
         }
+    }
+}
+
+/**
+ * The shadcn primitives stay as generated: their hashes match the lock that
+ * `npm run ui:add` wrote. Change them through their app-* wrappers instead
+ * (docs/adr/0004).
+ */
+// Self-check of `ui:add`: without names it never accepts a changed hash.
+assert.deepEqual(
+    nextLock({ 'a.tsx': 'old', 'gone.tsx': 'x' }, { 'a.tsx': 'new', 'b.tsx': 'b' }, []),
+    {
+        'a.tsx': 'old'
+    }
+);
+assert.deepEqual(nextLock({ 'a.tsx': 'old' }, { 'a.tsx': 'new', 'b.tsx': 'b' }, ['a']), {
+    'a.tsx': 'new',
+    'b.tsx': 'b'
+});
+
+const locked = readLock();
+const current = hashPrimitives();
+for (const name of new Set([...Object.keys(locked), ...Object.keys(current)])) {
+    if (locked[name] !== current[name]) {
+        fail(
+            `${PRIMITIVES}/${name}: primitives are not edited by hand - wrap it in an app-* component, or run \`npm run ui:add -- ${name.replace(/\.tsx$/, '')}\``
+        );
     }
 }
 

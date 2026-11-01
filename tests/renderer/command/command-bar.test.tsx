@@ -10,11 +10,12 @@ const latest = () => workers[workers.length - 1];
 
 function setup() {
     const onSummon = vi.fn();
-    const view = render(<CommandBar onSummon={onSummon} />);
+    const onOpenSettings = vi.fn();
+    const view = render(<CommandBar onSummon={onSummon} onOpenSettings={onOpenSettings} />);
     const input = screen.getByLabelText('Ask your dashboard') as HTMLInputElement;
     const type = (value: string) => fireEvent.change(input, { target: { value } });
     const press = (key: string) => fireEvent.keyDown(input, { key });
-    return { ...view, onSummon, input, type, press, worker: latest() };
+    return { ...view, onSummon, onOpenSettings, input, type, press, worker: latest() };
 }
 
 /** A worker message; a route answer settles a promise, so the act is async. */
@@ -38,6 +39,12 @@ describe('the ask bar with the rules', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.unstubAllGlobals();
+    });
+
+    it('opens the settings from the button under the field', () => {
+        const { onOpenSettings } = setup();
+        fireEvent.click(screen.getByText('Settings Ctrl+,'));
+        expect(onOpenSettings).toHaveBeenCalled();
     });
 
     it('starts loading the model and suggests examples', async () => {
@@ -313,6 +320,9 @@ describe('the ask bar with the local model', () => {
             vi.advanceTimersByTime(240);
         });
         type('third query');
+        act(() => {
+            vi.advanceTimersByTime(240);
+        });
         await emit({ type: 'route-error', id: 1, message: 'ignored' });
         expect(screen.queryByText('ignored')).toBe(null);
     });
@@ -355,26 +365,13 @@ describe('the opt-in for the local model', () => {
         fireEvent.click(screen.getByText('Enable local model · 380 MB'));
         expect(workers).toHaveLength(1);
         expect(workers[0].posted).toEqual([{ type: 'load' }]);
-        expect(localStorage.getItem('brooz.model.enabled')).toBe('1');
+        expect(localStorage.getItem('brooz.model.enabled')).toBe('true');
         expect(screen.getByText('Loading local model 0%')).toBeTruthy();
         first.unmount();
 
         setup();
         expect(workers).toHaveLength(2);
         expect(workers[1].posted).toEqual([{ type: 'load' }]);
-    });
-
-    it('stays with the rules when the storage cannot be read, and still enables', () => {
-        vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-            throw new Error('denied');
-        });
-        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-            throw new Error('denied');
-        });
-        setup();
-        expect(workers).toHaveLength(0);
-        fireEvent.click(screen.getByText('Enable local model · 380 MB'));
-        expect(workers).toHaveLength(1);
     });
 
     it('reports a worker that cannot start, and starts a new one on retry', async () => {

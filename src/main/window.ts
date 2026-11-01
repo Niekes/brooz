@@ -5,10 +5,12 @@ import { isAppOrigin } from './origin';
 import { APP_INDEX_URL } from './protocol';
 
 /**
- * The permission allowlist. It starts empty: every request is denied until a
- * tile needs a permission - a camera tile adds `media` here.
+ * The permission allowlist: every other request is denied. `geolocation`
+ * lets the weather tiles follow the device location
+ * (docs/adr/0005-the-app-may-ask-for-the-device-location.md); a camera tile
+ * would add `media`.
  */
-export const PERMISSION_ALLOWLIST: readonly string[] = [];
+export const PERMISSION_ALLOWLIST: readonly string[] = ['geolocation'];
 
 /**
  * Installs the deny-by-default permission handler on a session. The browser

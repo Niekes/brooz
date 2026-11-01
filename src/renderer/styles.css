@@ -11,6 +11,36 @@
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 }
 
+/*
+ * The shadcn tokens, mapped onto the glass palette: the primitives in
+ * shell/ui/primitives read these, the app-* wrappers never hard-code a
+ * colour of their own. The app is dark only, so `dark:` always applies.
+ */
+@custom-variant dark (&:where(:root, :root *));
+
+/* Dialogs sit above the ask bar (z-80); unlayered, so it beats z-50. */
+[data-slot='dialog-overlay'],
+[data-slot='dialog-content'] {
+    z-index: 100;
+}
+
+@theme inline {
+    --color-background: rgb(10 10 10 / 0.72);
+    --color-foreground: #ededed;
+    --color-primary: #ededed;
+    --color-primary-foreground: #0a0a0a;
+    --color-secondary: rgb(255 255 255 / 0.06);
+    --color-secondary-foreground: rgb(255 255 255 / 0.8);
+    --color-muted: rgb(255 255 255 / 0.04);
+    --color-muted-foreground: rgb(255 255 255 / 0.45);
+    --color-accent: rgb(255 255 255 / 0.1);
+    --color-accent-foreground: #ffffff;
+    --color-destructive: #fda4af;
+    --color-border: rgb(255 255 255 / 0.1);
+    --color-input: rgb(255 255 255 / 0.12);
+    --color-ring: rgb(255 255 255 / 0.3);
+}
+
 :root {
     color-scheme: dark;
 }

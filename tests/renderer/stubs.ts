@@ -104,3 +104,28 @@ export function stubMatchMedia(matches: boolean): { set: (value: boolean) => voi
         }
     };
 }
+
+/** A device location that answers with `position`, or denies without one. */
+export function stubGeolocation(position?: { latitude: number; longitude: number }): {
+    clearWatch: ReturnType<typeof vi.fn>;
+} {
+    const answer = (success: PositionCallback, error: PositionErrorCallback): void => {
+        if (position) {
+            success({ coords: position, timestamp: 0 } as GeolocationPosition);
+        } else {
+            error({ code: 1, message: 'denied' } as GeolocationPositionError);
+        }
+    };
+    const clearWatch = vi.fn();
+    vi.stubGlobal('navigator', {
+        geolocation: {
+            getCurrentPosition: answer,
+            watchPosition: (success: PositionCallback, error: PositionErrorCallback) => {
+                answer(success, error);
+                return 7;
+            },
+            clearWatch
+        }
+    });
+    return { clearWatch };
+}

@@ -1,3 +1,4 @@
+import { useDebounce, useLocalStorage } from '@uidotdev/usehooks';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Eyebrow } from '../../shell/kit/chrome';
@@ -59,32 +60,38 @@ const SAVED_BADGE = 1600;
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
 
-function readStoredNote(): string {
-    try {
-        return localStorage.getItem(STORAGE_KEY) ?? '';
-    } catch {
-        return '';
-    }
-}
-
 const META: Record<SaveStatus, string> = { idle: 'Local', saving: 'Saving', saved: 'Saved' };
+
+/**
+ * Builds before useLocalStorage stored the note as raw text, which the hook
+ * cannot parse; rewrite it as JSON once, so no note is lost.
+ */
+export function migrateStoredNote(storage: Storage): void {
+    const raw = storage.getItem(STORAGE_KEY);
+    if (raw === null) {
+        return;
+    }
+    try {
+        if (typeof JSON.parse(raw) === 'string') {
+            return;
+        }
+    } catch {
+        // Raw text: rewritten below.
+    }
+    storage.setItem(STORAGE_KEY, JSON.stringify(raw));
+}
 
 /** The note text, saved a moment after each edit, and where the saving is. */
 function useSavedNote(initial: string | undefined): [string, SaveStatus, (value: string) => void] {
-    const [text, setText] = useState(() => initial ?? readStoredNote());
+    const [stored, setStored] = useLocalStorage(STORAGE_KEY, '');
+    const [text, setText] = useState(() => initial ?? stored);
     const [status, setStatus] = useState<SaveStatus>('idle');
+    const settled = useDebounce(text, SAVE_DELAY);
 
     useEffect(() => {
-        const id = setTimeout(() => {
-            try {
-                localStorage.setItem(STORAGE_KEY, text);
-                setStatus('saved');
-            } catch {
-                setStatus('idle');
-            }
-        }, SAVE_DELAY);
-        return () => clearTimeout(id);
-    }, [text]);
+        setStored(settled);
+        setStatus('saved');
+    }, [settled, setStored]);
 
     useEffect(() => {
         if (status !== 'saved') {
