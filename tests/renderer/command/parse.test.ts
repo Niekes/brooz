@@ -46,7 +46,7 @@ describe('the rules', () => {
 
     it('cap a runner-up by how far it trails', () => {
         const { matches } = parseCommand('weather forecast air quality in Oslo');
-        expect(matches).toHaveLength(3);
+        expect(matches).toHaveLength(2);
         for (const match of matches.slice(1)) {
             expect(match.confidence).toBeGreaterThanOrEqual(0.55);
             expect(match.confidence).toBeLessThanOrEqual(0.95);
@@ -176,7 +176,6 @@ describe('the args of a tile', () => {
 
     it.each([
         ['weather', { city: 'Rome' }],
-        ['forecast', { city: 'Rome' }],
         ['air-quality', { city: 'Rome' }],
         ['world-clock', { city: 'Rome' }],
         ['pomodoro', { durationMinutes: 5, action: 'pause' }],

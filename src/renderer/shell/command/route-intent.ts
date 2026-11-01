@@ -17,7 +17,7 @@ export interface RouteOptions {
 
 /**
  * Routes one English utterance to a tile: one typed question, one forward
- * pass. The descriptions are what separates Weather from Forecast from Air
+ * pass. The descriptions are what separates Weather from Air
  * Quality; a bare id is not enough for a model this small.
  */
 export async function routeIntent(

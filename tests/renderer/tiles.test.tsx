@@ -6,7 +6,6 @@ import { ActivityRings } from '../../src/renderer/tiles/activityRings';
 import { AirQuality, LiveAirQuality } from '../../src/renderer/tiles/airQuality';
 import { AnalogClock, LiveAnalogClock } from '../../src/renderer/tiles/analogClock';
 import { Calendar } from '../../src/renderer/tiles/calendar';
-import { Forecast, LiveForecast } from '../../src/renderer/tiles/forecast';
 import { LiveMoon, MoonPhase } from '../../src/renderer/tiles/moonPhase';
 import { getMoonPhase } from '../../src/renderer/tiles/moonPhase/moon';
 import { NowPlaying } from '../../src/renderer/tiles/nowPlaying';
@@ -47,7 +46,6 @@ describe('every resting tile', () => {
             AnalogClock,
             WorldClock,
             Weather,
-            Forecast,
             NowPlaying,
             ActivityRings,
             SystemStats,
@@ -85,7 +83,6 @@ describe('every resting tile', () => {
         );
         expect(keys).toMatchObject({
             weather: ['weather:', 'weather:Rome'],
-            forecast: ['forecast:', 'forecast:Rome'],
             'air-quality': ['air-quality:', 'air-quality:Rome'],
             'world-clock': ['world-clock:', 'world-clock:Rome'],
             pomodoro: ['pomodoro:25:', 'pomodoro:5:pause'],
@@ -103,30 +100,17 @@ describe('the live weather tiles', () => {
         vi.unstubAllGlobals();
     });
 
-    it('shows the current weather of a city', async () => {
+    it('shows the current weather of a city and the next five days', async () => {
         stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
         expect(screen.getByLabelText('Loading live data')).toBeTruthy();
         expect(await screen.findByText('Rain')).toBeTruthy();
-        expect(screen.getByText('Rome')).toBeTruthy();
-        expect(screen.getByText('HUM 55%')).toBeTruthy();
-    });
-
-    it('shows five days and how many are rainy', async () => {
-        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        const { rerender } = render(<LiveForecast {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('Today')).toBeTruthy();
-        expect(screen.getByText('Rain likely on 1 day')).toBeTruthy();
-
-        const rainy = WEATHER.daily.map((day) => ({ ...day, precipitationProbability: 90 }));
-        stubBrooz({ 'brooz:weather': () => ok({ ...WEATHER, daily: rainy }) });
-        rerender(<LiveForecast {...live} args={{ city: 'Oslo' }} />);
-        expect(await screen.findByText('Rain likely on 5 days')).toBeTruthy();
-
-        const dry = WEATHER.daily.map((day) => ({ ...day, precipitationProbability: 0 }));
-        stubBrooz({ 'brooz:weather': () => ok({ ...WEATHER, daily: dry }) });
-        rerender(<LiveForecast {...live} args={{ city: 'Cairo' }} />);
-        expect(await screen.findByText('No rain expected')).toBeTruthy();
+        expect(screen.getByText('21°')).toBeTruthy();
+        expect(screen.getAllByText('Rome').length).toBeGreaterThan(0);
+        expect(
+            ['Sat', 'Sun', 'Mon', 'Tue', 'Wed'].map((day) => screen.getByText(day))
+        ).toHaveLength(5);
+        expect(screen.getByText('22')).toBeTruthy();
     });
 
     it.each([
@@ -161,7 +145,7 @@ describe('the live weather tiles', () => {
         stubGeolocation({ latitude: 53.55, longitude: 9.99 });
         const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         const { unmount } = render(<LiveWeather {...live} args={{}} />);
-        expect(await screen.findByText(WEATHER.place.name)).toBeTruthy();
+        expect((await screen.findAllByText(WEATHER.place.name)).length).toBeGreaterThan(0);
         expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 53.55, longitude: 9.99 });
         unmount();
 

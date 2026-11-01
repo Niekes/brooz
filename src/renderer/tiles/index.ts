@@ -3,7 +3,6 @@ import { activityRingsTile } from './activityRings';
 import { airQualityTile } from './airQuality';
 import { analogClockTile } from './analogClock';
 import { calendarTile } from './calendar';
-import { forecastTile } from './forecast';
 import { moonPhaseTile } from './moonPhase';
 import { nowPlayingTile } from './nowPlaying';
 import { photoTile } from './photo';
@@ -25,7 +24,6 @@ export const tiles: readonly TileDefinition[] = [
     analogClockTile,
     worldClockTile,
     weatherTile,
-    forecastTile,
     nowPlayingTile,
     activityRingsTile,
     systemStatsTile,

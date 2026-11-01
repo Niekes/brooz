@@ -17,7 +17,7 @@ describe('the settings', () => {
             within(nav)
                 .getAllByRole('button')
                 .map((button) => button.textContent)
-        ).toEqual(['Weather', '5-Day Forecast', 'Markets', 'Air Quality']);
+        ).toEqual(['Weather', 'Markets', 'Air Quality']);
         expect(await screen.findByText('No key')).toBeTruthy();
         expect(screen.getByRole('heading', { name: 'Weather' })).toBeTruthy();
         expect(screen.getByLabelText('OpenWeatherMap API key')).toBeTruthy();
