@@ -6,6 +6,19 @@ From 0.2.1 on, release-please writes the entries from the Conventional
 Commits on `master`; the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/Niekes/brooz/compare/v0.3.0...v0.4.0) (2026-11-01)
+
+
+### Added
+
+* settings overlay, usehooks and the device location ([c5dd6a8](https://github.com/Niekes/brooz/commit/c5dd6a8a627d24229d9e08886537d6023dde4fd0))
+* settings overlay, usehooks and the device location ([161872c](https://github.com/Niekes/brooz/commit/161872cf076f109621392a537fa27916f6d68930))
+
+
+### Fixed
+
+* drop the scroll area the CSP blocks ([39d37fc](https://github.com/Niekes/brooz/commit/39d37fc97184d16a0de7a51a7f41fe3ee1d98cd6))
+
 ## [0.3.0](https://github.com/Niekes/brooz/compare/v0.2.0...v0.3.0) (2026-10-26)
 
 
