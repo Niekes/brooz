@@ -117,7 +117,7 @@ export function useDefaultLocation(): [GeoPlace | null, (place: GeoPlace | null)
  * water, not a location, so no city and no device location replace it.
  */
 export function useSurfSpot(): [GeoPlace | null, (spot: GeoPlace | null) => void] {
-    return useLocalStorage<GeoPlace | null>('brooz.surf.spot', null);
+    return useStoredValue<GeoPlace | null>('brooz.surf.spot', null);
 }
 
 /** No location at all: the tile asks for one instead of guessing. */
