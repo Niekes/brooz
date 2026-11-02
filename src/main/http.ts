@@ -1,4 +1,5 @@
 import { net } from 'electron';
+import type { ProviderOutcome } from '../shared/providers';
 
 /**
  * What the keyless and the keyed weather services share: a JSON request
@@ -17,10 +18,11 @@ const MAX_ENTRIES = 100;
 export async function fetchJson<T>(
     url: URL,
     service: string,
-    rejected: (status: number) => string = (status) => `${service} replied with ${status}.`
+    rejected: (status: number) => string = (status) => `${service} replied with ${status}.`,
+    headers: Record<string, string> = {}
 ): Promise<T> {
     const response = await net
-        .fetch(url.toString(), { signal: AbortSignal.timeout(REQUEST_TIMEOUT) })
+        .fetch(url.toString(), { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT) })
         .catch((cause: unknown) => {
             if (cause instanceof DOMException && cause.name === 'TimeoutError') {
                 throw new Error(`${service} did not answer in time.`);
@@ -31,6 +33,19 @@ export async function fetchJson<T>(
         throw new Error(rejected(response.status));
     }
     return (await response.json()) as T;
+}
+
+/** Runs a call as a provider outcome: the data or the provider's error, never a throw. */
+export async function outcome<T>(
+    service: string,
+    load: () => Promise<T>
+): Promise<ProviderOutcome<T>> {
+    try {
+        return { status: 'ok', data: await load() };
+    } catch (cause) {
+        const message = cause instanceof Error ? cause.message : `${service} could not be reached.`;
+        return { status: 'provider-error', message };
+    }
 }
 
 export interface Cache {

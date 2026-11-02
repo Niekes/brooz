@@ -23,9 +23,9 @@ small app of its own. Drag or scroll to pan. Type what you want into the ask
 bar at the bottom (Cmd+K) - "weather in Rome", "start a 25 minute timer",
 "note: buy milk" - and the matching tile flies to the center and comes alive.
 
-| Live tiles                                                                         | Demo tiles (seeded data for now)                                    |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Analog Clock, World Clock, Weather, Air Quality, Moon Phase, Pomodoro, Sticky Note | Now Playing, Activity Rings, System Stats, Markets, Calendar, Photo |
+| Live tiles                                                                               | Demo tiles (seeded data for now)                                    |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Analog Clock, World Clock, Weather, Air Quality, Surf, Moon Phase, Pomodoro, Sticky Note | Now Playing, Activity Rings, System Stats, Markets, Calendar, Photo |
 
 The ask bar routes with keyword rules out of the box. For harder phrasings
 you can enable a small local model (open-jev on Transformers.js) from the
@@ -38,6 +38,9 @@ from the cache in a few seconds.
 - The city of a weather, air quality or world clock tile, sent by
   the app's main process to [Open-Meteo](https://open-meteo.com) (keyless,
   no account).
+- The coordinates of the surf spot, sent by the main process to
+  [Stormglass](https://stormglass.io) with your own key, at most a few
+  times a day.
 - The one-time model download from the Hugging Face hub, only after you
   enable the local model.
 - The update check against this repository's GitHub releases.

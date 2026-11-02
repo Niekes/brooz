@@ -75,4 +75,6 @@ export interface TileDefinition {
     readonly deviceLocation?: boolean;
     /** The tile shows temperatures; its settings section offers the temperature unit. */
     readonly temperatures?: boolean;
+    /** The live tile shows the surf spot; its settings section takes it. */
+    readonly surfSpot?: boolean;
 }

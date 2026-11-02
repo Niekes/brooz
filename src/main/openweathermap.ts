@@ -7,7 +7,7 @@ import type {
     WeatherSnapshot
 } from '../shared/weather';
 import type { ProviderOutcome, ProviderProbe } from '../shared/providers';
-import { createCache, fetchJson } from './http';
+import { createCache, fetchJson, outcome } from './http';
 import { resolvePlace } from './open-meteo';
 
 /**
@@ -133,21 +133,11 @@ function days(steps: ForecastRaw['list'], timeZone: string): WeatherDay[] {
     return [...byDate.values()].slice(0, 5);
 }
 
-/** Runs a call as a provider outcome: the data or the provider's error, never a throw. */
-async function outcome<T>(load: () => Promise<T>): Promise<ProviderOutcome<T>> {
-    try {
-        return { status: 'ok', data: await load() };
-    } catch (cause) {
-        const message = cause instanceof Error ? cause.message : `${SERVICE} could not be reached.`;
-        return { status: 'provider-error', message };
-    }
-}
-
 export function fetchWeather(
     key: string,
     query: PlaceQuery
 ): Promise<ProviderOutcome<WeatherSnapshot>> {
-    return outcome(async () => {
+    return outcome(SERVICE, async () => {
         const cacheKey = `weather:${placeKey(query)}`;
         const cached = cache.read<WeatherSnapshot>(cacheKey);
         if (cached) {
@@ -191,7 +181,7 @@ export function fetchAirQuality(
     key: string,
     query: PlaceQuery
 ): Promise<ProviderOutcome<AirQualitySnapshot>> {
-    return outcome(async () => {
+    return outcome(SERVICE, async () => {
         const cacheKey = `air:${placeKey(query)}`;
         const cached = cache.read<AirQualitySnapshot>(cacheKey);
         if (cached) {
@@ -212,6 +202,6 @@ export function fetchAirQuality(
 
 /** Checks a key against the service with the current weather of one place. */
 export async function probeKey(key: string): Promise<ProviderProbe> {
-    const result = await outcome(() => request<CurrentRaw>(key, 'weather', PROBE_PLACE));
+    const result = await outcome(SERVICE, () => request<CurrentRaw>(key, 'weather', PROBE_PLACE));
     return result.status === 'ok' ? { status: 'ok' } : result;
 }

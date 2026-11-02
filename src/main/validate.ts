@@ -1,4 +1,4 @@
-import type { PlaceQuery } from '../shared/weather';
+import type { Coordinates, PlaceQuery } from '../shared/weather';
 import { providerExists } from '../shared/providers';
 import { MAX_QUOTE_SYMBOLS } from '../shared/quotes';
 import type { ProviderId } from '../shared/providers';
@@ -29,11 +29,16 @@ function inRange(value: unknown, limit: number): value is number {
 }
 
 export function parsePlaceQuery(value: unknown): PlaceQuery {
+    if (typeof value === 'object' && value !== null && 'city' in value) {
+        return { city: parseCity(value.city) };
+    }
+    return parseCoordinates(value);
+}
+
+/** Coordinates on the globe, like the surf spot; nothing else reaches the network. */
+export function parseCoordinates(value: unknown): Coordinates {
     if (typeof value !== 'object' || value === null) {
         throw new TypeError('A place is a city or coordinates.');
-    }
-    if ('city' in value) {
-        return { city: parseCity(value.city) };
     }
     const { latitude, longitude } = value as Record<string, unknown>;
     if (!inRange(latitude, 90) || !inRange(longitude, 180)) {

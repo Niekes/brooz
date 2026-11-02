@@ -13,6 +13,8 @@ const fetchAirQuality = vi.fn(async (_key: string, _query: unknown) => ({
     data: 'a'
 }));
 const probeWeatherKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
+const fetchSurf = vi.fn(async (_key: string, _spot: unknown) => ({ status: 'ok', data: 's' }));
+const probeSurfKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
 
 vi.mock('electron', () => ({}));
 vi.mock('../../src/main/key-store', () => ({
@@ -27,6 +29,10 @@ vi.mock('../../src/main/openweathermap', () => ({
     fetchWeather: (key: string, query: unknown) => fetchWeather(key, query),
     fetchAirQuality: (key: string, query: unknown) => fetchAirQuality(key, query),
     probeKey: (key: string) => probeWeatherKey(key)
+}));
+vi.mock('../../src/main/stormglass', () => ({
+    fetchSurf: (key: string, spot: unknown) => fetchSurf(key, spot),
+    probeKey: (key: string) => probeSurfKey(key)
 }));
 
 describe('the provider side of the contract', () => {
@@ -115,6 +121,16 @@ describe('the provider side of the contract', () => {
         const api = await import('../../src/main/providers');
         await api.probeProvider('openweathermap');
         expect(probeWeatherKey).toHaveBeenCalledWith('k1');
+        await api.probeProvider('stormglass');
+        expect(probeSurfKey).toHaveBeenCalledWith('k1');
         expect(probeKey).not.toHaveBeenCalled();
+    });
+
+    it('fetches the surf forecast with the Stormglass key', async () => {
+        const api = await import('../../src/main/providers');
+        const spot = { latitude: 38.99, longitude: -9.42 };
+        await expect(api.surf(spot)).resolves.toEqual({ status: 'ok', data: 's' });
+        expect(providerKey).toHaveBeenCalledWith('stormglass');
+        expect(fetchSurf).toHaveBeenCalledWith('k1', spot);
     });
 });

@@ -20,7 +20,7 @@ describe('the settings', () => {
             within(nav)
                 .getAllByRole('button')
                 .map((button) => button.textContent)
-        ).toEqual(['Weather', 'Markets', 'Air Quality']);
+        ).toEqual(['Weather', 'Markets', 'Air Quality', 'Surf']);
         expect(await screen.findByText('No key')).toBeTruthy();
         expect(screen.getByRole('heading', { name: 'Weather' })).toBeTruthy();
         expect(screen.getByLabelText('OpenWeatherMap API key')).toBeTruthy();
@@ -117,6 +117,40 @@ describe('the settings', () => {
         );
         expect(await screen.findByText('No place found for "Atlantis".')).toBeTruthy();
         expect(JSON.parse(localStorage.getItem('brooz.location.default') ?? 'null')).toBe(null);
+    });
+
+    it('finds a surf spot by town, then moves it by its coordinates', async () => {
+        stubBrooz({
+            'brooz:key-status': () => ({ present: false, canStore: true }),
+            'brooz:geocode': () => ({ ...PLACE, name: 'Ericeira', latitude: 38.96 })
+        });
+        render(<Settings open onOpenChange={vi.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Surf' }));
+        expect(screen.getByLabelText('Stormglass API key')).toBeTruthy();
+        expect(screen.getByRole('group', { name: 'Temperature unit' })).toBeTruthy();
+        fireEvent.change(screen.getByLabelText('Town of the surf spot'), {
+            target: { value: 'Ericeira' }
+        });
+        fireEvent.click(
+            within(screen.getByRole('group', { name: 'Surf spot' })).getByRole('button', {
+                name: 'Save'
+            })
+        );
+        const field = (await screen.findByLabelText('Coordinates')) as HTMLInputElement;
+        expect(field.value).toBe('38.96, 12.5');
+        const stored = () => JSON.parse(localStorage.getItem('brooz.surf.spot')!);
+
+        fireEvent.change(field, { target: { value: ' 38.99 , -9.42 ' } });
+        fireEvent.blur(field);
+        expect(stored()).toMatchObject({ name: 'Ericeira', latitude: 38.99, longitude: -9.42 });
+
+        for (const wrong of ['91, 0', '0, 181', 'Ericeira', '']) {
+            const moved = screen.getByLabelText('Coordinates') as HTMLInputElement;
+            fireEvent.change(moved, { target: { value: wrong } });
+            fireEvent.blur(moved);
+            expect(moved.value).toBe('38.99, -9.42');
+        }
+        expect(stored()).toMatchObject({ latitude: 38.99, longitude: -9.42 });
     });
 
     it('opens the section a person picks', () => {

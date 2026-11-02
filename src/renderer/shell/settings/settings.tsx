@@ -5,7 +5,7 @@ import type { TileDefinition } from '../tile';
 import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
-import { DefaultLocationOption } from './default-location';
+import { DefaultLocationOption, SurfSpotOption } from './default-location';
 import { ProviderKey } from './provider-key';
 import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
 
@@ -181,6 +181,7 @@ export function Settings({
                                 <DefaultLocationOption />
                             </>
                         ) : null}
+                        {current.surfSpot ? <SurfSpotOption /> : null}
                         {current.temperatures ? <TemperatureUnitOption /> : null}
                     </section>
                 ) : null}

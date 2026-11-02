@@ -6,9 +6,16 @@
  * no change.
  */
 
-import type { AirQualitySnapshot, GeoPlace, PlaceQuery, WeatherSnapshot } from './weather';
+import type {
+    AirQualitySnapshot,
+    Coordinates,
+    GeoPlace,
+    PlaceQuery,
+    WeatherSnapshot
+} from './weather';
 import type { ProviderId, KeySave, KeyStatus, ProviderProbe, ProviderOutcome } from './providers';
 import type { StockQuote } from './quotes';
+import type { SurfForecast } from './surf';
 
 export const IPC_CHANNELS = {
     appVersion: 'brooz:app-version',
@@ -20,6 +27,7 @@ export const IPC_CHANNELS = {
     keyStatus: 'brooz:key-status',
     keyTest: 'brooz:key-test',
     stockQuotes: 'brooz:stock-quotes',
+    surf: 'brooz:surf',
     styleNonce: 'brooz:style-nonce'
 } as const;
 
@@ -62,6 +70,10 @@ export interface IpcContract {
     [IPC_CHANNELS.stockQuotes]: {
         args: [symbols: string[]];
         result: ProviderOutcome<StockQuote[]>;
+    };
+    [IPC_CHANNELS.surf]: {
+        args: [spot: Coordinates];
+        result: ProviderOutcome<SurfForecast>;
     };
     [IPC_CHANNELS.styleNonce]: {
         args: [];
