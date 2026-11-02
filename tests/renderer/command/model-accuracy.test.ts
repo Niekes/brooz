@@ -15,17 +15,22 @@ const OPTIONS = {
 
 // The real model on the routing benchmarks. It downloads about 380 MB of
 // weights on its first run, so it only runs on request: `npm run bench:model`.
-describe.runIf(process.env.BROOZ_MODEL_BENCH)('the local model on the routing benchmarks', () => {
-    it('routes the benchmark utterances', { timeout: 600_000 }, async () => {
-        const jev = await OpenJev.load({ model: 'kev-0.6b' });
-        const cases = [...DEVELOPMENT_SET, ...HOLDOUT_SET, ...HOLDOUT_SET_2];
-        const misses: string[] = [];
-        for (const { text, expected } of cases) {
-            const { widget } = await routeIntent(jev, text, OPTIONS);
-            if (widget !== expected) {
-                misses.push(`${text} -> ${widget} (expected ${expected})`);
+describe.runIf(process.env.npm_lifecycle_event === 'bench:model')(
+    'the local model on the routing benchmarks',
+    () => {
+        it('routes the benchmark utterances', { timeout: 600_000 }, async () => {
+            const jev = await OpenJev.load({ model: 'kev-0.6b' });
+            const cases = [...DEVELOPMENT_SET, ...HOLDOUT_SET, ...HOLDOUT_SET_2];
+            const misses: string[] = [];
+            for (const { text, expected } of cases) {
+                const { widget } = await routeIntent(jev, text, OPTIONS);
+                if (widget !== expected) {
+                    misses.push(`${text} -> ${widget} (expected ${expected})`);
+                }
             }
-        }
-        expect(misses.length / cases.length, misses.join('\n')).toBeLessThanOrEqual(MAX_MISS_RATE);
-    });
-});
+            expect(misses.length / cases.length, misses.join('\n')).toBeLessThanOrEqual(
+                MAX_MISS_RATE
+            );
+        });
+    }
+);
