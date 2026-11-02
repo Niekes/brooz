@@ -7,7 +7,7 @@ import { migrateStoredNote } from './tiles/stickyNote';
 import './styles.css';
 
 function render(): void {
-    // The one raw storage access: it rewrites what useLocalStorage cannot parse yet.
+    // The one raw storage access: it rewrites what useStoredValue cannot parse yet.
     // oxlint-disable-next-line no-restricted-globals
     migrateStoredNote(localStorage);
     createRoot(document.getElementById('root')!).render(

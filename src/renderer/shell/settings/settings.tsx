@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEventListener } from 'ahooks';
+import { useState } from 'react';
 import type { JSX } from 'react';
 import { tiles } from '../../tiles';
 import { isSettingsShortcut } from '../kit/shortcut';
@@ -32,16 +33,12 @@ function matches(section: Section, search: string): boolean {
 
 /** Toggles the settings on ⌘, (Ctrl+, on Windows and Linux). */
 export function useSettingsShortcut(toggle: () => void): void {
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent): void => {
-            if (isSettingsShortcut(event)) {
-                event.preventDefault();
-                toggle();
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [toggle]);
+    useEventListener('keydown', (event: KeyboardEvent) => {
+        if (isSettingsShortcut(event)) {
+            event.preventDefault();
+            toggle();
+        }
+    });
 }
 
 /** The sidebar: the search, and the sections that match it. */

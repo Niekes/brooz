@@ -30,15 +30,17 @@ const noNodeBuiltins = {
     message: 'this zone has no Node access: the main zone owns everything node:*'
 };
 
-// The renderer reaches these browser APIs through @uidotdev/usehooks only
-// (AGENTS.md, "Hooks"), so storage and location stay reactive and shared.
-const usehooksFirst = [
-    { name: 'localStorage', message: 'use useLocalStorage from @uidotdev/usehooks' },
-    { name: 'sessionStorage', message: 'use useSessionStorage from @uidotdev/usehooks' },
-    { name: 'matchMedia', message: 'use useMediaQuery from @uidotdev/usehooks' }
+// The renderer reaches these browser APIs through the hooks in
+// shell/kit/browser.ts only (AGENTS.md, "Hooks"), so storage, media queries
+// and location stay reactive and shared.
+const kitHook = (hook: string): string => `use ${hook} from shell/kit/browser`;
+const browserApis = [
+    { name: 'localStorage', message: kitHook('useStoredValue') },
+    { name: 'sessionStorage', message: kitHook('useStoredValue') },
+    { name: 'matchMedia', message: kitHook('useMediaQuery') }
 ];
-const usehooksFirstProperties = [
-    ...usehooksFirst.map((global) => ({
+const browserApiProperties = [
+    ...browserApis.map((global) => ({
         object: 'window',
         property: global.name,
         message: global.message
@@ -46,9 +48,17 @@ const usehooksFirstProperties = [
     {
         object: 'navigator',
         property: 'geolocation',
-        message: 'use useGeolocation from @uidotdev/usehooks'
+        message: kitHook('useGeolocation')
     }
 ];
+// ahooks' storage hooks keep each call apart unless told to listen; every
+// stored value goes through useStoredValue, which always does (docs/adr/0007).
+const ahooksStorage = {
+    name: 'ahooks',
+    importNames: ['useLocalStorageState', 'useSessionStorageState'],
+    message: kitHook('useStoredValue')
+};
+const kitBrowser = 'src/renderer/shell/kit/browser.ts';
 
 const config: UserConfig = {
     fmt: {
@@ -79,10 +89,22 @@ const config: UserConfig = {
                 rules: {
                     'no-restricted-imports': [
                         'error',
+                        { paths: [noElectron, ahooksStorage], patterns: [noNodeBuiltins] }
+                    ],
+                    'no-restricted-globals': ['error', ...browserApis],
+                    'no-restricted-properties': ['error', ...browserApiProperties]
+                }
+            },
+            {
+                // The one module that wraps those APIs.
+                files: [kitBrowser],
+                rules: {
+                    'no-restricted-imports': [
+                        'error',
                         { paths: [noElectron], patterns: [noNodeBuiltins] }
                     ],
-                    'no-restricted-globals': ['error', ...usehooksFirst],
-                    'no-restricted-properties': ['error', ...usehooksFirstProperties]
+                    'no-restricted-globals': 'off',
+                    'no-restricted-properties': 'off'
                 }
             },
             {

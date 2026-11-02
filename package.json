@@ -32,7 +32,7 @@
         "verify": "npm run typecheck && npm run lint && npm run coverage"
     },
     "dependencies": {
-        "@uidotdev/usehooks": "^2.4.1",
+        "ahooks": "^3.11.0",
         "electron-updater": "^6.8.11"
     },
     "devDependencies": {
