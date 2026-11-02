@@ -13,6 +13,18 @@ export function isLowConfidence(match: CommandMatch): boolean {
     return match.confidence < (match.source === 'model' ? MODEL_THRESHOLD : RULE_THRESHOLD);
 }
 
+/**
+ * The model ranks, but a confident rule hit stays on top: the small model
+ * misroutes one-word asks like "surf" that a keyword settles for sure.
+ */
+export function mergeMatches(rules: CommandMatch[], model: CommandMatch[]): CommandMatch[] {
+    const rule = rules[0];
+    if (!rule || isLowConfidence(rule) || model[0]?.widget === rule.widget) {
+        return model;
+    }
+    return [rule, ...model.filter((match) => match.widget !== rule.widget)].slice(0, 3);
+}
+
 function truncate(value: string, limit: number): string {
     return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
