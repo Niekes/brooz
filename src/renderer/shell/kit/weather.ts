@@ -15,6 +15,14 @@ const WMO_BANDS: ReadonlyArray<{ from: number; to: number; label: string; icon: 
     { from: 95, to: Infinity, label: 'Thunderstorm', icon: 'storm' }
 ];
 
+/** The scale every temperature is shown in, one choice for the whole app. */
+export type TemperatureUnit = 'C' | 'F';
+
+/** A Celsius reading in the unit, rounded only after converting. */
+export function inUnit(celsius: number, unit: TemperatureUnit): number {
+    return Math.round(unit === 'F' ? (celsius * 9) / 5 + 32 : celsius);
+}
+
 /** A WMO weather code as a label and an icon. */
 export function weatherInfo(code: number): { label: string; icon: CondName } {
     const band = WMO_BANDS.find(({ from, to }) => code >= from && code <= to);

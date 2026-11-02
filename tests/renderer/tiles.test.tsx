@@ -30,6 +30,7 @@ describe('every resting tile', () => {
     beforeEach(() => {
         window.brooz = { invoke: vi.fn().mockResolvedValue('0.1.0') };
     });
+    afterEach(() => localStorage.clear());
 
     it.each(tiles.map((tile) => [tile.id, tile] as const))(
         '%s renders for any seed',
@@ -41,6 +42,33 @@ describe('every resting tile', () => {
             }
         }
     );
+
+    it('shows the resting temperatures in the unit the person chose', () => {
+        const reading = (pattern: RegExp): number =>
+            Number(pattern.exec(document.body.textContent ?? '')?.[1]);
+        const toF = (celsius: number): number => Math.round((celsius * 9) / 5 + 32);
+
+        const { unmount } = render(
+            <>
+                <Weather seed={0} />
+                <Forecast seed={0} />
+            </>
+        );
+        const feels = reading(/FEELS (-?\d+)°/);
+        const high = reading(/HIGH (-?\d+)°/);
+        unmount();
+
+        localStorage.setItem('brooz.temperature.unit', '"F"');
+        render(
+            <>
+                <Weather seed={0} />
+                <Forecast seed={0} />
+            </>
+        );
+        expect(screen.getByText('°F')).toBeTruthy();
+        expect(screen.getByText(`FEELS ${toF(feels)}°`)).toBeTruthy();
+        expect(screen.getByText(`HIGH ${toF(high)}°`)).toBeTruthy();
+    });
 
     it('is registered with the component its directory exports', () => {
         expect(tiles.map((tile) => tile.Component)).toEqual([
@@ -101,6 +129,7 @@ describe('the live weather tiles', () => {
         // The location watch is cleared on unmount, so unmount before unstubbing.
         cleanup();
         vi.unstubAllGlobals();
+        localStorage.clear();
     });
 
     it('shows the current weather of a city', async () => {
@@ -110,6 +139,19 @@ describe('the live weather tiles', () => {
         expect(await screen.findByText('Rain')).toBeTruthy();
         expect(screen.getByText('Rome')).toBeTruthy();
         expect(screen.getByText('HUM 55%')).toBeTruthy();
+        expect(screen.getByText('°C')).toBeTruthy();
+    });
+
+    it('shows the temperatures in Fahrenheit when the person chose it', async () => {
+        localStorage.setItem('brooz.temperature.unit', '"F"');
+        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
+        const { unmount } = render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('°F')).toBeTruthy();
+        expect(screen.getByText('FEELS 69°')).toBeTruthy();
+        unmount();
+        render(<LiveForecast {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('Today')).toBeTruthy();
+        expect(screen.getByText('54°')).toBeTruthy();
     });
 
     it('shows five days and how many are rainy', async () => {

@@ -16,7 +16,7 @@ import { FINNHUB } from '../../src/shared/providers';
 import type { ProviderOutcome } from '../../src/shared/providers';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
 import { HUES, clock, pick, rng } from '../../src/renderer/shell/kit/seed';
-import { weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
+import { inUnit, weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
 import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 describe('the seeded data', () => {
@@ -113,6 +113,12 @@ describe('the weather codes', () => {
     it('tones every icon', () => {
         expect(weatherTone('sun')).toBe('text-[#fcd34d]');
         expect(weatherTone('cloud')).toBe('text-[#a5b4fc]');
+    });
+
+    it('converts a Celsius reading before it rounds', () => {
+        expect(inUnit(21.4, 'C')).toBe(21);
+        expect(inUnit(21.4, 'F')).toBe(71);
+        expect(inUnit(-40, 'F')).toBe(-40);
     });
 });
 

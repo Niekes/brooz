@@ -73,4 +73,6 @@ export interface TileDefinition {
     readonly providers?: readonly ProviderInfo[];
     /** The live tile follows the device location; its settings section can turn that off. */
     readonly deviceLocation?: boolean;
+    /** The tile shows temperatures; its settings section offers the temperature unit. */
+    readonly temperatures?: boolean;
 }

@@ -4,7 +4,8 @@ import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-fra
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { HUES, pick, rng } from '../../shell/kit/seed';
-import { weatherInfo, weatherTone } from '../../shell/kit/weather';
+import { inUnit, weatherInfo, weatherTone } from '../../shell/kit/weather';
+import { useTemperatureUnit } from '../../shell/kit/hooks';
 import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
 
 const CITIES = ['Berlin', 'Tokyo', 'Reykjavík', 'Lisbon', 'Oslo', 'Cairo', 'Seattle', 'Melbourne'];
@@ -26,6 +27,7 @@ export function Weather({ seed }: TileProps): JSX.Element {
     const hi = temp + 1 + Math.floor(r() * 3);
     const lo = temp - 3 - Math.floor(r() * 5);
     const feels = temp - 2 + Math.floor(r() * 4);
+    const [unit] = useTemperatureUnit();
 
     return (
         <div className={WIDGET_BODY}>
@@ -38,8 +40,8 @@ export function Weather({ seed }: TileProps): JSX.Element {
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 @min-[300px]:flex-row @min-[300px]:justify-between @min-[300px]:gap-5">
                 <div className="text-5xl leading-none font-light tracking-tight text-white">
-                    {temp}
-                    <span className="text-2xl align-top text-white/50">°</span>
+                    {inUnit(temp, unit)}
+                    <span className="text-2xl align-top text-white/50">°{unit}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1.5">
                     <ConditionIcon name={cond.name} className={`h-12 w-12 ${hue.text}`} />
@@ -51,9 +53,10 @@ export function Weather({ seed }: TileProps): JSX.Element {
 
             <div className="flex items-end justify-between gap-2 font-mono text-[11px]">
                 <span className="text-white/70">
-                    H {hi}° <span className="text-white/40">L {lo}°</span>
+                    H {inUnit(hi, unit)}°{' '}
+                    <span className="text-white/40">L {inUnit(lo, unit)}°</span>
                 </span>
-                <span className="text-white/40">FEELS {feels}°</span>
+                <span className="text-white/40">FEELS {inUnit(feels, unit)}°</span>
             </div>
         </div>
     );
@@ -61,6 +64,7 @@ export function Weather({ seed }: TileProps): JSX.Element {
 
 /** The current weather of a city, or of the device location. */
 export function LiveWeather({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
+    const [unit] = useTemperatureUnit();
     return (
         <LiveWeatherFrame label={label} lowConfidence={lowConfidence} city={args.city}>
             {(data) => {
@@ -70,8 +74,8 @@ export function LiveWeather({ label, lowConfidence, args }: LiveTileProps): JSX.
                         <div className="flex min-h-0 flex-1 items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="text-4xl leading-none font-light tracking-tight text-white">
-                                    {Math.round(data.temperatureC)}
-                                    <span className="align-top text-xl text-white/45">°</span>
+                                    {inUnit(data.temperatureC, unit)}
+                                    <span className="align-top text-xl text-white/45">°{unit}</span>
                                 </div>
                                 <div className="mt-1 truncate text-[9px] font-medium tracking-[0.16em] text-white/50 uppercase">
                                     {info.label}
@@ -84,7 +88,7 @@ export function LiveWeather({ label, lowConfidence, args }: LiveTileProps): JSX.
                         </div>
 
                         <div className="flex items-end justify-between gap-2 font-mono text-[10px] text-white/45">
-                            <span>FEELS {Math.round(data.apparentC)}°</span>
+                            <span>FEELS {inUnit(data.apparentC, unit)}°</span>
                             <span>HUM {data.humidity}%</span>
                             <span className="truncate">WIND {Math.round(data.windKmh)}</span>
                         </div>
@@ -102,6 +106,7 @@ export const weatherTile: TileDefinition = {
     Live: LiveWeather,
     providers: WEATHER_PROVIDERS,
     deviceLocation: true,
+    temperatures: true,
     liveKey: ({ city }) => `weather:${city ?? ''}`,
     route: {
         description: 'Current weather conditions and temperature right now for a city.',

@@ -4,7 +4,9 @@ import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-fra
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { HUES, pick, rng } from '../../shell/kit/seed';
-import { weatherInfo, weatherTone } from '../../shell/kit/weather';
+import { inUnit, weatherInfo, weatherTone } from '../../shell/kit/weather';
+import type { TemperatureUnit } from '../../shell/kit/weather';
+import { useTemperatureUnit } from '../../shell/kit/hooks';
 import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -20,7 +22,7 @@ interface MockDay {
     iconTone: string;
 }
 
-function DayCell({ day }: { day: MockDay }): JSX.Element {
+function DayCell({ day, unit }: { day: MockDay; unit: TemperatureUnit }): JSX.Element {
     return (
         <div className="flex flex-col items-center justify-between gap-1">
             <span
@@ -34,9 +36,9 @@ function DayCell({ day }: { day: MockDay }): JSX.Element {
             />
             <div className="text-center">
                 <div className="font-mono text-[11px] text-white/85 @min-[300px]:text-xs">
-                    {day.hi}°
+                    {inUnit(day.hi, unit)}°
                 </div>
-                <div className="font-mono text-[9px] text-white/40">{day.lo}°</div>
+                <div className="font-mono text-[9px] text-white/40">{inUnit(day.lo, unit)}°</div>
                 <div className="hidden font-mono text-[9px] text-white/30 @min-[300px]:block">
                     {day.precip}%
                 </div>
@@ -50,6 +52,7 @@ export function Forecast({ seed }: TileProps): JSX.Element {
     const r = rng(seed + 11);
     const hue = pick(seed, HUES);
     const start = Math.abs(seed) % DAYS.length;
+    const [unit] = useTemperatureUnit();
 
     const days = Array.from({ length: 5 }, (_, i): MockDay => {
         const hi = 8 + Math.floor(r() * 16);
@@ -70,16 +73,16 @@ export function Forecast({ seed }: TileProps): JSX.Element {
 
             <div className="grid min-h-0 flex-1 grid-cols-5 gap-1.5 py-2">
                 {days.map((day, i) => (
-                    <DayCell key={`${day.label}-${i}`} day={day} />
+                    <DayCell key={`${day.label}-${i}`} day={day} unit={unit} />
                 ))}
             </div>
 
             <div className="flex items-end justify-between">
                 <span className="text-[10px] text-white/40">
-                    HIGH {Math.max(...days.map((day) => day.hi))}°
+                    HIGH {inUnit(Math.max(...days.map((day) => day.hi)), unit)}°
                 </span>
                 <span className="text-[10px] text-white/40">
-                    LOW {Math.min(...days.map((day) => day.lo))}°
+                    LOW {inUnit(Math.min(...days.map((day) => day.lo)), unit)}°
                 </span>
             </div>
         </div>
@@ -102,6 +105,7 @@ function rainSummary(rainyDays: number): string {
 
 /** The next five days for a city, or for the device location. */
 export function LiveForecast({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
+    const [unit] = useTemperatureUnit();
     return (
         <LiveWeatherFrame label={label} lowConfidence={lowConfidence} city={args.city}>
             {(data) => (
@@ -127,9 +131,9 @@ export function LiveForecast({ label, lowConfidence, args }: LiveTileProps): JSX
                                         className={`my-1 h-4 w-4 ${weatherTone(info.icon)}`}
                                     />
                                     <span className="font-mono text-[10px] leading-none text-white/80">
-                                        {Math.round(day.maxC)}°
+                                        {inUnit(day.maxC, unit)}°
                                         <span className="ml-0.5 text-white/30">
-                                            {Math.round(day.minC)}°
+                                            {inUnit(day.minC, unit)}°
                                         </span>
                                     </span>
                                     <span className="mt-1 text-[8px] text-white/30">
@@ -158,6 +162,7 @@ export const forecastTile: TileDefinition = {
     Live: LiveForecast,
     providers: WEATHER_PROVIDERS,
     deviceLocation: true,
+    temperatures: true,
     liveKey: ({ city }) => `forecast:${city ?? ''}`,
     route: {
         description: 'Multi-day weather forecast, rain outlook or weekend prediction for a city.',
