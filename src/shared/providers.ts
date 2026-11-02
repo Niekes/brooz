@@ -29,7 +29,7 @@ export const FINNHUB: ProviderInfo = {
     keyUrl: 'finnhub.io/register'
 };
 
-/** OpenWeatherMap: the weather, forecast and air-quality tiles. */
+/** OpenWeatherMap: the weather and air-quality tiles. */
 export const OPENWEATHERMAP: ProviderInfo = {
     id: 'openweathermap',
     title: 'OpenWeatherMap',

@@ -28,14 +28,9 @@ import { useModelRouting } from './use-model-routing';
 import type { ModelRouting } from './use-model-routing';
 
 /** Example utterances for the empty field, one per tile with a live version. */
-const EXAMPLES = [
-    'weather',
-    'forecast',
-    'air-quality',
-    'pomodoro',
-    'sticky-note',
-    'world-clock'
-].map((id) => routedTile(id)!.route.examples[0]);
+const EXAMPLES = ['weather', 'air-quality', 'pomodoro', 'sticky-note', 'world-clock'].map(
+    (id) => routedTile(id)!.route.examples[0]
+);
 
 /** The ask field rides on the glass surface, tuned through its custom properties. */
 const INPUT_CARD_STYLE = {

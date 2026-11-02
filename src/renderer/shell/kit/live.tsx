@@ -116,19 +116,36 @@ function MissingKey({
     onRetry: () => void;
 }): JSX.Element {
     return (
+        <NeedsSetting
+            message={
+                reason === 'encryption-unavailable'
+                    ? `This system offers no encrypted place for a ${provider.title} key.`
+                    : `Needs an API key from ${provider.title}.`
+            }
+            onRetry={onRetry}
+        />
+    );
+}
+
+/** What a tile shows while a setting it needs is missing: a pointer to the settings, not a form. */
+export function NeedsSetting({
+    message,
+    onRetry
+}: {
+    message: string;
+    /** Only where the tile cannot see the setting change by itself, like a key. */
+    onRetry?: () => void;
+}): JSX.Element {
+    return (
         <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-center">
             <span className="grid h-7 w-7 place-items-center rounded-full border border-white/20 bg-white/5 font-mono text-sm text-white/70">
                 ?
             </span>
-            <p className="line-clamp-3 text-[10px] leading-snug text-white/60">
-                {reason === 'encryption-unavailable'
-                    ? `This system offers no encrypted place for a ${provider.title} key.`
-                    : `Needs an API key from ${provider.title}.`}
-            </p>
+            <p className="line-clamp-3 text-[10px] leading-snug text-white/60">{message}</p>
             <p className="text-[9px] tracking-[0.14em] text-white/35 uppercase">
                 Press {settingsShortcut()} for the settings
             </p>
-            <RetryButton onRetry={onRetry} />
+            {onRetry ? <RetryButton onRetry={onRetry} /> : null}
         </div>
     );
 }

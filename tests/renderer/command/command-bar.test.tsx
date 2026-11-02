@@ -265,24 +265,24 @@ describe('the ask bar with the local model', () => {
             type: 'routed',
             id: 0,
             result: {
-                widget: 'forecast',
+                widget: 'weather',
                 confidence: 0.91,
-                probabilities: { forecast: 0.91, weather: 0.06, 'air-quality': 0.03 },
+                probabilities: { weather: 0.91, 'air-quality': 0.06, 'moon-phase': 0.03 },
                 latencyMs: 12
             }
         });
         const options = screen.getAllByRole('option').map((option) => option.textContent);
         expect(options).toHaveLength(3);
-        expect(options[0]).toContain('5-Day Forecast');
+        expect(options[0]).toContain('Weather');
         expect(options[0]).toContain('Lisbon');
         expect(options[0]).toContain('model');
-        expect(options[1]).toContain('Weather');
+        expect(options[1]).toContain('Air Quality');
 
         act(() => {
             vi.advanceTimersByTime(400);
         });
         expect(onSummon).toHaveBeenCalledWith(
-            expect.objectContaining({ widget: 'forecast', source: 'model', confidence: 0.91 })
+            expect.objectContaining({ widget: 'weather', source: 'model', confidence: 0.91 })
         );
     });
 

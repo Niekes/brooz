@@ -21,6 +21,12 @@ provider, never to a tile, and once stored it is not readable back from the
 app.
 _Avoid_: Token, secret, credential
 
+**Air quality category**:
+The step a place's air is on right now, on OpenWeatherMap's five-step
+index: Good, Fair, Moderate, Poor or Very poor. Every tile that speaks of
+air quality uses this one scale.
+_Avoid_: AQI level, US EPA category
+
 **Settings**:
 The single surface where keys and tile options are managed, shown over the
 dashboard rather than as a tile of it. It is divided
@@ -36,8 +42,15 @@ _Avoid_: Area, page, tab
 
 **Location**:
 The place a tile shows live data for. A city named in the utterance is the
-location; without one, the device location is; without that, a fallback.
+location; without one, the device location is; without that, the default
+location. Without any of them the tile has no location and asks for one.
 _Avoid_: Place (for this meaning), position, city
+
+**Default location**:
+The place the person saves in the settings for a tile without a city to
+show when there is no device location. There is at most one, shared by
+every tile that shows a place.
+_Avoid_: Home, fallback city, current location
 
 **Device location**:
 Where the device is right now, followed for as long as a tile uses it,

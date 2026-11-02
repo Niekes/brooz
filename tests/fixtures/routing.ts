@@ -27,10 +27,10 @@ export const DEVELOPMENT_SET: readonly RoutingCase[] = [
     { text: 'is it raining in Seattle right now', expected: 'weather' },
     { text: 'how hot is it in Cairo today', expected: 'weather' },
 
-    // forecast
-    { text: '5 day forecast for Berlin', expected: 'forecast' },
-    { text: 'will it rain this weekend in Lisbon', expected: 'forecast' },
-    { text: 'weather outlook for next week in Oslo', expected: 'forecast' },
+    // weather: forecast
+    { text: '5 day forecast for Berlin', expected: 'weather' },
+    { text: 'will it rain this weekend in Lisbon', expected: 'weather' },
+    { text: 'weather outlook for next week in Oslo', expected: 'weather' },
 
     // air-quality
     { text: 'air quality in Beijing', expected: 'air-quality' },
@@ -90,8 +90,8 @@ export const HOLDOUT_SET: readonly RoutingCase[] = [
     { text: 'what time is it in Los Angeles', expected: 'world-clock' },
     { text: 'how hot is it in Madrid', expected: 'weather' },
     { text: 'is it windy in Lisbon', expected: 'weather' },
-    { text: 'will it rain in Amsterdam this weekend', expected: 'forecast' },
-    { text: 'give me the five day forecast for Berlin', expected: 'forecast' },
+    { text: 'will it rain in Amsterdam this weekend', expected: 'weather' },
+    { text: 'give me the five day forecast for Berlin', expected: 'weather' },
     { text: 'how polluted is the air in Beijing', expected: 'air-quality' },
     { text: 'air quality in Sydney', expected: 'air-quality' },
     { text: 'how are the markets doing today', expected: 'ticker' },
@@ -111,7 +111,7 @@ export const HOLDOUT_SET: readonly RoutingCase[] = [
 /** A second holdout set, written after the first pass but before testing. */
 export const HOLDOUT_SET_2: readonly RoutingCase[] = [
     { text: 'temperature in Cairo', expected: 'weather' },
-    { text: 'do I need an umbrella in Rome', expected: 'forecast' },
+    { text: 'do I need an umbrella in Rome', expected: 'weather' },
     { text: 'smog levels in Delhi', expected: 'air-quality' },
     { text: 'how is the stock market', expected: 'ticker' },
     { text: "what's next on my calendar", expected: 'calendar' },

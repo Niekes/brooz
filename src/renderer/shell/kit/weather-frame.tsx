@@ -8,19 +8,21 @@ import type {
     WeatherSnapshot
 } from '../../../shared/weather';
 import {
-    FALLBACK_LOCATION,
+    savedLocation,
     useAirQuality,
+    useDefaultLocation,
     useDeviceLocation,
     useDeviceLocationSetting,
     useWeather
 } from './hooks';
 import type { LiveLocation } from './hooks';
 import type { AsyncView } from './live';
-import { ProviderData } from './live';
+import { LiveFrame, NeedsSetting, ProviderData } from './live';
 
 /**
  * The live frames of the weather tiles. They show a place: the city of the
- * utterance, or the device location, or Berlin, marked as such. They load, fail, retry and
+ * utterance, or the device location, or the default location under its saved
+ * name; without any, they ask for a location. They load, fail, retry and
  * ask for an OpenWeatherMap key like every provider tile, and name the
  * place once the data is there. The provider lives here, so a weather tile
  * only names its frame.
@@ -49,25 +51,35 @@ function PlaceFrame<T extends { place: GeoPlace }>({
     useData,
     children
 }: PlaceFrameProps<T> & { location: LiveLocation }): JSX.Element {
+    const state = useData(location.query);
+    if (!location.query && !location.pending) {
+        return (
+            <LiveFrame label={label} lowConfidence={lowConfidence}>
+                <NeedsSetting message="Set a location first." />
+            </LiveFrame>
+        );
+    }
+    const name = (data: T): string => location.name ?? data.place.name;
     return (
         <ProviderData
             label={label}
             lowConfidence={lowConfidence}
             provider={OPENWEATHERMAP}
             pending={location.pending}
-            state={useData(location.query)}
-            meta={(data) =>
-                location.fallback ? `${data.place.name} · location unavailable` : data.place.name
-            }
+            state={state}
+            meta={name}
         >
-            {children}
+            {(data) => children({ ...data, place: { ...data.place, name: name(data) } })}
         </ProviderData>
     );
 }
 
 /** Only a tile without a city follows the device, so a named city never asks for it. */
-function DeviceFrame<T extends { place: GeoPlace }>(props: PlaceFrameProps<T>): JSX.Element {
-    return <PlaceFrame {...props} location={useDeviceLocation()} />;
+function DeviceFrame<T extends { place: GeoPlace }>({
+    fallback,
+    ...props
+}: PlaceFrameProps<T> & { fallback: LiveLocation }): JSX.Element {
+    return <PlaceFrame {...props} location={useDeviceLocation(fallback)} />;
 }
 
 function LocatedFrame<T extends { place: GeoPlace }>({
@@ -75,15 +87,14 @@ function LocatedFrame<T extends { place: GeoPlace }>({
     ...props
 }: FrameProps<T> & { useData: PlaceLoader<T> }): JSX.Element {
     const [followDevice] = useDeviceLocationSetting();
-    if (!city && followDevice) {
-        return <DeviceFrame {...props} />;
+    const [place] = useDefaultLocation();
+    if (city) {
+        return <PlaceFrame {...props} location={{ query: { city }, pending: false, name: null }} />;
     }
-    if (!city) {
-        return <PlaceFrame {...props} location={FALLBACK_LOCATION} />;
+    if (followDevice) {
+        return <DeviceFrame {...props} fallback={savedLocation(place)} />;
     }
-    return (
-        <PlaceFrame {...props} location={{ query: { city }, pending: false, fallback: false }} />
-    );
+    return <PlaceFrame {...props} location={savedLocation(place)} />;
 }
 
 /** The current weather and the forecast of a place. */

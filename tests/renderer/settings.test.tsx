@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { FINNHUB } from '../../src/shared/providers';
 import { ProviderKey } from '../../src/renderer/shell/settings/provider-key';
 import { Settings, useSettingsShortcut } from '../../src/renderer/shell/settings/settings';
-import { stubBrooz } from './stubs';
+import { PLACE, stubBrooz } from './stubs';
 
 describe('the settings', () => {
     // A test that fails early must not leave its stored setting to the next one.
@@ -20,7 +20,7 @@ describe('the settings', () => {
             within(nav)
                 .getAllByRole('button')
                 .map((button) => button.textContent)
-        ).toEqual(['Weather', '5-Day Forecast', 'Markets', 'Air Quality']);
+        ).toEqual(['Weather', 'Markets', 'Air Quality']);
         expect(await screen.findByText('No key')).toBeTruthy();
         expect(screen.getByRole('heading', { name: 'Weather' })).toBeTruthy();
         expect(screen.getByLabelText('OpenWeatherMap API key')).toBeTruthy();
@@ -38,14 +38,12 @@ describe('the settings', () => {
         expect(screen.queryByLabelText(/Use device location/)).toBe(null);
     });
 
-    it('switches the temperature unit for every tile that shows temperatures', () => {
+    it('switches the temperature unit, and only where a tile shows temperatures', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
         fireEvent.click(screen.getByLabelText('Fahrenheit'));
         expect(localStorage.getItem('brooz.temperature.unit')).toBe('"F"');
-        fireEvent.click(screen.getByRole('button', { name: '5-Day Forecast' }));
-        expect((screen.getByLabelText('Fahrenheit') as HTMLInputElement).checked).toBe(true);
         fireEvent.click(screen.getByRole('button', { name: 'Air Quality' }));
         expect(screen.queryByLabelText('Celsius')).toBe(null);
     });
@@ -55,6 +53,70 @@ describe('the settings', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
+    });
+
+    it('looks a default location up, saves the place it found, and changes or clears it', async () => {
+        localStorage.clear();
+        const invoke = stubBrooz({
+            'brooz:key-status': () => ({ present: false, canStore: true }),
+            'brooz:geocode': () => ({ ...PLACE, country: 'Italy' })
+        });
+        render(<Settings open onOpenChange={vi.fn()} />);
+        const input = screen.getByLabelText('City of the default location');
+        const save = () =>
+            within(screen.getByRole('group', { name: 'Default location' })).getByRole('button', {
+                name: 'Save'
+            });
+        expect((save() as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.change(input, { target: { value: ' rome ' } });
+        fireEvent.click(save());
+        expect(await screen.findByText('Rome, Italy')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:geocode', 'rome');
+        expect(JSON.parse(localStorage.getItem('brooz.location.default')!)).toMatchObject({
+            name: 'Rome',
+            latitude: 41.9
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Change' }));
+        expect(
+            (screen.getByLabelText('City of the default location') as HTMLInputElement).value
+        ).toBe('');
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        expect(screen.getByText('Rome, Italy')).toBeTruthy();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+        expect(screen.getByLabelText('City of the default location')).toBeTruthy();
+        expect(JSON.parse(localStorage.getItem('brooz.location.default') ?? 'null')).toBe(null);
+        localStorage.clear();
+    });
+
+    it('names a saved place without a country by its name alone', () => {
+        localStorage.setItem('brooz.location.default', JSON.stringify(PLACE));
+        status();
+        render(<Settings open onOpenChange={vi.fn()} />);
+        expect(
+            within(screen.getByRole('group', { name: 'Default location' })).getByText('Rome')
+        ).toBeTruthy();
+        localStorage.clear();
+    });
+
+    it('saves no default location when the lookup finds no place', async () => {
+        localStorage.clear();
+        stubBrooz({
+            'brooz:key-status': () => ({ present: false, canStore: true }),
+            'brooz:geocode': () => Promise.reject(new Error('No place found for "Atlantis".'))
+        });
+        render(<Settings open onOpenChange={vi.fn()} />);
+        fireEvent.change(screen.getByLabelText('City of the default location'), {
+            target: { value: 'Atlantis' }
+        });
+        fireEvent.click(
+            within(screen.getByRole('group', { name: 'Default location' })).getByRole('button', {
+                name: 'Save'
+            })
+        );
+        expect(await screen.findByText('No place found for "Atlantis".')).toBeTruthy();
+        expect(JSON.parse(localStorage.getItem('brooz.location.default') ?? 'null')).toBe(null);
     });
 
     it('opens the section a person picks', () => {

@@ -13,9 +13,6 @@ import type { TemperatureUnit } from './weather';
 import type { KeyStatus, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
 import type { StockQuote } from '../../../shared/quotes';
 
-/** Where a live tile falls back when there is no device location for it. */
-const FALLBACK_CITY = 'Berlin';
-
 /**
  * Electron wraps an error thrown by an IPC handler as
  * "Error invoking remote method '<channel>': Error: <message>"; a tile shows
@@ -81,12 +78,15 @@ function useAsync<T>(key: string | null, loader: () => Promise<T>): AsyncView<T>
     };
 }
 
-/** Where a tile shows live data: a place, or null while it is still unsettled. */
+/**
+ * Where a tile shows live data. No query and not pending: there is no
+ * location at all, and the tile asks for one.
+ */
 export interface LiveLocation {
     query: PlaceQuery | null;
     pending: boolean;
-    /** The device location is unavailable, so the query is the fallback city. */
-    fallback: boolean;
+    /** The name to show for the place; `null` keeps the one the service gives. */
+    name: string | null;
 }
 
 const GEO_OPTIONS: PositionOptions = {
@@ -105,6 +105,25 @@ export function useDeviceLocationSetting(): [boolean, (on: boolean) => void] {
     return useLocalStorage<boolean>('brooz.location.enabled', true);
 }
 
+/** The default location the person saved in the settings, or `null`; every tile follows a change. */
+export function useDefaultLocation(): [GeoPlace | null, (place: GeoPlace | null) => void] {
+    return useLocalStorage<GeoPlace | null>('brooz.location.default', null);
+}
+
+/** No location at all: the tile asks for one instead of guessing. */
+export const NO_LOCATION: LiveLocation = { query: null, pending: false, name: null };
+
+/** The default location as a tile's location: its coordinates, under its saved name. */
+export function savedLocation(place: GeoPlace | null): LiveLocation {
+    return place
+        ? {
+              query: { latitude: place.latitude, longitude: place.longitude },
+              pending: false,
+              name: place.name
+          }
+        : NO_LOCATION;
+}
+
 /** The temperature unit: Celsius until the person picks Fahrenheit. */
 export function useTemperatureUnit(): [TemperatureUnit, (unit: TemperatureUnit) => void] {
     const [unit, setUnit] = useLocalStorage<TemperatureUnit>('brooz.temperature.unit', 'C');
@@ -112,30 +131,23 @@ export function useTemperatureUnit(): [TemperatureUnit, (unit: TemperatureUnit) 
     return [unit === 'F' ? 'F' : 'C', setUnit];
 }
 
-/** The fallback a tile shows when it may not, or cannot, follow the device. */
-export const FALLBACK_LOCATION: LiveLocation = {
-    query: { city: FALLBACK_CITY },
-    pending: false,
-    fallback: true
-};
-
 /**
- * The device location, followed while the tile is open. Without one (denied,
- * switched off, or unsupported) the tile falls back to Berlin and says so.
+ * The device location, followed while the tile is open. Without one (denied
+ * or unsupported) the tile shows the fallback it is given.
  */
-export function useDeviceLocation(): LiveLocation {
+export function useDeviceLocation(fallback: LiveLocation): LiveLocation {
     const { latitude, longitude, loading } = useGeolocation(GEO_OPTIONS);
     if (latitude !== null && longitude !== null) {
         return {
             query: { latitude: coarse(latitude), longitude: coarse(longitude) },
             pending: false,
-            fallback: false
+            name: null
         };
     }
     if (loading) {
-        return { query: null, pending: true, fallback: false };
+        return { query: null, pending: true, name: null };
     }
-    return FALLBACK_LOCATION;
+    return fallback;
 }
 
 export function useWeather(query: PlaceQuery | null): AsyncView<ProviderOutcome<WeatherSnapshot>> {

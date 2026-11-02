@@ -1,0 +1,2 @@
+# `pnpm verify` and friends run the npm scripts; this repo installs with npm.
+verifyDepsBeforeRun: false

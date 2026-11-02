@@ -1,4 +1,12 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+    act,
+    cleanup,
+    fireEvent,
+    render,
+    renderHook,
+    screen,
+    waitFor
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { tiles } from '../../src/renderer/tiles';
 import { AboutTileBody } from '../../src/renderer/tiles/about';
@@ -6,7 +14,6 @@ import { ActivityRings } from '../../src/renderer/tiles/activityRings';
 import { AirQuality, LiveAirQuality } from '../../src/renderer/tiles/airQuality';
 import { AnalogClock, LiveAnalogClock } from '../../src/renderer/tiles/analogClock';
 import { Calendar } from '../../src/renderer/tiles/calendar';
-import { Forecast, LiveForecast } from '../../src/renderer/tiles/forecast';
 import { LiveMoon, MoonPhase } from '../../src/renderer/tiles/moonPhase';
 import { getMoonPhase } from '../../src/renderer/tiles/moonPhase/moon';
 import { NowPlaying } from '../../src/renderer/tiles/nowPlaying';
@@ -17,6 +24,7 @@ import { SystemStats } from '../../src/renderer/tiles/systemStats';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
 import { LiveWorldClock, WorldClock } from '../../src/renderer/tiles/worldClock';
+import { useDefaultLocation } from '../../src/renderer/shell/kit/hooks';
 import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 const live = { label: 'Live', lowConfidence: false };
@@ -43,31 +51,29 @@ describe('every resting tile', () => {
         }
     );
 
-    it('shows the resting temperatures in the unit the person chose', () => {
-        const reading = (pattern: RegExp): number =>
-            Number(pattern.exec(document.body.textContent ?? '')?.[1]);
-        const toF = (celsius: number): number => Math.round((celsius * 9) / 5 + 32);
+    it('shows a seeded air quality category on the weather, on the one scale', () => {
+        const categories = ['Good', 'Fair', 'Moderate', 'Poor', 'Very poor'];
+        render(<Weather seed={4} />);
+        const name = screen
+            .getByRole('img', { name: /^Air quality: / })
+            .getAttribute('aria-label')!;
+        expect(categories).toContain(name.replace('Air quality: ', ''));
+        render(<AirQuality seed={4} />);
+        expect(screen.getByText('OpenWeatherMap index')).toBeTruthy();
+        expect(screen.queryByText('US EPA Index')).toBe(null);
+    });
 
-        const { unmount } = render(
-            <>
-                <Weather seed={0} />
-                <Forecast seed={0} />
-            </>
-        );
-        const feels = reading(/FEELS (-?\d+)°/);
-        const high = reading(/HIGH (-?\d+)°/);
+    it('shows the resting temperatures in the unit the person chose', () => {
+        const toF = (celsius: number): number => Math.round((celsius * 9) / 5 + 32);
+        const now = (): number => Number(screen.getByText(/^-?\d+°$/).textContent!.slice(0, -1));
+
+        const { unmount } = render(<Weather seed={0} />);
+        const celsius = now();
         unmount();
 
         localStorage.setItem('brooz.temperature.unit', '"F"');
-        render(
-            <>
-                <Weather seed={0} />
-                <Forecast seed={0} />
-            </>
-        );
-        expect(screen.getByText('°F')).toBeTruthy();
-        expect(screen.getByText(`FEELS ${toF(feels)}°`)).toBeTruthy();
-        expect(screen.getByText(`HIGH ${toF(high)}°`)).toBeTruthy();
+        render(<Weather seed={0} />);
+        expect(now()).toBe(toF(celsius));
     });
 
     it('is registered with the component its directory exports', () => {
@@ -75,7 +81,6 @@ describe('every resting tile', () => {
             AnalogClock,
             WorldClock,
             Weather,
-            Forecast,
             NowPlaying,
             ActivityRings,
             SystemStats,
@@ -113,7 +118,6 @@ describe('every resting tile', () => {
         );
         expect(keys).toMatchObject({
             weather: ['weather:', 'weather:Rome'],
-            forecast: ['forecast:', 'forecast:Rome'],
             'air-quality': ['air-quality:', 'air-quality:Rome'],
             'world-clock': ['world-clock:', 'world-clock:Rome'],
             pomodoro: ['pomodoro:25:', 'pomodoro:5:pause'],
@@ -132,43 +136,26 @@ describe('the live weather tiles', () => {
         localStorage.clear();
     });
 
-    it('shows the current weather of a city', async () => {
+    it('shows the current weather of a city and the next five days', async () => {
         stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
         expect(screen.getByLabelText('Loading live data')).toBeTruthy();
         expect(await screen.findByText('Rain')).toBeTruthy();
-        expect(screen.getByText('Rome')).toBeTruthy();
-        expect(screen.getByText('HUM 55%')).toBeTruthy();
-        expect(screen.getByText('°C')).toBeTruthy();
+        expect(screen.getByText('21°')).toBeTruthy();
+        expect(screen.getAllByText('Rome').length).toBeGreaterThan(0);
+        expect(
+            ['Sat', 'Sun', 'Mon', 'Tue', 'Wed'].map((day) => screen.getByText(day))
+        ).toHaveLength(5);
+        expect(screen.getByText('22')).toBeTruthy();
     });
 
     it('shows the temperatures in Fahrenheit when the person chose it', async () => {
         localStorage.setItem('brooz.temperature.unit', '"F"');
         stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        const { unmount } = render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('°F')).toBeTruthy();
-        expect(screen.getByText('FEELS 69°')).toBeTruthy();
-        unmount();
-        render(<LiveForecast {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('Today')).toBeTruthy();
-        expect(screen.getByText('54°')).toBeTruthy();
-    });
-
-    it('shows five days and how many are rainy', async () => {
-        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        const { rerender } = render(<LiveForecast {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('Today')).toBeTruthy();
-        expect(screen.getByText('Rain likely on 1 day')).toBeTruthy();
-
-        const rainy = WEATHER.daily.map((day) => ({ ...day, precipitationProbability: 90 }));
-        stubBrooz({ 'brooz:weather': () => ok({ ...WEATHER, daily: rainy }) });
-        rerender(<LiveForecast {...live} args={{ city: 'Oslo' }} />);
-        expect(await screen.findByText('Rain likely on 5 days')).toBeTruthy();
-
-        const dry = WEATHER.daily.map((day) => ({ ...day, precipitationProbability: 0 }));
-        stubBrooz({ 'brooz:weather': () => ok({ ...WEATHER, daily: dry }) });
-        rerender(<LiveForecast {...live} args={{ city: 'Cairo' }} />);
-        expect(await screen.findByText('No rain expected')).toBeTruthy();
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('71°')).toBeTruthy();
+        expect(screen.getByText('72')).toBeTruthy();
+        expect(screen.getByText('54')).toBeTruthy();
     });
 
     it.each([
@@ -188,9 +175,38 @@ describe('the live weather tiles', () => {
         const invoke = stubBrooz({
             'brooz:air-quality': () => Promise.reject(new Error('Offline'))
         });
-        render(<LiveAirQuality {...live} args={{}} />);
+        render(<LiveAirQuality {...live} args={{ city: 'Rome' }} />);
         expect(await screen.findByText('Offline')).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Berlin' });
+        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Rome' });
+    });
+
+    it('shows the air quality category of the weather place once it is there', async () => {
+        let answerAir!: (value: unknown) => void;
+        const invoke = stubBrooz({
+            'brooz:weather': () => ok(WEATHER),
+            'brooz:air-quality': () => new Promise((resolve) => (answerAir = resolve))
+        });
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('21°')).toBeTruthy();
+        expect(screen.queryByRole('img', { name: /^Air quality/ })).toBe(null);
+        await act(async () => answerAir(ok({ ...AIR, aqi: 2 })));
+        expect(screen.getByRole('img', { name: 'Air quality: Fair' }).textContent).toBe('Fair');
+        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', {
+            latitude: 41.9,
+            longitude: 12.5
+        });
+    });
+
+    it('keeps the weather and drops the indicator when the air quality is not there', async () => {
+        stubBrooz({
+            'brooz:weather': () => ok(WEATHER),
+            'brooz:air-quality': () => ({ status: 'provider-error', message: 'Offline' })
+        });
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('21°')).toBeTruthy();
+        await act(async () => {});
+        expect(screen.queryByRole('img', { name: /^Air quality/ })).toBe(null);
+        expect(screen.queryByText('Offline')).toBe(null);
     });
 
     it('invites to the settings without an OpenWeatherMap key', async () => {
@@ -199,30 +215,53 @@ describe('the live weather tiles', () => {
         expect(await screen.findByText('Needs an API key from OpenWeatherMap.')).toBeTruthy();
     });
 
-    it('shows the device location, and marks the fallback without one', async () => {
+    it('shows the device location when there is one', async () => {
         stubGeolocation({ latitude: 53.55, longitude: 9.99 });
         const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        const { unmount } = render(<LiveWeather {...live} args={{}} />);
-        expect(await screen.findByText(WEATHER.place.name)).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 53.55, longitude: 9.99 });
-        unmount();
-
-        stubGeolocation();
         render(<LiveWeather {...live} args={{}} />);
-        expect(
-            await screen.findByText(`${WEATHER.place.name} · location unavailable`)
-        ).toBeTruthy();
+        expect((await screen.findAllByText(WEATHER.place.name)).length).toBeGreaterThan(0);
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 53.55, longitude: 9.99 });
     });
 
-    it('never asks for the device location once the person turned it off', async () => {
+    it('falls back to the default location, by its saved name, without a device location', async () => {
+        stubGeolocation();
+        localStorage.setItem('brooz.location.default', JSON.stringify({ ...PLACE, name: 'Roma' }));
+        const invoke = stubBrooz({
+            'brooz:weather': () => ok({ ...WEATHER, place: { ...PLACE, name: 'Your location' } })
+        });
+        render(<LiveWeather {...live} args={{}} />);
+        expect((await screen.findAllByText('Roma')).length).toBeGreaterThan(0);
+        expect(screen.queryByText('Your location')).toBe(null);
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 41.9, longitude: 12.5 });
+    });
+
+    it('asks for a location without a device location and without a default one', () => {
+        stubGeolocation();
+        const invoke = stubBrooz({});
+        render(<LiveWeather {...live} args={{}} />);
+        expect(screen.getByText('Set a location first.')).toBeTruthy();
+        render(<LiveAirQuality {...live} args={{}} />);
+        expect(screen.getAllByText('Set a location first.')).toHaveLength(2);
+        expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('never asks for the device location once it is off, and follows the default location live', async () => {
         localStorage.setItem('brooz.location.enabled', 'false');
+        const getCurrentPosition = vi.fn();
+        vi.stubGlobal('navigator', {
+            userAgent: navigator.userAgent,
+            geolocation: { getCurrentPosition, watchPosition: getCurrentPosition }
+        });
         const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         render(<LiveWeather {...live} args={{}} />);
-        expect(
-            await screen.findByText(`${WEATHER.place.name} · location unavailable`)
-        ).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:weather', { city: 'Berlin' });
-        localStorage.clear();
+        expect(screen.getByText('Set a location first.')).toBeTruthy();
+        const { result } = renderHook(() => useDefaultLocation());
+        act(() => result.current[1](PLACE));
+        expect((await screen.findAllByText('Rome')).length).toBeGreaterThan(0);
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 41.9, longitude: 12.5 });
+        act(() => result.current[1](null));
+        expect(screen.getByText('Set a location first.')).toBeTruthy();
+        expect(getCurrentPosition).not.toHaveBeenCalled();
     });
 });
 
