@@ -11,7 +11,7 @@ person is. The tile asks only when it needs it - a city named in the
 utterance never touches the device location - and without one (denied,
 switched off, or unsupported, as often on Linux) it falls back to Berlin
 and says so on the tile, never silently. The person can turn the device
-location off in the weather tiles' settings sections; the tiles then show
+location off in the general section of the settings; the tiles then show
 the fallback and never ask.
 
 ## Considered options
