@@ -58,7 +58,7 @@ function AirIndicator({ category }: { category: AirCategory }): JSX.Element {
             className="flex shrink-0 items-center gap-1 text-xs font-medium"
         >
             <span
-                className="h-2 w-2 rounded-full ring-1 ring-black/50"
+                className="size-2 rounded-full ring-1 ring-black/50"
                 style={{ background: category.color }}
             />
             {category.label}
@@ -70,19 +70,19 @@ function AirIndicator({ category }: { category: AirCategory }): JSX.Element {
 function WeatherCard({ label, icon, temp, place, days, air }: WeatherCardProps): JSX.Element {
     const [unit] = useTemperatureUnit();
     return (
-        <div className="flex h-full w-full min-h-0 gap-2.5">
+        <div className="flex size-full min-h-0 gap-2.5">
             <div
-                className={`flex min-w-0 flex-[1.15] flex-col justify-between rounded-2xl px-3.5 py-3 text-black [text-shadow:none] ${ACCENTS[icon]}`}
+                className={`flex min-w-0 flex-[1.15] flex-col justify-between rounded-2xl px-3.5 py-3 text-black text-shadow-none ${ACCENTS[icon]}`}
             >
                 <div className="flex min-w-0 items-center gap-1.5">
-                    <ConditionIcon name={icon} className="h-4 w-4 shrink-0" />
+                    <ConditionIcon name={icon} className="size-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate text-xs font-medium">{label}</span>
                     {air ? <AirIndicator category={air} /> : null}
                 </div>
                 <div className="text-5xl leading-none font-normal tracking-tight">
                     {inUnit(temp, unit)}°
                 </div>
-                <div className="truncate text-base leading-tight font-semibold">{place}</div>
+                <div className="truncate text-base/tight font-semibold">{place}</div>
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col justify-around rounded-2xl border border-white/15 px-3 py-1.5">
@@ -94,7 +94,7 @@ function WeatherCard({ label, icon, temp, place, days, air }: WeatherCardProps):
                         <span className="truncate text-white/50">{day.label}</span>
                         <ConditionIcon
                             name={day.icon}
-                            className={`h-4 w-4 ${weatherTone(day.icon)}`}
+                            className={`size-4 ${weatherTone(day.icon)}`}
                         />
                         <span className="text-right text-white/30">{inUnit(day.lo, unit)}</span>
                         <span className="text-right text-white">{inUnit(day.hi, unit)}</span>

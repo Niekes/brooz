@@ -255,7 +255,7 @@ export function LiveAnalogClock({ label, lowConfidence }: LiveTileProps): JSX.El
             <div className="flex h-full min-h-0 items-center justify-between gap-3">
                 <svg
                     viewBox="0 0 200 200"
-                    className="h-[7.5rem] w-[7.5rem] shrink-0 drop-shadow-[0_10px_25px_rgba(0,0,0,0.45)]"
+                    className="size-30 shrink-0 drop-shadow-[0_10px_25px_rgba(0,0,0,0.45)]"
                     aria-hidden="true"
                 >
                     <Face />

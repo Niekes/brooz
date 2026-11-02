@@ -37,7 +37,7 @@ export function NowPlaying({ seed }: TileProps): JSX.Element {
                 <div className="flex items-center gap-3.5">
                     <div
                         aria-hidden="true"
-                        className="h-14 w-14 shrink-0 rounded-xl border border-white/15 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
+                        className="size-14 shrink-0 rounded-xl border border-white/15 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
                         style={{ background: `linear-gradient(135deg, ${hue.hex}, ${hue.hex}55)` }}
                     />
                     <div className="min-w-0">

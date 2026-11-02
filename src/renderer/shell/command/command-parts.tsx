@@ -39,7 +39,7 @@ export function SearchIcon(): JSX.Element {
     return (
         <svg
             viewBox="0 0 24 24"
-            className="h-4 w-4 shrink-0 text-white/35"
+            className="size-4 shrink-0 text-white/35"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.6"
@@ -55,7 +55,7 @@ export function SearchIcon(): JSX.Element {
 export function Spinner(): JSX.Element {
     return (
         <span
-            className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border border-white/20 border-t-white/70"
+            className="size-3.5 shrink-0 animate-spin rounded-full border border-white/20 border-t-white/70"
             aria-label="Routing"
         />
     );
@@ -88,10 +88,10 @@ export function Chips({
 function RowNumber({ index, active }: { index: number; active: boolean }): JSX.Element {
     return (
         <span
-            className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border font-mono text-[9px] ${
+            className={`grid size-8 shrink-0 place-items-center rounded-lg border font-mono text-[9px] ${
                 active
                     ? 'border-white/25 bg-white/10 text-white/70'
-                    : 'border-white/10 bg-white/[0.03] text-white/35'
+                    : 'border-white/10 bg-white/3 text-white/35'
             }`}
         >
             {String(index + 1).padStart(2, '0')}
@@ -141,7 +141,7 @@ function SuggestionRow({
             onMouseEnter={onHover}
             onClick={onPick}
             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
-                active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+                active ? 'bg-white/8' : 'hover:bg-white/4'
             }`}
         >
             <RowNumber index={index} active={active} />
@@ -256,7 +256,7 @@ function ModelAction({
             <button
                 type="button"
                 onClick={model.load}
-                className="shrink-0 rounded-full border border-[#fda4af]/25 bg-[#fda4af]/10 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-[#fda4af] uppercase transition-colors hover:bg-[#fda4af]/15"
+                className="shrink-0 rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-destructive uppercase transition-colors hover:bg-destructive/15"
             >
                 Retry
             </button>
@@ -284,7 +284,7 @@ export function StatusLine({
             <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
                 <span className="flex min-w-0 items-center gap-1.5">
                     <span
-                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[model.status]}`}
+                        className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[model.status]}`}
                     />
                     <span className="truncate text-[8px] font-medium tracking-[0.16em] text-white/30 uppercase">
                         {statusLabel(model)}

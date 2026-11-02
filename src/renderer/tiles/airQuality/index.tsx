@@ -40,7 +40,7 @@ export function AirQuality({ seed }: TileProps): JSX.Element {
             <div className="relative flex h-4 items-center">
                 <div className="h-1.5 w-full rounded-full" style={{ background: AIR_BAND }} />
                 <span
-                    className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90 bg-white/25 shadow-[0_2px_6px_rgba(0,0,0,0.4)]"
+                    className="absolute size-3.5 -translate-1/2 rounded-full border-2 border-white/90 bg-white/25 shadow-[0_2px_6px_rgba(0,0,0,0.4)]"
                     style={{ left: `${(aqi - 0.5) * 20}%` }}
                 />
             </div>
@@ -84,7 +84,7 @@ export function LiveAirQuality({ label, lowConfidence, args }: LiveTileProps): J
                                 style={{ background: AIR_BAND }}
                             />
                             <span
-                                className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-white/20 shadow-[0_1px_4px_rgba(0,0,0,0.45)]"
+                                className="absolute top-1/2 size-2.5 -translate-1/2 rounded-full border border-white bg-white/20 shadow-[0_1px_4px_rgba(0,0,0,0.45)]"
                                 style={{ left: `${(data.aqi - 0.5) * 20}%` }}
                             />
                         </div>

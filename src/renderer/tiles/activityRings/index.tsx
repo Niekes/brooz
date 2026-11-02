@@ -26,7 +26,7 @@ function StatRow({
     return (
         <div className="flex w-full items-center justify-between gap-2">
             <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: hue, opacity }} />
+                <span className="size-1.5 rounded-full" style={{ background: hue, opacity }} />
                 <span className="text-[9px] tracking-[0.14em] text-white/45 uppercase">
                     {stat.label}
                 </span>

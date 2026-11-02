@@ -32,7 +32,7 @@ export function SystemStats({ seed }: TileProps): JSX.Element {
                         <span className="shrink-0 text-[10px] tracking-[0.16em] text-white/45 uppercase">
                             {stat.label}
                         </span>
-                        <span className="order-last shrink-0 font-mono text-[11px] text-white/80 @min-[300px]:order-none @min-[300px]:text-xl">
+                        <span className="order-last shrink-0 font-mono text-[11px] text-white/80 @min-[300px]:order-0 @min-[300px]:text-xl">
                             {stat.pct}%
                         </span>
                         <span className="h-1.5 min-w-0 flex-1 rounded-full bg-white/10 @min-[300px]:mt-auto @min-[300px]:flex-none">

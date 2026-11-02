@@ -120,7 +120,7 @@ function LiveDisc({
     waxing: boolean;
 }): JSX.Element {
     return (
-        <svg viewBox="0 0 200 200" className="h-24 w-24 shrink-0" aria-hidden="true">
+        <svg viewBox="0 0 200 200" className="size-24 shrink-0" aria-hidden="true">
             {STARS.map((star) => (
                 <circle
                     key={`${star.x}-${star.y}`}

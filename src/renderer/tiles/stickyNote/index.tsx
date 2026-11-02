@@ -33,11 +33,11 @@ export function StickyNote({ seed }: TileProps): JSX.Element {
                 style={{ background: `${hue.hex}1a` }}
                 aria-hidden="true"
             />
-            <div className="relative flex h-full w-full flex-col justify-between">
+            <div className="relative flex size-full flex-col justify-between">
                 <div className="flex items-start justify-between">
                     <Eyebrow>Note</Eyebrow>
                     <span
-                        className="mt-1 h-1.5 w-1.5 rounded-full"
+                        className="mt-1 size-1.5 rounded-full"
                         style={{ background: hue.hex }}
                         aria-hidden="true"
                     />
@@ -47,7 +47,7 @@ export function StickyNote({ seed }: TileProps): JSX.Element {
                     “{quote.text}”
                 </p>
 
-                <div className="font-mono text-[10px] tracking-[0.1em] text-white/45 uppercase">
+                <div className="font-mono text-[10px] tracking-widest text-white/45 uppercase">
                     — {quote.by}
                 </div>
             </div>
@@ -118,7 +118,7 @@ export function LiveNote({ label, lowConfidence, args }: LiveTileProps): JSX.Ele
                     className="min-h-0 w-full flex-1 resize-none rounded-lg border border-white/10 bg-black/20 p-2 text-[11px] leading-relaxed text-white/85 outline-none placeholder:text-white/25 focus:border-white/25"
                 />
 
-                <div className="flex items-center justify-between gap-2 text-[8px] tracking-[0.1em] text-white/30 uppercase">
+                <div className="flex items-center justify-between gap-2 text-[8px] tracking-widest text-white/30 uppercase">
                     <span>
                         {text.length} {text.length === 1 ? 'char' : 'chars'}
                     </span>
@@ -126,7 +126,7 @@ export function LiveNote({ label, lowConfidence, args }: LiveTileProps): JSX.Ele
                         type="button"
                         onClick={() => update('')}
                         disabled={!text}
-                        className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-white/45 uppercase transition-colors hover:bg-white/10 hover:text-white disabled:opacity-35"
+                        className="rounded-full border border-white/10 bg-white/3 px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-white/45 uppercase transition-colors hover:bg-white/10 hover:text-white disabled:opacity-35"
                     >
                         Clear
                     </button>

@@ -57,7 +57,7 @@ function SurfBody({ view, footer }: { view: SurfView; footer?: string }): JSX.El
             </div>
             <div className="grid grid-cols-3 gap-2 font-mono text-[10px] text-white/55">
                 {view.next.map((hour) => (
-                    <div key={hour.time} className="rounded-lg bg-white/[0.05] px-2 py-1">
+                    <div key={hour.time} className="rounded-lg bg-white/5 px-2 py-1">
                         <div className="text-white/35">{hour.time}</div>
                         <div>{hour.wave}</div>
                     </div>

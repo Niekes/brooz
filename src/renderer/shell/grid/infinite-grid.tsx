@@ -80,7 +80,7 @@ function SlotContent({
     const { Live, liveKey, title } = tile;
     return (
         <div
-            className={`h-full w-full ${highlighted ? 'ring-2 ring-white/80 ring-offset-0 rounded-[inherit]' : ''}`}
+            className={`size-full ${highlighted ? 'ring-2 ring-white/80 ring-offset-0 rounded-[inherit]' : ''}`}
         >
             {Live && entry?.slot === slot ? (
                 <Live
