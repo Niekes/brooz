@@ -2,12 +2,12 @@ import type { JSX } from 'react';
 import type { WeatherSnapshot } from '../../../shared/weather';
 import { airCategory } from '../../shell/kit/air';
 import type { AirCategory } from '../../shell/kit/air';
-import { useAirQuality } from '../../shell/kit/hooks';
+import { useAirQuality, useTemperatureUnit } from '../../shell/kit/hooks';
 import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { pick, rng } from '../../shell/kit/seed';
-import { weatherInfo, weatherTone } from '../../shell/kit/weather';
+import { inUnit, weatherInfo, weatherTone } from '../../shell/kit/weather';
 import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
 
 const CITIES = ['Berlin', 'Tokyo', 'Reykjavík', 'Lisbon', 'Oslo', 'Cairo', 'Seattle', 'Melbourne'];
@@ -41,6 +41,7 @@ interface WeatherDayRow {
 interface WeatherCardProps {
     label: string;
     icon: CondName;
+    /** Temperatures in Celsius; the card shows them in the person's unit. */
     temp: number;
     place: string;
     days: readonly WeatherDayRow[];
@@ -67,6 +68,7 @@ function AirIndicator({ category }: { category: AirCategory }): JSX.Element {
 
 /** Now on a coloured block, the next five days in a list beside it. */
 function WeatherCard({ label, icon, temp, place, days, air }: WeatherCardProps): JSX.Element {
+    const [unit] = useTemperatureUnit();
     return (
         <div className="flex h-full w-full min-h-0 gap-2.5">
             <div
@@ -77,7 +79,9 @@ function WeatherCard({ label, icon, temp, place, days, air }: WeatherCardProps):
                     <span className="min-w-0 flex-1 truncate text-xs font-medium">{label}</span>
                     {air ? <AirIndicator category={air} /> : null}
                 </div>
-                <div className="text-5xl leading-none font-normal tracking-tight">{temp}°</div>
+                <div className="text-5xl leading-none font-normal tracking-tight">
+                    {inUnit(temp, unit)}°
+                </div>
                 <div className="truncate text-base leading-tight font-semibold">{place}</div>
             </div>
 
@@ -92,8 +96,8 @@ function WeatherCard({ label, icon, temp, place, days, air }: WeatherCardProps):
                             name={day.icon}
                             className={`h-4 w-4 ${weatherTone(day.icon)}`}
                         />
-                        <span className="text-right text-white/30">{day.lo}</span>
-                        <span className="text-right text-white">{day.hi}</span>
+                        <span className="text-right text-white/30">{inUnit(day.lo, unit)}</span>
+                        <span className="text-right text-white">{inUnit(day.hi, unit)}</span>
                     </div>
                 ))}
             </div>
@@ -159,14 +163,14 @@ function LiveWeatherCard({ data }: { data: WeatherSnapshot }): JSX.Element {
         <WeatherCard
             label={info.label}
             icon={info.icon}
-            temp={Math.round(data.temperatureC)}
+            temp={data.temperatureC}
             place={data.place.name}
             days={data.daily.map((day) => ({
                 key: day.date,
                 label: weekday(day.date),
                 icon: weatherInfo(day.code).icon,
-                lo: Math.round(day.minC),
-                hi: Math.round(day.maxC)
+                lo: day.minC,
+                hi: day.maxC
             }))}
             air={air?.status === 'ok' ? airCategory(air.data.aqi) : null}
         />
@@ -180,6 +184,7 @@ export const weatherTile: TileDefinition = {
     Live: LiveWeather,
     providers: WEATHER_PROVIDERS,
     deviceLocation: true,
+    temperatures: true,
     liveKey: ({ city }) => `weather:${city ?? ''}`,
     route: {
         description:

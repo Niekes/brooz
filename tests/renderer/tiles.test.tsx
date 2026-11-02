@@ -38,6 +38,7 @@ describe('every resting tile', () => {
     beforeEach(() => {
         window.brooz = { invoke: vi.fn().mockResolvedValue('0.1.0') };
     });
+    afterEach(() => localStorage.clear());
 
     it.each(tiles.map((tile) => [tile.id, tile] as const))(
         '%s renders for any seed',
@@ -60,6 +61,19 @@ describe('every resting tile', () => {
         render(<AirQuality seed={4} />);
         expect(screen.getByText('OpenWeatherMap index')).toBeTruthy();
         expect(screen.queryByText('US EPA Index')).toBe(null);
+    });
+
+    it('shows the resting temperatures in the unit the person chose', () => {
+        const toF = (celsius: number): number => Math.round((celsius * 9) / 5 + 32);
+        const now = (): number => Number(screen.getByText(/^-?\d+°$/).textContent!.slice(0, -1));
+
+        const { unmount } = render(<Weather seed={0} />);
+        const celsius = now();
+        unmount();
+
+        localStorage.setItem('brooz.temperature.unit', '"F"');
+        render(<Weather seed={0} />);
+        expect(now()).toBe(toF(celsius));
     });
 
     it('is registered with the component its directory exports', () => {
@@ -133,6 +147,15 @@ describe('the live weather tiles', () => {
             ['Sat', 'Sun', 'Mon', 'Tue', 'Wed'].map((day) => screen.getByText(day))
         ).toHaveLength(5);
         expect(screen.getByText('22')).toBeTruthy();
+    });
+
+    it('shows the temperatures in Fahrenheit when the person chose it', async () => {
+        localStorage.setItem('brooz.temperature.unit', '"F"');
+        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('71°')).toBeTruthy();
+        expect(screen.getByText('72')).toBeTruthy();
+        expect(screen.getByText('54')).toBeTruthy();
     });
 
     it.each([

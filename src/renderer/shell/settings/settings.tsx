@@ -7,13 +7,14 @@ import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
 import { DefaultLocationOption } from './default-location';
 import { ProviderKey } from './provider-key';
-import { useDeviceLocationSetting } from '../kit/hooks';
+import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
 
 /**
  * The settings: the one surface that manages keys, shown over the dashboard.
  * A sidebar lists one section per tile that has something to set, in grid
  * order; a section shows the keys of the tile's providers, and the device
- * location switch and the default location of a tile that follows it. A key shared by
+ * location switch and the default location of a tile that follows it, and the
+ * temperature unit of a tile that shows temperatures. A key shared by
  * several tiles shows in each of their sections and is still one key.
  */
 
@@ -114,6 +115,33 @@ function DeviceLocationOption(): JSX.Element {
     );
 }
 
+const UNITS = [
+    { unit: 'C', label: 'Celsius' },
+    { unit: 'F', label: 'Fahrenheit' }
+] as const;
+
+/** One temperature unit for every tile that shows temperatures, like the device location. */
+function TemperatureUnitOption(): JSX.Element {
+    const [current, setUnit] = useTemperatureUnit();
+    return (
+        <fieldset className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-4 text-sm">
+            <legend className="px-1 text-white">Temperature unit</legend>
+            {UNITS.map(({ unit, label }) => (
+                <label key={unit} className="flex items-center gap-3 text-white/80">
+                    <input
+                        type="radio"
+                        name="temperature-unit"
+                        checked={current === unit}
+                        onChange={() => setUnit(unit)}
+                        className="accent-white"
+                    />
+                    {label}
+                </label>
+            ))}
+        </fieldset>
+    );
+}
+
 export function Settings({
     open,
     onOpenChange
@@ -153,6 +181,7 @@ export function Settings({
                                 <DefaultLocationOption />
                             </>
                         ) : null}
+                        {current.temperatures ? <TemperatureUnitOption /> : null}
                     </section>
                 ) : null}
             </div>

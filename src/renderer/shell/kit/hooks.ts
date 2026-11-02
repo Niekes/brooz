@@ -9,6 +9,7 @@ import type {
     WeatherSnapshot
 } from '../../../shared/weather';
 import type { AsyncView } from './live';
+import type { TemperatureUnit } from './weather';
 import type { KeyStatus, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
 import type { StockQuote } from '../../../shared/quotes';
 
@@ -121,6 +122,13 @@ export function savedLocation(place: GeoPlace | null): LiveLocation {
               name: place.name
           }
         : NO_LOCATION;
+}
+
+/** The temperature unit: Celsius until the person picks Fahrenheit. */
+export function useTemperatureUnit(): [TemperatureUnit, (unit: TemperatureUnit) => void] {
+    const [unit, setUnit] = useLocalStorage<TemperatureUnit>('brooz.temperature.unit', 'C');
+    // The stored value is untyped JSON: anything but 'F' reads as Celsius.
+    return [unit === 'F' ? 'F' : 'C', setUnit];
 }
 
 /**
