@@ -6,6 +6,30 @@ From 0.2.1 on, release-please writes the entries from the Conventional
 Commits on `master`; the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/Niekes/brooz/compare/v0.4.0...v0.5.0) (2026-11-02)
+
+
+### Added
+
+* a default location replaces the Berlin fallback ([1d7fc17](https://github.com/Niekes/brooz/commit/1d7fc17356778473e3c75515d80765100ef946a6))
+* a general section in the settings for location and temperature unit ([3b5fff0](https://github.com/Niekes/brooz/commit/3b5fff000460a198b1101c3424b862a0cd41eb82))
+* a general section in the settings for location and temperature unit ([dfeeb76](https://github.com/Niekes/brooz/commit/dfeeb769991683c92ddad5758459a791fc29f913))
+* add a surf tile with the Stormglass forecast of a saved surf spot ([2223d11](https://github.com/Niekes/brooz/commit/2223d11ef1d86f75d7ca01933730ccf70805925d))
+* add a surf tile with the Stormglass forecast of a saved surf spot ([08ee1d6](https://github.com/Niekes/brooz/commit/08ee1d65a3bf692e3b05ad33e28ee6c07962eb0f))
+* choose Celsius or Fahrenheit in the settings ([d146332](https://github.com/Niekes/brooz/commit/d14633264ca39818434998dabe4c611c84812734))
+* choose Celsius or Fahrenheit in the settings ([755d711](https://github.com/Niekes/brooz/commit/755d7113e2cb9b3493f0c25641b57edb628e99a8))
+* redesign the weather tile and fold the forecast into it ([a3fc69c](https://github.com/Niekes/brooz/commit/a3fc69cd80115cfb50a9495b6077b10c00a79aa6))
+* show the air quality category on the weather tile ([2985b52](https://github.com/Niekes/brooz/commit/2985b5258a028b0aed98e5d4c1db3ae60dc56c7c))
+* unified weather tile, default location and air quality indicator ([b277d8a](https://github.com/Niekes/brooz/commit/b277d8a8e6c567ead00a31165b1bdc25aca4e2fa))
+
+
+### Fixed
+
+* the cursor follows the element's role ([f04b072](https://github.com/Niekes/brooz/commit/f04b07265871151ad3770d706e1ffc4f86fed174))
+* the cursor follows the element's role ([abefa33](https://github.com/Niekes/brooz/commit/abefa33e9696b18a945ae02523856aa611fc3af7))
+* the surf spot hook uses useStoredValue ([162f643](https://github.com/Niekes/brooz/commit/162f64309584750e9175a474a2ad7c9893f5b964))
+* the surf spot hook uses useStoredValue ([2d5bd6a](https://github.com/Niekes/brooz/commit/2d5bd6a5a379055cf173611926904a0cf4a95675))
+
 ## [0.4.0](https://github.com/Niekes/brooz/compare/v0.3.0...v0.4.0) (2026-11-01)
 
 
