@@ -232,7 +232,9 @@ generated (`docs/adr/0004-shadcn-primitives-are-untouched.md`). Never edit
 them: style and extend them in an `app-*` wrapper next to them, the only
 files that may import a primitive (fallow's `primitives` zone). Their hashes
 are locked in `primitives.lock.json`; `npm run lint` fails on any drift, and
-`npm run ui:add -- <name>` is the only way to add or update one.
+`npm run ui:add -- <name>` is the only way to add or update one. Every
+primitive must be reached from an `app-*` wrapper, directly or through
+another primitive; one that nothing reaches fails the lint.
 
 ## Hooks: usehooks first
 
@@ -255,6 +257,11 @@ read the raw text the hook cannot parse.
 - Public functions are declared with `export function`. Never `export const`
   arrow functions, and there are no default exports.
 - A type that appears in a public signature is exported.
+- The cursor follows the element's role, from one rule in
+  `src/renderer/styles.css`: buttons and clickable roles point, text inputs
+  take text, disabled controls are not-allowed. Never set `cursor-pointer`,
+  `cursor-text`, `cursor-default` or `cursor-not-allowed` by hand; the lint
+  fails on them. Special cursors such as `cursor-grab` stay free.
 
 ## Commit convention
 

@@ -8,7 +8,9 @@ styling and behaviour go. Fallow enforces the wrapper rule with a
 `primitives` zone only `app-*` files may import; it cannot see file contents,
 so "untouched" is enforced by a checksum lockfile that `npm run lint` checks
 and only `npm run ui:add` rewrites, plus a Claude Code `deny` rule on the
-directory that stops an agent before the edit.
+directory that stops an agent before the edit. Every primitive must also be
+reachable from a wrapper, directly or through the primitives shadcn pulls in
+with it (the dialog's button); a primitive nothing reaches fails the lint.
 
 ## Considered options
 

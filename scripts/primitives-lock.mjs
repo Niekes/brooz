@@ -6,22 +6,58 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { join, posix, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const PRIMITIVES = 'src/renderer/shell/ui/primitives';
 const LOCK = 'src/renderer/shell/ui/primitives.lock.json';
 
-/** The hash of every primitive, by file name. */
-export function hashPrimitives() {
+/**
+ * The hash of every primitive at any depth, by its path inside `dir`
+ * (`button.tsx`, `sub/x.tsx`): shadcn may write a sub-folder.
+ */
+export function hashPrimitives(dir = join(ROOT, PRIMITIVES)) {
     const hashes = {};
-    for (const name of readdirSync(join(ROOT, PRIMITIVES)).sort()) {
-        const source = readFileSync(join(ROOT, PRIMITIVES, name));
-        hashes[name] = createHash('sha256').update(source).digest('hex');
+    for (const name of readdirSync(dir, { recursive: true }).sort()) {
+        if (statSync(join(dir, name)).isFile()) {
+            const source = readFileSync(join(dir, name));
+            hashes[name.split(sep).join('/')] = createHash('sha256').update(source).digest('hex');
+        }
     }
     return hashes;
+}
+
+/** The primitive an import names, seen from `dir` inside the primitives (null: a wrapper). */
+function primitiveOf(specifier, dir, names) {
+    const path =
+        specifier.match(/(?:^|\/)primitives\/(.+)$/)?.[1] ??
+        (dir !== null && specifier.startsWith('.') ? posix.join(dir, specifier) : null);
+    return names.find((name) => name.replace(/\.tsx?$/, '') === path);
+}
+
+/**
+ * The primitives no app-* wrapper reaches, directly or through other
+ * primitives (shadcn's dialog imports its button). `wrappers` are sources,
+ * `primitives` maps each path inside the primitives to its source.
+ */
+export function unwrappedPrimitives(wrappers, primitives) {
+    const names = Object.keys(primitives).filter((name) => /\.tsx?$/.test(name));
+    const reached = new Set();
+    const visit = (source, dir) => {
+        for (const [, specifier] of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+            const name = primitiveOf(specifier, dir, names);
+            if (name && !reached.has(name)) {
+                reached.add(name);
+                visit(primitives[name], posix.dirname(name));
+            }
+        }
+    };
+    for (const source of wrappers) {
+        visit(source, null);
+    }
+    return names.filter((name) => !reached.has(name));
 }
 
 /** The locked hashes, or none before the first lock. */
