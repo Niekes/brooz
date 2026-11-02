@@ -243,7 +243,7 @@ export function CommandBar({
     const typing = query.trim().length > 0;
 
     return (
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-80 px-4">
             <div className="pointer-events-auto mx-auto w-full max-w-2xl">
                 {typing ? (
                     <SuggestionList

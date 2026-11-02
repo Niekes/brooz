@@ -270,6 +270,11 @@ hook cannot parse.
   take text, disabled controls are not-allowed. Never set `cursor-pointer`,
   `cursor-text`, `cursor-default` or `cursor-not-allowed` by hand; the lint
   fails on them. Special cursors such as `cursor-grab` stay free.
+- Tailwind classes are canonical: `bg-white/3`, not `bg-white/[0.03]`; `size-4`, not
+  `h-4 w-4`. oxlint enforces it through `eslint-plugin-better-tailwindcss`, against the
+  theme in `src/renderer/styles.css`; `npx vp lint --fix` rewrites them. A theme token is
+  taken only where it also means the right thing: the dialog's backdrop is `neutral-950`,
+  not `primary-foreground`, though both are `#0a0a0a`.
 
 ## Commit convention
 

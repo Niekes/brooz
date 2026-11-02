@@ -31,7 +31,7 @@ export function Pomodoro({ seed }: TileProps): JSX.Element {
                 <svg
                     viewBox="0 0 100 100"
                     aria-hidden="true"
-                    className="absolute inset-0 h-full w-full"
+                    className="absolute inset-0 size-full"
                 >
                     <ProgressRing radius={40} width={7} progress={elapsed} stroke={hue.hex} />
                 </svg>
@@ -103,8 +103,8 @@ function useCountdown(total: number, autoStart: boolean): Countdown {
 function Dial({ timer, total }: { timer: Countdown; total: number }): JSX.Element {
     const { remaining, done, ticking } = timer;
     return (
-        <div className="relative h-24 w-24 shrink-0">
-            <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden="true">
+        <div className="relative size-24 shrink-0">
+            <svg viewBox="0 0 100 100" className="size-full" aria-hidden="true">
                 <ProgressRing
                     radius={42}
                     width={6}
@@ -149,7 +149,7 @@ function Controls({ timer }: { timer: Countdown }): JSX.Element {
                 <button
                     type="button"
                     onClick={timer.reset}
-                    className={`${BUTTON} border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/10 hover:text-white`}
+                    className={`${BUTTON} border-white/10 bg-white/3 text-white/55 hover:bg-white/10 hover:text-white`}
                 >
                     Reset
                 </button>

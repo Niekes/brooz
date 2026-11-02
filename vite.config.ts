@@ -70,9 +70,18 @@ const config: UserConfig = {
     },
     lint: {
         ignorePatterns: [primitives],
-        jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
+        jsPlugins: [
+            { name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' },
+            { name: 'tailwind', specifier: 'eslint-plugin-better-tailwindcss' }
+        ],
+        settings: {
+            'better-tailwindcss': { entryPoint: 'src/renderer/styles.css' }
+        },
         rules: {
-            'vite-plus/prefer-vite-plus-imports': 'error'
+            'vite-plus/prefer-vite-plus-imports': 'error',
+            // What the editor's suggestCanonicalClasses hints: bg-white/[0.03] -> bg-white/3.
+            'tailwind/enforce-canonical-classes': 'error',
+            'tailwind/no-unnecessary-whitespace': 'error'
         },
         overrides: [
             {

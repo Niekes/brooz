@@ -173,7 +173,7 @@ export function ProviderKey({ provider }: { provider: ProviderInfo }): JSX.Eleme
     const locked = state !== null && !state.canStore;
 
     return (
-        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/3 p-4">
             <KeyHeader provider={provider} status={status} locked={locked} />
             <div className="flex items-center gap-2">
                 <KeyField

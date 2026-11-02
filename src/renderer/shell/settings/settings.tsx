@@ -58,7 +58,7 @@ function SectionNav({
     return (
         <nav
             aria-label="Settings sections"
-            className="flex w-56 shrink-0 flex-col gap-3 border-r border-white/10 bg-white/[0.02] p-3"
+            className="flex w-56 shrink-0 flex-col gap-3 border-r border-white/10 bg-white/2 p-3"
         >
             <AppInput
                 type="search"
@@ -94,7 +94,7 @@ function SectionNav({
 function DeviceLocationOption(): JSX.Element {
     const [on, setOn] = useDeviceLocationSetting();
     return (
-        <label className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4 text-sm">
+        <label className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/2 p-4 text-sm">
             <input
                 type="checkbox"
                 checked={on}
@@ -122,7 +122,7 @@ const UNITS = [
 function TemperatureUnitOption(): JSX.Element {
     const [current, setUnit] = useTemperatureUnit();
     return (
-        <fieldset className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-4 text-sm">
+        <fieldset className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/2 p-4 text-sm">
             <legend className="px-1 text-white">Temperature unit</legend>
             {UNITS.map(({ unit, label }) => (
                 <label key={unit} className="flex items-center gap-3 text-white/80">

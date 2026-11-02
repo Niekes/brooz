@@ -139,7 +139,7 @@ function PlaceOption({
         <div
             role="group"
             aria-label={title}
-            className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-4 text-sm"
+            className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/2 p-4 text-sm"
         >
             <span className="flex flex-col gap-1">
                 <span className="text-white">{title}</span>
