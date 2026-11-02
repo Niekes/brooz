@@ -243,7 +243,7 @@ there, never written again: `useInterval`, `useTimeout`, `useEventListener`,
 `useKeyPress`, `useDebounce` and the rest of its export list
 (`node_modules/ahooks/lib/index.d.ts`). Three hooks live in
 `shell/kit/browser.ts` instead
-(`docs/adr/0007-ahooks-replaces-usehooks.md`): `useGeolocation` and
+(`docs/adr/0008-ahooks-replaces-usehooks.md`): `useGeolocation` and
 `useMediaQuery`, which ahooks lacks, and `useStoredValue`, the one way to
 keep a value in localStorage - it wraps ahooks' `useLocalStorageState` with
 `listenStorageChange`, so every component reading a key follows a write.

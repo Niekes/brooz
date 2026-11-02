@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 
 /**
  * The browser APIs ahooks has no hook for, and the one storage hook every
- * stored value goes through (docs/adr/0007-ahooks-replaces-usehooks.md).
+ * stored value goes through (docs/adr/0008-ahooks-replaces-usehooks.md).
  * This module is the only renderer code that touches them directly.
  */
 
