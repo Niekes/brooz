@@ -204,8 +204,9 @@ fails closed where the OS offers no encryption
 with the union `ok | missing-key | provider-error` instead of throwing, so
 every tile handles the invitation to the settings. The settings overlay
 (`src/renderer/shell/settings`, ⌘, or Ctrl+,) is the only surface that
-takes a key: one section per tile with `providers`, each showing its
-providers' keys. A tile without its key renders that invitation, never an
+takes a key: a general section first, for the person's own choices (device
+location, default location, temperature unit), then one section per tile
+with `providers`, each showing its providers' keys. A tile without its key renders that invitation, never an
 input of its own.
 
 ## The local model

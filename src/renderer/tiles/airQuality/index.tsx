@@ -107,7 +107,6 @@ export const airQualityTile: TileDefinition = {
     Component: AirQuality,
     Live: LiveAirQuality,
     providers: WEATHER_PROVIDERS,
-    deviceLocation: true,
     liveKey: ({ city }) => `air-quality:${city ?? ''}`,
     route: {
         description: 'Air quality index and pollution levels for a city.',

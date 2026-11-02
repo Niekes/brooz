@@ -28,17 +28,24 @@ air quality uses this one scale.
 _Avoid_: AQI level, US EPA category
 
 **Settings**:
-The single surface where keys and tile options are managed, shown over the
-dashboard rather than as a tile of it. It is divided
-into one section per tile; a tile whose provider needs a key shows that
-provider's key in its section, so a key shared by several tiles appears in
-each of their sections and is still one key.
+The single surface where keys and options are managed, shown over the
+dashboard rather than as a tile of it. It is divided into the general
+section and one section per tile; a tile whose provider needs a key shows
+that provider's key in its section, so a key shared by several tiles appears
+in each of their sections and is still one key.
 _Avoid_: Preferences, config
 
 **Section**:
 The part of the settings that belongs to one tile, listed in the settings'
 sidebar.
 _Avoid_: Area, page, tab
+
+**General section**:
+The part of the settings for the choices that belong to the person rather
+than to any tile, the device location switch, the default location and the
+temperature unit.
+It is set once there and never repeated in a tile's section.
+_Avoid_: Global settings, preferences, app section
 
 **Location**:
 The place a tile shows live data for. A city named in the utterance is the
@@ -60,8 +67,7 @@ _Avoid_: Real-time location, GPS, current location
 **Temperature unit**:
 Celsius or Fahrenheit: the scale every temperature in the app is shown in.
 One choice for the whole app, belonging to the person rather than to a
-tile, so it appears in the section of each tile that shows temperatures and
-is still one choice.
+tile, so it lives in the general section.
 _Avoid_: Units, scale, metric/imperial
 
 **Primitive**:
