@@ -126,7 +126,7 @@ export function LiveNote({ label, lowConfidence, args }: LiveTileProps): JSX.Ele
                         type="button"
                         onClick={() => update('')}
                         disabled={!text}
-                        className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-white/45 uppercase transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                        className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[8px] font-medium tracking-[0.14em] text-white/45 uppercase transition-colors hover:bg-white/10 hover:text-white disabled:opacity-35"
                     >
                         Clear
                     </button>

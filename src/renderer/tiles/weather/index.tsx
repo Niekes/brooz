@@ -183,8 +183,6 @@ export const weatherTile: TileDefinition = {
     Component: Weather,
     Live: LiveWeather,
     providers: WEATHER_PROVIDERS,
-    deviceLocation: true,
-    temperatures: true,
     liveKey: ({ city }) => `weather:${city ?? ''}`,
     route: {
         description:

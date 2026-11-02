@@ -2,7 +2,6 @@ import { useEventListener } from 'ahooks';
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { tiles } from '../../tiles';
-import type { TileDefinition } from '../tile';
 import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
@@ -11,23 +10,25 @@ import { ProviderKey } from './provider-key';
 import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
 
 /**
- * The settings: the one surface that manages keys, shown over the dashboard.
- * A sidebar lists one section per tile that has something to set, in grid
- * order; a section shows the keys of the tile's providers, and the device
- * location switch and the default location of a tile that follows it, and the
- * temperature unit of a tile that shows temperatures. A key shared by
- * several tiles shows in each of their sections and is still one key.
+ * The settings: the one surface that manages keys and options, shown over the
+ * dashboard. A sidebar lists the general section first - the choices that
+ * belong to the person: the device location switch, the default location and
+ * the temperature unit - then one section per tile with providers, in grid
+ * order, showing their keys. A key shared by several tiles shows in each of
+ * their sections and is still one key.
  */
 
-/** A tile with providers: the settings give it a section. */
-type ConfigurableTile = TileDefinition & Required<Pick<TileDefinition, 'providers'>>;
+/** A sidebar entry: the words the search finds it by, and what it shows. */
+interface Section {
+    id: string;
+    title: string;
+    terms: string[];
+    Body: () => JSX.Element;
+}
 
-const SECTIONS = tiles.filter((tile): tile is ConfigurableTile => tile.providers !== undefined);
-
-/** Whether a section matches the search, by tile title or provider name. */
-function matches(tile: ConfigurableTile, search: string): boolean {
-    const names = [tile.title, ...tile.providers.map((provider) => provider.title)];
-    return names.some((name) => name.toLowerCase().includes(search));
+/** Whether a section matches the search, by any of its terms. */
+function matches(section: Section, search: string): boolean {
+    return section.terms.some((term) => term.toLowerCase().includes(search));
 }
 
 /** Toggles the settings on ⌘, (Ctrl+, on Windows and Linux). */
@@ -50,8 +51,8 @@ function SectionNav({
 }: {
     search: string;
     onSearch: (search: string) => void;
-    visible: ConfigurableTile[];
-    current: ConfigurableTile | undefined;
+    visible: Section[];
+    current: Section | undefined;
     onSelect: (id: string) => void;
 }): JSX.Element {
     return (
@@ -68,15 +69,15 @@ function SectionNav({
             />
             <div className="min-h-0 flex-1 overflow-y-auto">
                 <ul className="flex flex-col gap-0.5">
-                    {visible.map((tile) => (
-                        <li key={tile.id}>
+                    {visible.map((section) => (
+                        <li key={section.id}>
                             <button
                                 type="button"
-                                aria-current={tile === current ? 'page' : undefined}
-                                onClick={() => onSelect(tile.id)}
+                                aria-current={section === current ? 'page' : undefined}
+                                onClick={() => onSelect(section.id)}
                                 className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-white/60 transition-colors hover:bg-white/5 hover:text-white aria-[current=page]:bg-white/10 aria-[current=page]:text-white"
                             >
-                                {tile.title}
+                                {section.title}
                             </button>
                         </li>
                     ))}
@@ -89,7 +90,7 @@ function SectionNav({
     );
 }
 
-/** One switch for every tile that follows the device location, like a shared key. */
+/** One switch for every tile that follows the device location. */
 function DeviceLocationOption(): JSX.Element {
     const [on, setOn] = useDeviceLocationSetting();
     return (
@@ -117,7 +118,7 @@ const UNITS = [
     { unit: 'F', label: 'Fahrenheit' }
 ] as const;
 
-/** One temperature unit for every tile that shows temperatures, like the device location. */
+/** One temperature unit for every tile that shows temperatures. */
 function TemperatureUnitOption(): JSX.Element {
     const [current, setUnit] = useTemperatureUnit();
     return (
@@ -139,6 +140,43 @@ function TemperatureUnitOption(): JSX.Element {
     );
 }
 
+const GENERAL: Section = {
+    id: 'general',
+    title: 'General',
+    terms: ['General', 'Use device location', 'Default location', 'Temperature unit'].concat(
+        UNITS.map(({ label }) => label)
+    ),
+    Body: () => (
+        <>
+            <DeviceLocationOption />
+            <DefaultLocationOption />
+            <TemperatureUnitOption />
+        </>
+    )
+};
+
+const SECTIONS: Section[] = [
+    GENERAL,
+    ...tiles.flatMap(({ id, title, providers }) =>
+        providers
+            ? [
+                  {
+                      id,
+                      title,
+                      terms: [title, ...providers.map((provider) => provider.title)],
+                      Body: () => (
+                          <>
+                              {providers.map((provider) => (
+                                  <ProviderKey key={provider.id} provider={provider} />
+                              ))}
+                          </>
+                      )
+                  }
+              ]
+            : []
+    )
+];
+
 export function Settings({
     open,
     onOpenChange
@@ -148,15 +186,15 @@ export function Settings({
 }): JSX.Element {
     const [search, setSearch] = useState('');
     const [selected, setSelected] = useState(SECTIONS[0].id);
-    const visible = SECTIONS.filter((tile) => matches(tile, search.trim().toLowerCase()));
-    const current = visible.find((tile) => tile.id === selected) ?? visible[0];
+    const visible = SECTIONS.filter((section) => matches(section, search.trim().toLowerCase()));
+    const current = visible.find((section) => section.id === selected) ?? visible[0];
 
     return (
         <AppDialog
             open={open}
             onOpenChange={onOpenChange}
             title="Settings"
-            description="The keys and options of the tiles."
+            description="Your general options, and the keys of the tiles."
         >
             <SectionNav
                 search={search}
@@ -169,16 +207,7 @@ export function Settings({
                 {current ? (
                     <section aria-label={current.title} className="flex flex-col gap-4 p-8">
                         <h2 className="text-xl font-medium">{current.title}</h2>
-                        {current.providers.map((provider) => (
-                            <ProviderKey key={provider.id} provider={provider} />
-                        ))}
-                        {current.deviceLocation ? (
-                            <>
-                                <DeviceLocationOption />
-                                <DefaultLocationOption />
-                            </>
-                        ) : null}
-                        {current.temperatures ? <TemperatureUnitOption /> : null}
+                        <current.Body />
                     </section>
                 ) : null}
             </div>
