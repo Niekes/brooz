@@ -53,6 +53,13 @@ location; without one, the device location is; without that, the default
 location. Without any of them the tile has no location and asks for one.
 _Avoid_: Place (for this meaning), position, city
 
+**Surf spot**:
+A named point on the water that the surf forecast is for, saved by the
+person in the surf tile's section of the settings. There is at most one. It
+is not a location: a city in the utterance, the device location and the
+default location never replace it.
+_Avoid_: Beach, break, location (for this meaning)
+
 **Default location**:
 The place the person saves in the settings for a tile without a city to
 show when there is no device location. There is at most one, shared by

@@ -4,7 +4,7 @@ import { tiles } from '../../tiles';
 import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
-import { DefaultLocationOption } from './default-location';
+import { DefaultLocationOption, SurfSpotOption } from './default-location';
 import { ProviderKey } from './provider-key';
 import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
 
@@ -160,18 +160,23 @@ const GENERAL: Section = {
 
 const SECTIONS: Section[] = [
     GENERAL,
-    ...tiles.flatMap(({ id, title, providers }) =>
+    ...tiles.flatMap(({ id, title, providers, surfSpot }) =>
         providers
             ? [
                   {
                       id,
                       title,
-                      terms: [title, ...providers.map((provider) => provider.title)],
+                      terms: [
+                          title,
+                          ...providers.map((provider) => provider.title),
+                          ...(surfSpot ? ['Surf spot'] : [])
+                      ],
                       Body: () => (
                           <>
                               {providers.map((provider) => (
                                   <ProviderKey key={provider.id} provider={provider} />
                               ))}
+                              {surfSpot ? <SurfSpotOption /> : null}
                           </>
                       )
                   }

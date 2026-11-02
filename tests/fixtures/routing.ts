@@ -37,6 +37,11 @@ export const DEVELOPMENT_SET: readonly RoutingCase[] = [
     { text: 'how polluted is the air in Delhi', expected: 'air-quality' },
     { text: 'show the AQI for London', expected: 'air-quality' },
 
+    // surf
+    { text: 'is it worth surfing today', expected: 'surf' },
+    { text: 'how big is the swell this morning', expected: 'surf' },
+    { text: 'when is high tide', expected: 'surf' },
+
     // now-playing
     { text: 'play some jazz', expected: 'now-playing' },
     { text: 'pause the music', expected: 'now-playing' },

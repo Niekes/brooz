@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
     parseCity,
+    parseCoordinates,
     parseKeyInput,
     parsePlaceQuery,
     parseProviderId,
@@ -40,6 +41,15 @@ describe('the IPC argument validation', () => {
         ['string coordinates', { latitude: '1', longitude: '2' }, /out of range/]
     ])('refuses %s as a place', (_name, place, error) => {
         expect(() => parsePlaceQuery(place)).toThrow(error);
+        expect(() => parseCoordinates(place)).toThrow(error);
+    });
+
+    it('takes the surf spot as coordinates only, never as a city', () => {
+        expect(parseCoordinates({ latitude: 38.99, longitude: -9.42 })).toEqual({
+            latitude: 38.99,
+            longitude: -9.42
+        });
+        expect(() => parseCoordinates({ city: 'Ericeira' })).toThrow(/out of range/);
     });
 });
 

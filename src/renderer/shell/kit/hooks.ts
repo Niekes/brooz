@@ -12,6 +12,7 @@ import type { AsyncView } from './live';
 import type { TemperatureUnit } from './weather';
 import type { KeyStatus, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
 import type { StockQuote } from '../../../shared/quotes';
+import type { SurfForecast } from '../../../shared/surf';
 
 /**
  * Electron wraps an error thrown by an IPC handler as
@@ -110,6 +111,14 @@ export function useDefaultLocation(): [GeoPlace | null, (place: GeoPlace | null)
     return useLocalStorage<GeoPlace | null>('brooz.location.default', null);
 }
 
+/**
+ * The surf spot the person saved in the settings, or `null`: a place on the
+ * water, not a location, so no city and no device location replace it.
+ */
+export function useSurfSpot(): [GeoPlace | null, (spot: GeoPlace | null) => void] {
+    return useLocalStorage<GeoPlace | null>('brooz.surf.spot', null);
+}
+
 /** No location at all: the tile asks for one instead of guessing. */
 export const NO_LOCATION: LiveLocation = { query: null, pending: false, name: null };
 
@@ -161,6 +170,15 @@ export function useAirQuality(
 ): AsyncView<ProviderOutcome<AirQualitySnapshot>> {
     return useAsync(query && `air:${placeKey(query)}`, () =>
         window.brooz.invoke(IPC_CHANNELS.airQuality, query!)
+    );
+}
+
+export function useSurf(spot: GeoPlace | null): AsyncView<ProviderOutcome<SurfForecast>> {
+    return useAsync(spot && `surf:${placeKey(spot)}`, () =>
+        window.brooz.invoke(IPC_CHANNELS.surf, {
+            latitude: spot!.latitude,
+            longitude: spot!.longitude
+        })
     );
 }
 

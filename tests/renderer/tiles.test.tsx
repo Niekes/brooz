@@ -21,6 +21,7 @@ import { Photo } from '../../src/renderer/tiles/photo';
 import { LivePomodoro, Pomodoro } from '../../src/renderer/tiles/pomodoro';
 import { LiveNote, StickyNote, migrateStoredNote } from '../../src/renderer/tiles/stickyNote';
 import { SystemStats } from '../../src/renderer/tiles/systemStats';
+import { LiveSurf, Surf } from '../../src/renderer/tiles/surf';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
 import { LiveWorldClock, WorldClock } from '../../src/renderer/tiles/worldClock';
@@ -89,6 +90,7 @@ describe('every resting tile', () => {
             Pomodoro,
             MoonPhase,
             AirQuality,
+            Surf,
             StickyNote,
             Photo,
             AboutTileBody
@@ -123,7 +125,8 @@ describe('every resting tile', () => {
             pomodoro: ['pomodoro:25:', 'pomodoro:5:pause'],
             'sticky-note': ['sticky-note:', 'sticky-note:x'],
             'analog-clock': [undefined, undefined],
-            ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA']
+            ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA'],
+            surf: ['surf', 'surf']
         });
     });
 });
@@ -502,5 +505,108 @@ describe('the live markets tile', () => {
         });
         render(<LiveTicker {...live} args={{}} />);
         expect(await screen.findByText('Finnhub replied with 401.')).toBeTruthy();
+    });
+});
+
+describe('the live surf tile', () => {
+    const SPOT = { ...PLACE, name: 'Ericeira', latitude: 38.99, longitude: -9.42, timezone: 'UTC' };
+    const at = (hour: number) => new Date(Date.UTC(2026, 10, 2, hour)).toISOString();
+    const hour = (index: number) => ({
+        time: at(8 + index),
+        waveHeightM: 1 + index / 10,
+        swellPeriodS: 11,
+        swellDirection: 290,
+        windKmh: 12,
+        windDirection: 80,
+        waterTemperatureC: 17
+    });
+    const FORECAST = {
+        hours: Array.from({ length: 12 }, (_, index) => hour(index)),
+        tides: [
+            { time: '2026-11-02T08:30:00.000Z', type: 'low' },
+            { time: '2026-11-02T14:10:00.000Z', type: 'high' },
+            { time: '2026-11-02T20:40:00.000Z', type: 'low' },
+            { time: '2026-11-03T02:50:00.000Z', type: 'high' }
+        ],
+        fetchedAt: '2026-11-02T08:00:00.000Z'
+    };
+
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.UTC(2026, 10, 2, 9, 30) });
+        localStorage.setItem('brooz.surf.spot', JSON.stringify(SPOT));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        localStorage.clear();
+    });
+
+    it('asks for a surf spot before it spends a request', () => {
+        localStorage.clear();
+        const invoke = stubBrooz({});
+        render(<LiveSurf {...live} args={{ city: 'Biarritz' }} />);
+        expect(screen.getByText('Set a surf spot first.')).toBeTruthy();
+        expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('shows the swell of the current hour, the next hours and the coming tides', async () => {
+        const invoke = stubBrooz({ 'brooz:surf': () => ok(FORECAST) });
+        render(<LiveSurf {...live} args={{ city: 'Biarritz' }} />);
+        expect(await screen.findByText('1.1 m')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:surf', { latitude: 38.99, longitude: -9.42 });
+        expect(screen.getByText('Ericeira')).toBeTruthy();
+        expect(screen.getByText('Swell 11 s WNW')).toBeTruthy();
+        expect(screen.getByText('Wind 12 km/h E')).toBeTruthy();
+        expect(screen.getByText('Water 17°')).toBeTruthy();
+        expect(['12:00', '15:00', '18:00'].map((time) => screen.getByText(time))).toHaveLength(3);
+        expect(screen.getByText('2.0 m')).toBeTruthy();
+        expect(screen.getByText('High 14:10')).toBeTruthy();
+        expect(screen.getByText('Low 20:40')).toBeTruthy();
+        expect(screen.queryByText('Low 08:30')).toBe(null);
+        expect(screen.getByText('updated 08:00')).toBeTruthy();
+    });
+
+    it('shows the water in Fahrenheit, a dash for what is missing, and no hours past the forecast', async () => {
+        localStorage.setItem('brooz.temperature.unit', JSON.stringify('F'));
+        vi.setSystemTime(Date.UTC(2026, 10, 2, 7));
+        const sparse = {
+            ...FORECAST,
+            hours: [
+                {
+                    ...hour(0),
+                    swellPeriodS: null,
+                    swellDirection: null,
+                    windKmh: null,
+                    windDirection: null
+                },
+                hour(1)
+            ]
+        };
+        stubBrooz({ 'brooz:surf': () => ok(sparse) });
+        render(<LiveSurf {...live} args={{}} />);
+        expect(await screen.findByText('1.0 m')).toBeTruthy();
+        expect(screen.getByText('Water 63°')).toBeTruthy();
+        expect(screen.getByText('Swell – –')).toBeTruthy();
+        expect(screen.queryByText('09:00')).toBe(null);
+    });
+
+    it('asks to move the spot onto the water when there is no wave data', async () => {
+        const dry = {
+            ...FORECAST,
+            hours: [{ ...hour(0), waveHeightM: null, waterTemperatureC: null }]
+        };
+        stubBrooz({ 'brooz:surf': () => ok(dry) });
+        render(<LiveSurf {...live} args={{}} />);
+        expect(
+            await screen.findByText(
+                'No wave data at this spot. Move it onto the water in the settings.'
+            )
+        ).toBeTruthy();
+    });
+
+    it('invites to the settings without a Stormglass key', async () => {
+        stubBrooz({ 'brooz:surf': () => ({ status: 'missing-key', reason: 'not-set' }) });
+        render(<LiveSurf {...live} args={{}} />);
+        expect(await screen.findByText('Needs an API key from Stormglass.')).toBeTruthy();
     });
 });

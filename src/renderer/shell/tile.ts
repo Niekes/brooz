@@ -71,4 +71,6 @@ export interface TileDefinition {
     readonly route?: TileRoute;
     /** The providers whose keys the live tile needs: each gets it a settings section. */
     readonly providers?: readonly ProviderInfo[];
+    /** The live tile shows the surf spot; its settings section takes it. */
+    readonly surfSpot?: boolean;
 }
