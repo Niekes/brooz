@@ -1,4 +1,8 @@
 import type { JSX } from 'react';
+import type { WeatherSnapshot } from '../../../shared/weather';
+import { airCategory } from '../../shell/kit/air';
+import type { AirCategory } from '../../shell/kit/air';
+import { useAirQuality } from '../../shell/kit/hooks';
 import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
@@ -40,10 +44,29 @@ interface WeatherCardProps {
     temp: number;
     place: string;
     days: readonly WeatherDayRow[];
+    /** The air quality category right now; `null` hides the indicator. */
+    air: AirCategory | null;
+}
+
+/** The air quality category as a dot and its word; the ring keeps the dot visible on every accent. */
+function AirIndicator({ category }: { category: AirCategory }): JSX.Element {
+    return (
+        <span
+            role="img"
+            aria-label={`Air quality: ${category.label}`}
+            className="flex shrink-0 items-center gap-1 text-xs font-medium"
+        >
+            <span
+                className="h-2 w-2 rounded-full ring-1 ring-black/50"
+                style={{ background: category.color }}
+            />
+            {category.label}
+        </span>
+    );
 }
 
 /** Now on a coloured block, the next five days in a list beside it. */
-function WeatherCard({ label, icon, temp, place, days }: WeatherCardProps): JSX.Element {
+function WeatherCard({ label, icon, temp, place, days, air }: WeatherCardProps): JSX.Element {
     return (
         <div className="flex h-full w-full min-h-0 gap-2.5">
             <div
@@ -51,7 +74,8 @@ function WeatherCard({ label, icon, temp, place, days }: WeatherCardProps): JSX.
             >
                 <div className="flex min-w-0 items-center gap-1.5">
                     <ConditionIcon name={icon} className="h-4 w-4 shrink-0" />
-                    <span className="truncate text-xs font-medium">{label}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{label}</span>
+                    {air ? <AirIndicator category={air} /> : null}
                 </div>
                 <div className="text-5xl leading-none font-normal tracking-tight">{temp}°</div>
                 <div className="truncate text-base leading-tight font-semibold">{place}</div>
@@ -101,6 +125,7 @@ export function Weather({ seed }: TileProps): JSX.Element {
             temp={temp}
             place={pick(seed, CITIES)}
             days={days}
+            air={airCategory(1 + Math.floor(r() * 5))}
         />
     );
 }
@@ -116,25 +141,35 @@ function weekday(date: string): string {
 export function LiveWeather({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
     return (
         <LiveWeatherFrame label={label} lowConfidence={lowConfidence} city={args.city}>
-            {(data) => {
-                const info = weatherInfo(data.code);
-                return (
-                    <WeatherCard
-                        label={info.label}
-                        icon={info.icon}
-                        temp={Math.round(data.temperatureC)}
-                        place={data.place.name}
-                        days={data.daily.map((day) => ({
-                            key: day.date,
-                            label: weekday(day.date),
-                            icon: weatherInfo(day.code).icon,
-                            lo: Math.round(day.minC),
-                            hi: Math.round(day.maxC)
-                        }))}
-                    />
-                );
-            }}
+            {(data) => <LiveWeatherCard data={data} />}
         </LiveWeatherFrame>
+    );
+}
+
+/**
+ * The card of a loaded place. The air quality comes from the place's own
+ * coordinates, so it is always the weather's place; until it is there, or
+ * when it is not, the indicator stays away and the weather does not wait.
+ */
+function LiveWeatherCard({ data }: { data: WeatherSnapshot }): JSX.Element {
+    const { latitude, longitude } = data.place;
+    const air = useAirQuality({ latitude, longitude }).data;
+    const info = weatherInfo(data.code);
+    return (
+        <WeatherCard
+            label={info.label}
+            icon={info.icon}
+            temp={Math.round(data.temperatureC)}
+            place={data.place.name}
+            days={data.daily.map((day) => ({
+                key: day.date,
+                label: weekday(day.date),
+                icon: weatherInfo(day.code).icon,
+                lo: Math.round(day.minC),
+                hi: Math.round(day.maxC)
+            }))}
+            air={air?.status === 'ok' ? airCategory(air.data.aqi) : null}
+        />
     );
 }
 

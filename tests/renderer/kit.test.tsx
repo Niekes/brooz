@@ -14,12 +14,23 @@ import { TileHeader } from '../../src/renderer/shell/kit/chrome';
 import { LiveError, LiveFrame, ProviderData } from '../../src/renderer/shell/kit/live';
 import { FINNHUB } from '../../src/shared/providers';
 import type { ProviderOutcome } from '../../src/shared/providers';
+import { airCategory } from '../../src/renderer/shell/kit/air';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
 import { HUES, clock, pick, rng } from '../../src/renderer/shell/kit/seed';
 import { weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
 import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 describe('the seeded data', () => {
+    it('names every step of the air quality index, ends included', () => {
+        expect([1, 2, 3, 4, 5].map((aqi) => airCategory(aqi).label)).toEqual([
+            'Good',
+            'Fair',
+            'Moderate',
+            'Poor',
+            'Very poor'
+        ]);
+    });
+
     it('picks deterministically, negative seeds too', () => {
         expect(pick(3, ['a', 'b'])).toBe('b');
         expect(pick(-3, ['a', 'b'])).toBe('b');

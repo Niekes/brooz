@@ -50,6 +50,18 @@ describe('every resting tile', () => {
         }
     );
 
+    it('shows a seeded air quality category on the weather, on the one scale', () => {
+        const categories = ['Good', 'Fair', 'Moderate', 'Poor', 'Very poor'];
+        render(<Weather seed={4} />);
+        const name = screen
+            .getByRole('img', { name: /^Air quality: / })
+            .getAttribute('aria-label')!;
+        expect(categories).toContain(name.replace('Air quality: ', ''));
+        render(<AirQuality seed={4} />);
+        expect(screen.getByText('OpenWeatherMap index')).toBeTruthy();
+        expect(screen.queryByText('US EPA Index')).toBe(null);
+    });
+
     it('is registered with the component its directory exports', () => {
         expect(tiles.map((tile) => tile.Component)).toEqual([
             AnalogClock,
@@ -143,6 +155,35 @@ describe('the live weather tiles', () => {
         render(<LiveAirQuality {...live} args={{ city: 'Rome' }} />);
         expect(await screen.findByText('Offline')).toBeTruthy();
         expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Rome' });
+    });
+
+    it('shows the air quality category of the weather place once it is there', async () => {
+        let answerAir!: (value: unknown) => void;
+        const invoke = stubBrooz({
+            'brooz:weather': () => ok(WEATHER),
+            'brooz:air-quality': () => new Promise((resolve) => (answerAir = resolve))
+        });
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('21°')).toBeTruthy();
+        expect(screen.queryByRole('img', { name: /^Air quality/ })).toBe(null);
+        await act(async () => answerAir(ok({ ...AIR, aqi: 2 })));
+        expect(screen.getByRole('img', { name: 'Air quality: Fair' }).textContent).toBe('Fair');
+        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', {
+            latitude: 41.9,
+            longitude: 12.5
+        });
+    });
+
+    it('keeps the weather and drops the indicator when the air quality is not there', async () => {
+        stubBrooz({
+            'brooz:weather': () => ok(WEATHER),
+            'brooz:air-quality': () => ({ status: 'provider-error', message: 'Offline' })
+        });
+        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('21°')).toBeTruthy();
+        await act(async () => {});
+        expect(screen.queryByRole('img', { name: /^Air quality/ })).toBe(null);
+        expect(screen.queryByText('Offline')).toBe(null);
     });
 
     it('invites to the settings without an OpenWeatherMap key', async () => {

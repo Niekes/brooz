@@ -21,6 +21,12 @@ provider, never to a tile, and once stored it is not readable back from the
 app.
 _Avoid_: Token, secret, credential
 
+**Air quality category**:
+The step a place's air is on right now, on OpenWeatherMap's five-step
+index: Good, Fair, Moderate, Poor or Very poor. Every tile that speaks of
+air quality uses this one scale.
+_Avoid_: AQI level, US EPA category
+
 **Settings**:
 The single surface where keys and tile options are managed, shown over the
 dashboard rather than as a tile of it. It is divided
