@@ -1,11 +1,14 @@
 import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { FINNHUB } from '../../src/shared/providers';
 import { ProviderKey } from '../../src/renderer/shell/settings/provider-key';
 import { Settings, useSettingsShortcut } from '../../src/renderer/shell/settings/settings';
 import { stubBrooz } from './stubs';
 
 describe('the settings', () => {
+    // A test that fails early must not leave its stored setting to the next one.
+    afterEach(() => localStorage.clear());
+
     const status = () =>
         stubBrooz({ 'brooz:key-status': () => ({ present: false, canStore: true }) });
 
@@ -24,7 +27,6 @@ describe('the settings', () => {
     });
 
     it('turns the device location off and on, for every weather tile at once', () => {
-        localStorage.clear();
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const option = screen.getByLabelText(/Use device location/) as HTMLInputElement;
@@ -34,11 +36,9 @@ describe('the settings', () => {
         expect(localStorage.getItem('brooz.location.enabled')).toBe('false');
         fireEvent.click(screen.getByRole('button', { name: 'Markets' }));
         expect(screen.queryByLabelText(/Use device location/)).toBe(null);
-        localStorage.clear();
     });
 
     it('switches the temperature unit for every tile that shows temperatures', () => {
-        localStorage.clear();
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
@@ -48,7 +48,6 @@ describe('the settings', () => {
         expect((screen.getByLabelText('Fahrenheit') as HTMLInputElement).checked).toBe(true);
         fireEvent.click(screen.getByRole('button', { name: 'Air Quality' }));
         expect(screen.queryByLabelText('Celsius')).toBe(null);
-        localStorage.clear();
     });
 
     it('reads an unknown stored unit as Celsius', () => {
@@ -56,7 +55,6 @@ describe('the settings', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
-        localStorage.clear();
     });
 
     it('opens the section a person picks', () => {
