@@ -1,5 +1,8 @@
 # The app may ask for the device location
 
+_The Berlin fallback is superseded by
+[0006](0006-a-default-location-replaces-the-berlin-fallback.md); the rest stands._
+
 The permission handler denies every request by default. `geolocation` is
 the first and only exception: a weather tile summoned without a city
 follows the device location (`watchPosition`, rounded to about a kilometre)

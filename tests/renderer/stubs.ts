@@ -118,6 +118,7 @@ export function stubGeolocation(position?: { latitude: number; longitude: number
     };
     const clearWatch = vi.fn();
     vi.stubGlobal('navigator', {
+        userAgent: navigator.userAgent,
         geolocation: {
             getCurrentPosition: answer,
             watchPosition: (success: PositionCallback, error: PositionErrorCallback) => {

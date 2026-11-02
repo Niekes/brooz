@@ -5,6 +5,7 @@ import type { TileDefinition } from '../tile';
 import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
+import { DefaultLocationOption } from './default-location';
 import { ProviderKey } from './provider-key';
 import { useDeviceLocationSetting } from '../kit/hooks';
 
@@ -12,7 +13,7 @@ import { useDeviceLocationSetting } from '../kit/hooks';
  * The settings: the one surface that manages keys, shown over the dashboard.
  * A sidebar lists one section per tile that has something to set, in grid
  * order; a section shows the keys of the tile's providers, and the device
- * location switch of a tile that follows it. A key shared by
+ * location switch and the default location of a tile that follows it. A key shared by
  * several tiles shows in each of their sections and is still one key.
  */
 
@@ -104,9 +105,9 @@ function DeviceLocationOption(): JSX.Element {
             <span className="flex flex-col gap-1">
                 <span className="text-white">Use device location</span>
                 <span className="text-xs text-white/50">
-                    Without a city, the tile shows where this device is. Off, it shows Berlin. macOS
-                    may still deny the location in System Settings › Privacy &amp; Security ›
-                    Location Services.
+                    Without a city, the tile shows where this device is. Off, or without one, it
+                    shows the default location. macOS may still deny the location in System Settings
+                    › Privacy &amp; Security › Location Services.
                 </span>
             </span>
         </label>
@@ -146,7 +147,12 @@ export function Settings({
                         {current.providers.map((provider) => (
                             <ProviderKey key={provider.id} provider={provider} />
                         ))}
-                        {current.deviceLocation ? <DeviceLocationOption /> : null}
+                        {current.deviceLocation ? (
+                            <>
+                                <DeviceLocationOption />
+                                <DefaultLocationOption />
+                            </>
+                        ) : null}
                     </section>
                 ) : null}
             </div>

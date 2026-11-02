@@ -131,30 +131,36 @@ describe('the live data hooks', () => {
 
     it('follows the device location, a kilometre at a time', async () => {
         const { clearWatch } = stubGeolocation({ latitude: 53.5511, longitude: 9.9937 });
-        const { useDeviceLocation } = await hooks();
-        const { result, unmount } = renderHook(() => useDeviceLocation());
+        const { NO_LOCATION, useDeviceLocation } = await hooks();
+        const { result, unmount } = renderHook(() => useDeviceLocation(NO_LOCATION));
         await waitFor(() =>
             expect(result.current).toEqual({
                 query: { latitude: 53.55, longitude: 9.99 },
                 pending: false,
-                fallback: false
+                name: null
             })
         );
         unmount();
         expect(clearWatch).toHaveBeenCalledWith(7);
     });
 
-    it('falls back to Berlin, marked, when the location is denied', async () => {
+    it('falls back to the location it is given when the device location is denied', async () => {
         stubGeolocation();
-        const { useDeviceLocation } = await hooks();
-        const { result } = renderHook(() => useDeviceLocation());
-        await waitFor(() =>
-            expect(result.current).toEqual({
-                query: { city: 'Berlin' },
-                pending: false,
-                fallback: true
-            })
-        );
+        const { savedLocation, useDeviceLocation } = await hooks();
+        const saved = savedLocation(PLACE);
+        const { result } = renderHook(() => useDeviceLocation(saved));
+        await waitFor(() => expect(result.current).toBe(saved));
+    });
+
+    it('reads the default location as its coordinates and its name, and none as no query', async () => {
+        const { NO_LOCATION, savedLocation } = await hooks();
+        expect(savedLocation(PLACE)).toEqual({
+            query: { latitude: 41.9, longitude: 12.5 },
+            pending: false,
+            name: 'Rome'
+        });
+        expect(savedLocation(null)).toBe(NO_LOCATION);
+        expect(NO_LOCATION).toEqual({ query: null, pending: false, name: null });
     });
 
     it('waits while the device location is unsettled', async () => {
@@ -165,9 +171,9 @@ describe('the live data hooks', () => {
                 clearWatch: () => undefined
             }
         });
-        const { useDeviceLocation } = await hooks();
-        const { result } = renderHook(() => useDeviceLocation());
-        expect(result.current).toEqual({ query: null, pending: true, fallback: false });
+        const { NO_LOCATION, useDeviceLocation } = await hooks();
+        const { result } = renderHook(() => useDeviceLocation(NO_LOCATION));
+        expect(result.current).toEqual({ query: null, pending: true, name: null });
     });
 
     it('loads the weather and the air quality over IPC', async () => {

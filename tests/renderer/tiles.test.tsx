@@ -1,4 +1,12 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+    act,
+    cleanup,
+    fireEvent,
+    render,
+    renderHook,
+    screen,
+    waitFor
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { tiles } from '../../src/renderer/tiles';
 import { AboutTileBody } from '../../src/renderer/tiles/about';
@@ -16,6 +24,7 @@ import { SystemStats } from '../../src/renderer/tiles/systemStats';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
 import { LiveWorldClock, WorldClock } from '../../src/renderer/tiles/worldClock';
+import { useDefaultLocation } from '../../src/renderer/shell/kit/hooks';
 import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 const live = { label: 'Live', lowConfidence: false };
@@ -98,6 +107,7 @@ describe('the live weather tiles', () => {
         // The location watch is cleared on unmount, so unmount before unstubbing.
         cleanup();
         vi.unstubAllGlobals();
+        localStorage.clear();
     });
 
     it('shows the current weather of a city and the next five days', async () => {
@@ -130,9 +140,9 @@ describe('the live weather tiles', () => {
         const invoke = stubBrooz({
             'brooz:air-quality': () => Promise.reject(new Error('Offline'))
         });
-        render(<LiveAirQuality {...live} args={{}} />);
+        render(<LiveAirQuality {...live} args={{ city: 'Rome' }} />);
         expect(await screen.findByText('Offline')).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Berlin' });
+        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Rome' });
     });
 
     it('invites to the settings without an OpenWeatherMap key', async () => {
@@ -141,30 +151,53 @@ describe('the live weather tiles', () => {
         expect(await screen.findByText('Needs an API key from OpenWeatherMap.')).toBeTruthy();
     });
 
-    it('shows the device location, and marks the fallback without one', async () => {
+    it('shows the device location when there is one', async () => {
         stubGeolocation({ latitude: 53.55, longitude: 9.99 });
         const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        const { unmount } = render(<LiveWeather {...live} args={{}} />);
+        render(<LiveWeather {...live} args={{}} />);
         expect((await screen.findAllByText(WEATHER.place.name)).length).toBeGreaterThan(0);
         expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 53.55, longitude: 9.99 });
-        unmount();
-
-        stubGeolocation();
-        render(<LiveWeather {...live} args={{}} />);
-        expect(
-            await screen.findByText(`${WEATHER.place.name} · location unavailable`)
-        ).toBeTruthy();
     });
 
-    it('never asks for the device location once the person turned it off', async () => {
+    it('falls back to the default location, by its saved name, without a device location', async () => {
+        stubGeolocation();
+        localStorage.setItem('brooz.location.default', JSON.stringify({ ...PLACE, name: 'Roma' }));
+        const invoke = stubBrooz({
+            'brooz:weather': () => ok({ ...WEATHER, place: { ...PLACE, name: 'Your location' } })
+        });
+        render(<LiveWeather {...live} args={{}} />);
+        expect((await screen.findAllByText('Roma')).length).toBeGreaterThan(0);
+        expect(screen.queryByText('Your location')).toBe(null);
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 41.9, longitude: 12.5 });
+    });
+
+    it('asks for a location without a device location and without a default one', () => {
+        stubGeolocation();
+        const invoke = stubBrooz({});
+        render(<LiveWeather {...live} args={{}} />);
+        expect(screen.getByText('Set a location first.')).toBeTruthy();
+        render(<LiveAirQuality {...live} args={{}} />);
+        expect(screen.getAllByText('Set a location first.')).toHaveLength(2);
+        expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('never asks for the device location once it is off, and follows the default location live', async () => {
         localStorage.setItem('brooz.location.enabled', 'false');
+        const getCurrentPosition = vi.fn();
+        vi.stubGlobal('navigator', {
+            userAgent: navigator.userAgent,
+            geolocation: { getCurrentPosition, watchPosition: getCurrentPosition }
+        });
         const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
         render(<LiveWeather {...live} args={{}} />);
-        expect(
-            await screen.findByText(`${WEATHER.place.name} · location unavailable`)
-        ).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:weather', { city: 'Berlin' });
-        localStorage.clear();
+        expect(screen.getByText('Set a location first.')).toBeTruthy();
+        const { result } = renderHook(() => useDefaultLocation());
+        act(() => result.current[1](PLACE));
+        expect((await screen.findAllByText('Rome')).length).toBeGreaterThan(0);
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 41.9, longitude: 12.5 });
+        act(() => result.current[1](null));
+        expect(screen.getByText('Set a location first.')).toBeTruthy();
+        expect(getCurrentPosition).not.toHaveBeenCalled();
     });
 });
 
