@@ -80,10 +80,26 @@ export async function providerKey(provider: ProviderId): Promise<string | null> 
         return null;
     }
     if (decrypted.shouldReEncrypt) {
-        // The OS rotated its key; the old blob still reads, so a failed rewrite is retried next time.
-        await saveKey(provider, key).catch(() => undefined);
+        await reEncrypt(provider, blob, key);
     }
     return key;
+}
+
+/**
+ * Rewrites a blob the OS asked to re-encrypt, unless a save or delete
+ * replaced it meanwhile. The old blob still reads, so a failure retries
+ * on the next read.
+ */
+async function reEncrypt(provider: ProviderId, blob: string, key: string): Promise<void> {
+    try {
+        const fresh = (await safeStorage.encryptStringAsync(key)).toString('base64');
+        if (blobs.get(provider) === blob) {
+            blobs.set(provider, fresh);
+            persist();
+        }
+    } catch {
+        // Keep the old blob.
+    }
 }
 
 /** Saves a key, or refuses to when this system cannot encrypt it. */

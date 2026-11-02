@@ -142,6 +142,21 @@ describe('the provider key store', () => {
         expect(await keys.providerKey('finnhub')).toBe('k1');
     });
 
+    it('never brings back a key deleted while it was re-encrypted', async () => {
+        const keys = await store();
+        await keys.saveKey('finnhub', 'k1');
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        let finish: (blob: Buffer<ArrayBuffer>) => void = () => undefined;
+        encryptStringAsync.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+        const read = keys.providerKey('finnhub');
+        await vi.waitFor(() => expect(encryptStringAsync).toHaveBeenCalledTimes(2));
+        keys.deleteKey('finnhub');
+        finish(Buffer.from('enc(k1)v2', 'utf8'));
+        expect(await read).toBe('k1');
+        expect(readStore()).toEqual({});
+        expect(await keys.providerKey('finnhub')).toBe(null);
+    });
+
     it('reports whether this system can store keys', async () => {
         isAsyncEncryptionAvailable.mockResolvedValue(false);
         expect(await (await store()).canStoreKeys()).toBe(false);
