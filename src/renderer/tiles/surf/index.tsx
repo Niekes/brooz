@@ -198,7 +198,6 @@ export const surfTile: TileDefinition = {
     Live: LiveSurf,
     providers: [STORMGLASS],
     surfSpot: true,
-    temperatures: true,
     liveKey: () => 'surf',
     route: {
         description: 'Surf forecast at the saved surf spot: waves, swell, wind and tides.',

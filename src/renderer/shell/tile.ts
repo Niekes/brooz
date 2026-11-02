@@ -71,10 +71,6 @@ export interface TileDefinition {
     readonly route?: TileRoute;
     /** The providers whose keys the live tile needs: each gets it a settings section. */
     readonly providers?: readonly ProviderInfo[];
-    /** The live tile follows the device location; its settings section can turn that off. */
-    readonly deviceLocation?: boolean;
-    /** The tile shows temperatures; its settings section offers the temperature unit. */
-    readonly temperatures?: boolean;
     /** The live tile shows the surf spot; its settings section takes it. */
     readonly surfSpot?: boolean;
 }

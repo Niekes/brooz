@@ -12,7 +12,7 @@ describe('the settings', () => {
     const status = () =>
         stubBrooz({ 'brooz:key-status': () => ({ present: false, canStore: true }) });
 
-    it('lists a section for every tile with a provider, in grid order', async () => {
+    it('opens on the general section, then lists a section for every tile with a provider', async () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const nav = screen.getByRole('navigation', { name: 'Settings sections' });
@@ -20,13 +20,14 @@ describe('the settings', () => {
             within(nav)
                 .getAllByRole('button')
                 .map((button) => button.textContent)
-        ).toEqual(['Weather', 'Markets', 'Air Quality', 'Surf']);
+        ).toEqual(['General', 'Weather', 'Markets', 'Air Quality', 'Surf']);
+        expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Weather' }));
         expect(await screen.findByText('No key')).toBeTruthy();
-        expect(screen.getByRole('heading', { name: 'Weather' })).toBeTruthy();
         expect(screen.getByLabelText('OpenWeatherMap API key')).toBeTruthy();
     });
 
-    it('turns the device location off and on, for every weather tile at once', () => {
+    it('turns the device location off and on in the general section, and nowhere else', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const option = screen.getByLabelText(/Use device location/) as HTMLInputElement;
@@ -34,17 +35,18 @@ describe('the settings', () => {
         fireEvent.click(option);
         expect(option.checked).toBe(false);
         expect(localStorage.getItem('brooz.location.enabled')).toBe('false');
-        fireEvent.click(screen.getByRole('button', { name: 'Markets' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Weather' }));
         expect(screen.queryByLabelText(/Use device location/)).toBe(null);
+        expect(screen.queryByLabelText('City of the default location')).toBe(null);
     });
 
-    it('switches the temperature unit, and only where a tile shows temperatures', () => {
+    it('switches the temperature unit in the general section, and nowhere else', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
         fireEvent.click(screen.getByLabelText('Fahrenheit'));
         expect(localStorage.getItem('brooz.temperature.unit')).toBe('"F"');
-        fireEvent.click(screen.getByRole('button', { name: 'Air Quality' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Weather' }));
         expect(screen.queryByLabelText('Celsius')).toBe(null);
     });
 
@@ -127,7 +129,6 @@ describe('the settings', () => {
         render(<Settings open onOpenChange={vi.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: 'Surf' }));
         expect(screen.getByLabelText('Stormglass API key')).toBeTruthy();
-        expect(screen.getByRole('group', { name: 'Temperature unit' })).toBeTruthy();
         fireEvent.change(screen.getByLabelText('Town of the surf spot'), {
             target: { value: 'Ericeira' }
         });
@@ -161,7 +162,7 @@ describe('the settings', () => {
         expect(screen.getByLabelText('Finnhub API key')).toBeTruthy();
     });
 
-    it('filters the sections by tile title and provider name', () => {
+    it('filters the sections by title, provider name and the general options', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const search = screen.getByLabelText('Search settings');
@@ -169,6 +170,10 @@ describe('the settings', () => {
         expect(screen.getByRole('heading', { name: 'Markets' })).toBeTruthy();
         fireEvent.change(search, { target: { value: ' AIR ' } });
         expect(screen.getByRole('heading', { name: 'Air Quality' })).toBeTruthy();
+        fireEvent.change(search, { target: { value: 'Fahrenheit' } });
+        expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
+        fireEvent.change(search, { target: { value: 'location' } });
+        expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
         fireEvent.change(search, { target: { value: 'nothing like it' } });
         expect(screen.getByText('No setting matches.')).toBeTruthy();
         expect(screen.queryByRole('region')).toBe(null);
