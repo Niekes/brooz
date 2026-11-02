@@ -43,3 +43,10 @@ _Avoid_: Place (for this meaning), position, city
 Where the device is right now, followed for as long as a tile uses it,
 with the person's permission.
 _Avoid_: Real-time location, GPS, current location
+
+**Temperature unit**:
+Celsius or Fahrenheit: the scale every temperature in the app is shown in.
+One choice for the whole app, belonging to the person rather than to a
+tile, so it appears in the section of each tile that shows temperatures and
+is still one choice.
+_Avoid_: Units, scale, metric/imperial

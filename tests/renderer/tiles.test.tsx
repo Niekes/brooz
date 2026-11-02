@@ -42,6 +42,14 @@ describe('every resting tile', () => {
         }
     );
 
+    it('shows the resting temperatures in the unit the person chose', () => {
+        localStorage.setItem('brooz.temperature.unit', '"F"');
+        render(<Weather seed={0} />);
+        render(<Forecast seed={0} />);
+        expect(screen.getByText('°F')).toBeTruthy();
+        localStorage.clear();
+    });
+
     it('is registered with the component its directory exports', () => {
         expect(tiles.map((tile) => tile.Component)).toEqual([
             AnalogClock,
@@ -110,6 +118,20 @@ describe('the live weather tiles', () => {
         expect(await screen.findByText('Rain')).toBeTruthy();
         expect(screen.getByText('Rome')).toBeTruthy();
         expect(screen.getByText('HUM 55%')).toBeTruthy();
+        expect(screen.getByText('°C')).toBeTruthy();
+    });
+
+    it('shows the temperatures in Fahrenheit when the person chose it', async () => {
+        localStorage.setItem('brooz.temperature.unit', '"F"');
+        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
+        const { unmount } = render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('°F')).toBeTruthy();
+        expect(screen.getByText('FEELS 69°')).toBeTruthy();
+        unmount();
+        render(<LiveForecast {...live} args={{ city: 'Rome' }} />);
+        expect(await screen.findByText('Today')).toBeTruthy();
+        expect(screen.getByText('54°')).toBeTruthy();
+        localStorage.clear();
     });
 
     it('shows five days and how many are rainy', async () => {

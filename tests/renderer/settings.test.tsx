@@ -37,6 +37,28 @@ describe('the settings', () => {
         localStorage.clear();
     });
 
+    it('switches the temperature unit for every tile that shows temperatures', () => {
+        localStorage.clear();
+        status();
+        render(<Settings open onOpenChange={vi.fn()} />);
+        expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
+        fireEvent.click(screen.getByLabelText('Fahrenheit'));
+        expect(localStorage.getItem('brooz.temperature.unit')).toBe('"F"');
+        fireEvent.click(screen.getByRole('button', { name: '5-Day Forecast' }));
+        expect((screen.getByLabelText('Fahrenheit') as HTMLInputElement).checked).toBe(true);
+        fireEvent.click(screen.getByRole('button', { name: 'Air Quality' }));
+        expect(screen.queryByLabelText('Celsius')).toBe(null);
+        localStorage.clear();
+    });
+
+    it('reads an unknown stored unit as Celsius', () => {
+        localStorage.setItem('brooz.temperature.unit', '"K"');
+        status();
+        render(<Settings open onOpenChange={vi.fn()} />);
+        expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
+        localStorage.clear();
+    });
+
     it('opens the section a person picks', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
