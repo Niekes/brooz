@@ -63,3 +63,13 @@ One choice for the whole app, belonging to the person rather than to a
 tile, so it appears in the section of each tile that shows temperatures and
 is still one choice.
 _Avoid_: Units, scale, metric/imperial
+
+**Primitive**:
+A UI component taken from shadcn exactly as generated. It is never changed
+by hand and never used by the app directly, only through a wrapper.
+_Avoid_: Base component, shadcn component, UI component
+
+**Wrapper**:
+The app's own component around one or more primitives: where the app's look
+and behaviour live, and the only way the app uses a primitive.
+_Avoid_: App component, styled component

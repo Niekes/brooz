@@ -9,7 +9,10 @@
  *   one tile directory                   never imports from another tile
  *   every source file                    `export function` for public
  *                                       functions, no default exports
- *   the shadcn primitives                unchanged since `npm run ui:add`
+ *   the shadcn primitives                unchanged since `npm run ui:add`,
+ *                                       each reached from an app-* wrapper
+ *   the cursor                           follows the element's role
+ *                                       (styles.css), never set by hand
  *
  * Fallow covers the parts of the template that need a real dependency graph
  * (zones, dead code, test coverage). This script covers the parts that are
@@ -22,11 +25,26 @@
  * Usage: node scripts/check-template.mjs
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import {
+    existsSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    writeFileSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
-import { PRIMITIVES, hashPrimitives, nextLock, readLock } from './primitives-lock.mjs';
+import {
+    PRIMITIVES,
+    hashPrimitives,
+    nextLock,
+    readLock,
+    unwrappedPrimitives
+} from './primitives-lock.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -80,6 +98,18 @@ for (const name of tileNames) {
 }
 
 /**
+ * The cursor follows the element's role, from one rule in styles.css: a
+ * button points, an input takes text, a disabled control is not allowed.
+ * Special cursors (grab, move) stay free.
+ */
+const HAND_CURSOR =
+    /\bcursor-(pointer|text|default|not-allowed)\b|cursor:\s*['"](pointer|text|default|not-allowed)['"]/;
+assert.ok(
+    HAND_CURSOR.test('disabled:cursor-not-allowed') && HAND_CURSOR.test("{ cursor: 'pointer' }")
+);
+assert.ok(!HAND_CURSOR.test('cursor-grab active:cursor-grabbing'));
+
+/**
  * Public functions are declared with `export function`, never with
  * `export const` arrow functions. A named declaration keeps the hoisting
  * and the stack traces predictable. There are no default exports.
@@ -96,6 +126,12 @@ for (const file of collectSourceFiles('src')) {
 
     if (/^export\s+default\b/m.test(source)) {
         fail(`${file}: the app has no default exports`);
+    }
+
+    if (HAND_CURSOR.test(source)) {
+        fail(
+            `${file}: the cursor follows the element's role (src/renderer/styles.css) - do not set pointer, text, default or not-allowed by hand`
+        );
     }
 }
 
@@ -132,6 +168,25 @@ assert.deepEqual(nextLock({ 'a.tsx': 'old' }, { 'a.tsx': 'new', 'b.tsx': 'b' }, 
     'b.tsx': 'b'
 });
 
+// Self-check: sub-folders are hashed by their path, and reachability follows
+// the alias, relative and nested imports between primitives.
+const scratch = mkdtempSync(join(tmpdir(), 'brooz-primitives-'));
+mkdirSync(join(scratch, 'sub'));
+writeFileSync(join(scratch, 'sub', 'b.tsx'), 'b');
+writeFileSync(join(scratch, 'a.tsx'), 'a');
+assert.deepEqual(Object.keys(hashPrimitives(scratch)), ['a.tsx', 'sub/b.tsx']);
+rmSync(scratch, { recursive: true });
+assert.deepEqual(
+    unwrappedPrimitives(["import { A } from './primitives/a';"], {
+        'a.tsx': 'import { B } from "@/renderer/shell/ui/primitives/b"',
+        'b.tsx': "import { C } from './sub/c'",
+        'sub/c.tsx': "import { A } from '../a'",
+        'lonely.tsx': '',
+        'notes.md': ''
+    }),
+    ['lonely.tsx']
+);
+
 const locked = readLock();
 const current = hashPrimitives();
 for (const name of new Set([...Object.keys(locked), ...Object.keys(current)])) {
@@ -140,6 +195,18 @@ for (const name of new Set([...Object.keys(locked), ...Object.keys(current)])) {
             `${PRIMITIVES}/${name}: primitives are not edited by hand - wrap it in an app-* component, or run \`npm run ui:add -- ${name.replace(/\.tsx$/, '')}\``
         );
     }
+}
+
+const wrappers = readdirSync(join(ROOT, 'src/renderer/shell/ui'))
+    .filter((name) => /^app-.*\.tsx$/.test(name))
+    .map((name) => read(`src/renderer/shell/ui/${name}`));
+const sources = Object.fromEntries(
+    Object.keys(current).map((name) => [name, read(`${PRIMITIVES}/${name}`)])
+);
+for (const name of unwrappedPrimitives(wrappers, sources)) {
+    fail(
+        `${PRIMITIVES}/${name}: no app-* wrapper reaches this primitive - wrap it in an app-* component, or remove it`
+    );
 }
 
 if (violations.length > 0) {
