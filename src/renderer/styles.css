@@ -56,6 +56,47 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * The cursor follows the element's role, so no component sets it by hand
+ * (scripts/check-template.mjs). Layered, so a cursor-grab utility still wins;
+ * on the elements themselves, so the grid's grab hand stops at a control.
+ */
+@layer base {
+    button,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='option'],
+    [role='switch'],
+    [role='checkbox'],
+    a[href],
+    label[for],
+    select,
+    summary {
+        cursor: pointer;
+    }
+
+    /* :where() keeps this below :disabled, so a disabled field says not-allowed. */
+    :where(
+        input:not(
+            [type='checkbox'],
+            [type='radio'],
+            [type='range'],
+            [type='button'],
+            [type='submit']
+        ),
+        textarea,
+        [contenteditable='true']
+    ) {
+        cursor: text;
+    }
+
+    :disabled,
+    [aria-disabled='true'] {
+        cursor: not-allowed;
+    }
+}
+
 .grid-stage {
     cursor: grab;
 }
