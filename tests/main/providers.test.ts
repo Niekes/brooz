@@ -44,9 +44,9 @@ describe('the provider side of the contract', () => {
 
     it('tells the reason a key is missing', async () => {
         const api = await import('../../src/main/providers');
-        expect(api.missingKeyReason()).toBe('not-set');
+        expect(await api.missingKeyReason()).toBe('not-set');
         canStoreKeys.mockReturnValue(false);
-        expect(api.missingKeyReason()).toBe('encryption-unavailable');
+        expect(await api.missingKeyReason()).toBe('encryption-unavailable');
     });
 
     it('quotes symbols with the stored key', async () => {

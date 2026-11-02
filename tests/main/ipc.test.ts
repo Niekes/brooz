@@ -169,14 +169,14 @@ describe('the IPC handlers', () => {
         expect(mockDeleteKey).toHaveBeenCalledWith('finnhub');
     });
 
-    it('reports a key status, never the key', () => {
+    it('reports a key status, never the key', async () => {
         registerIpcHandlers();
-        expect(handlerFor('brooz:key-status')(app, 'finnhub')).toEqual({
+        await expect(handlerFor('brooz:key-status')(app, 'finnhub')).resolves.toEqual({
             present: false,
             canStore: true
         });
         mockProviderKey.mockReturnValue('k1');
-        expect(handlerFor('brooz:key-status')(app, 'finnhub')).toEqual({
+        await expect(handlerFor('brooz:key-status')(app, 'finnhub')).resolves.toEqual({
             present: true,
             canStore: true
         });
@@ -204,7 +204,7 @@ describe('the IPC handlers', () => {
         expect(handlerFor('brooz:style-nonce')(app)).toBe('n0nce');
     });
 
-    it('validates the arguments before anything reaches the network', () => {
+    it('validates the arguments before anything reaches the network', async () => {
         registerIpcHandlers();
         expect(() => handlerFor('brooz:geocode')(app, 42)).toThrow(/must be a string/);
         expect(() => handlerFor('brooz:weather')(app, null)).toThrow(/city or coordinates/);
@@ -216,9 +216,11 @@ describe('the IPC handlers', () => {
             /1 to 256 characters/
         );
         expect(() => handlerFor('brooz:key-delete')(app, 42)).toThrow(/Unknown provider/);
-        expect(() => handlerFor('brooz:key-status')(app, 'unknown')).toThrow(/Unknown provider/);
         expect(() => handlerFor('brooz:key-test')(app, 'unknown')).toThrow(/Unknown provider/);
         expect(() => handlerFor('brooz:stock-quotes')(app, 'AAPL')).toThrow(/a list of/);
+        await expect(handlerFor('brooz:key-status')(app, 'unknown')).rejects.toThrow(
+            /Unknown provider/
+        );
         expect(() => handlerFor('brooz:stock-quotes')(app, ['ok!'])).toThrow(/at most 12/);
         expect(mockGeocode).not.toHaveBeenCalled();
         expect(mockWeather).not.toHaveBeenCalled();

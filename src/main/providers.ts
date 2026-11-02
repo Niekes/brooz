@@ -32,18 +32,18 @@ const PROBES: Record<ProviderId, (key: string) => Promise<ProviderProbe>> = {
 };
 
 /** Why a key reads as missing: never set, or this OS cannot store keys. */
-export function missingKeyReason(): MissingKeyReason {
-    return canStoreKeys() ? 'not-set' : 'encryption-unavailable';
+export async function missingKeyReason(): Promise<MissingKeyReason> {
+    return (await canStoreKeys()) ? 'not-set' : 'encryption-unavailable';
 }
 
 /** Runs a call with the provider's key, or answers missing-key without one. */
-function withKey<T>(
+async function withKey<T>(
     provider: ProviderInfo,
     call: (key: string) => Promise<ProviderOutcome<T>>
 ): Promise<ProviderOutcome<T>> {
-    const key = providerKey(provider.id);
+    const key = await providerKey(provider.id);
     if (key === null) {
-        return Promise.resolve({ status: 'missing-key', reason: missingKeyReason() });
+        return { status: 'missing-key', reason: await missingKeyReason() };
     }
     return call(key);
 }
@@ -70,9 +70,9 @@ export function surf(spot: Coordinates): Promise<ProviderOutcome<SurfForecast>> 
 
 /** Checks the provider's stored key against its service, for the settings. */
 export async function probeProvider(provider: ProviderId): Promise<ProviderProbe> {
-    const key = providerKey(provider);
+    const key = await providerKey(provider);
     if (key === null) {
-        return { status: 'missing-key', reason: missingKeyReason() };
+        return { status: 'missing-key', reason: await missingKeyReason() };
     }
     return PROBES[provider](key);
 }
