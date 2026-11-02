@@ -19,6 +19,7 @@ npm run test:e2e # against `electron .`, needs `npm run build` first
 npm run package  # the installers, unsigned for now
 npm run verify   # typecheck + lint + the unit suite with coverage, the gate before a commit
 npm run ui:add -- <name>  # add or update a shadcn primitive, and re-lock its hash
+npm run bench:model # the real local model on the routing benchmarks (downloads ~380 MB once)
 ```
 
 <!-- fallow:setup-hooks:start -->
