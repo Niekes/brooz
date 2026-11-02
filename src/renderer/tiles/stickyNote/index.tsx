@@ -1,8 +1,9 @@
-import { useDebounce, useLocalStorage } from '@uidotdev/usehooks';
+import { useDebounce, useTimeout } from 'ahooks';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Eyebrow } from '../../shell/kit/chrome';
 import { LiveFrame } from '../../shell/kit/live';
+import { useStoredValue } from '../../shell/kit/browser';
 import { HUES, pick } from '../../shell/kit/seed';
 import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
 
@@ -63,7 +64,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved';
 const META: Record<SaveStatus, string> = { idle: 'Local', saving: 'Saving', saved: 'Saved' };
 
 /**
- * Builds before useLocalStorage stored the note as raw text, which the hook
+ * Builds before the storage hook stored the note as raw text, which the hook
  * cannot parse; rewrite it as JSON once, so no note is lost.
  */
 export function migrateStoredNote(storage: Storage): void {
@@ -83,23 +84,17 @@ export function migrateStoredNote(storage: Storage): void {
 
 /** The note text, saved a moment after each edit, and where the saving is. */
 function useSavedNote(initial: string | undefined): [string, SaveStatus, (value: string) => void] {
-    const [stored, setStored] = useLocalStorage(STORAGE_KEY, '');
+    const [stored, setStored] = useStoredValue(STORAGE_KEY, '');
     const [text, setText] = useState(() => initial ?? stored);
     const [status, setStatus] = useState<SaveStatus>('idle');
-    const settled = useDebounce(text, SAVE_DELAY);
+    const settled = useDebounce(text, { wait: SAVE_DELAY });
 
     useEffect(() => {
         setStored(settled);
         setStatus('saved');
     }, [settled, setStored]);
 
-    useEffect(() => {
-        if (status !== 'saved') {
-            return;
-        }
-        const id = setTimeout(() => setStatus('idle'), SAVED_BADGE);
-        return () => clearTimeout(id);
-    }, [status]);
+    useTimeout(() => setStatus('idle'), status === 'saved' ? SAVED_BADGE : undefined);
 
     const update = (value: string): void => {
         setText(value);

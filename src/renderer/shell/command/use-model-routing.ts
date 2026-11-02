@@ -1,4 +1,4 @@
-import { useDebounce } from '@uidotdev/usehooks';
+import { useDebounce } from 'ahooks';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { argsFor } from './manifest';
 import { parseCommand } from './parse';
@@ -46,7 +46,7 @@ export function useModelRouting(
     const [pending, setPending] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
 
-    const settled = useDebounce(query, MODEL_DELAY);
+    const settled = useDebounce(query, { wait: MODEL_DELAY });
     // An answer is dropped as soon as the person types on, not only once the debounce settles.
     const latest = useRef(query);
     useEffect(() => {

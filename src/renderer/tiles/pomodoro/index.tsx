@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useInterval } from 'ahooks';
+import { useState } from 'react';
 import type { JSX } from 'react';
 import { ProgressRing, TileHeader, WIDGET_BODY } from '../../shell/kit/chrome';
 import { LiveFrame } from '../../shell/kit/live';
@@ -82,13 +83,7 @@ function useCountdown(total: number, autoStart: boolean): Countdown {
     const done = remaining === 0;
     const ticking = running && !done;
 
-    useEffect(() => {
-        if (!ticking) {
-            return;
-        }
-        const id = setTimeout(() => setRemaining((value) => value - 1), 1000);
-        return () => clearTimeout(id);
-    }, [ticking, remaining]);
+    useInterval(() => setRemaining((value) => value - 1), ticking ? 1000 : undefined);
 
     const toggle = (): void => {
         if (done) {

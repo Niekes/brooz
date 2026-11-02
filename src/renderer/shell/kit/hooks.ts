@@ -1,5 +1,6 @@
-import { useGeolocation, useLocalStorage } from '@uidotdev/usehooks';
+import { useInterval } from 'ahooks';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useGeolocation, useStoredValue } from './browser';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import { placeKey } from '../../../shared/weather';
 import type {
@@ -102,12 +103,12 @@ function coarse(degrees: number): number {
 
 /** Whether tiles may follow the device location: on until the person turns it off. */
 export function useDeviceLocationSetting(): [boolean, (on: boolean) => void] {
-    return useLocalStorage<boolean>('brooz.location.enabled', true);
+    return useStoredValue<boolean>('brooz.location.enabled', true);
 }
 
 /** The default location the person saved in the settings, or `null`; every tile follows a change. */
 export function useDefaultLocation(): [GeoPlace | null, (place: GeoPlace | null) => void] {
-    return useLocalStorage<GeoPlace | null>('brooz.location.default', null);
+    return useStoredValue<GeoPlace | null>('brooz.location.default', null);
 }
 
 /** No location at all: the tile asks for one instead of guessing. */
@@ -126,7 +127,7 @@ export function savedLocation(place: GeoPlace | null): LiveLocation {
 
 /** The temperature unit: Celsius until the person picks Fahrenheit. */
 export function useTemperatureUnit(): [TemperatureUnit, (unit: TemperatureUnit) => void] {
-    const [unit, setUnit] = useLocalStorage<TemperatureUnit>('brooz.temperature.unit', 'C');
+    const [unit, setUnit] = useStoredValue<TemperatureUnit>('brooz.temperature.unit', 'C');
     // The stored value is untyped JSON: anything but 'F' reads as Celsius.
     return [unit === 'F' ? 'F' : 'C', setUnit];
 }
@@ -192,10 +193,7 @@ export function useKeyStatus(provider: ProviderInfo): AsyncView<KeyStatus> {
 export function useNow(): Date {
     const [now, setNow] = useState(() => new Date());
 
-    useEffect(() => {
-        const id = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(id);
-    }, []);
+    useInterval(() => setNow(new Date()), 1000);
 
     return now;
 }

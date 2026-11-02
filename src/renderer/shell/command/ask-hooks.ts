@@ -1,6 +1,7 @@
-import { useLocalStorage } from '@uidotdev/usehooks';
+import { useEventListener } from 'ahooks';
 import { useEffect, useState } from 'react';
 import type { RefObject } from 'react';
+import { useStoredValue } from '../kit/browser';
 import type { SummonRequest } from '../tile';
 import { isLowConfidence } from './command-parts';
 import type { CommandMatch } from './parse';
@@ -12,16 +13,12 @@ const NOTICE_MS = 6000;
 
 /** Cmd+K or Ctrl+K focuses the field from anywhere. */
 export function useFocusShortcut(input: RefObject<HTMLInputElement | null>): void {
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent): void => {
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-                event.preventDefault();
-                input.current!.focus();
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [input]);
+    useEventListener('keydown', (event: KeyboardEvent) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+            event.preventDefault();
+            input.current!.focus();
+        }
+    });
 }
 
 /** A message that goes away on its own after a while. */
@@ -83,7 +80,7 @@ const MODEL_FLAG = 'brooz.model.enabled';
  */
 export function useModelWarmup(status: ModelStatus, load: () => void): () => void {
     // An older build stored '1', which reads back as the truthy 1.
-    const [enabled, setEnabled] = useLocalStorage<boolean>(MODEL_FLAG, false);
+    const [enabled, setEnabled] = useStoredValue<boolean>(MODEL_FLAG, false);
     useEffect(() => {
         if (status === 'idle' && enabled) {
             load();

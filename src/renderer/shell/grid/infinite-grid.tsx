@@ -1,4 +1,3 @@
-import { useMediaQuery } from '@uidotdev/usehooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, JSX, ReactNode } from 'react';
 import type { SummonRequest, TileDefinition } from '../tile';
@@ -6,6 +5,7 @@ import { AppTile } from './app-tile';
 import { DOME_PRESETS, PERSPECTIVE, SIZES, seedAt, tileIndexAt } from './dome';
 import type { Pool } from './dome';
 import { DomeEngine } from './engine';
+import { useMediaQuery } from '../kit/browser';
 
 const HIGHLIGHT_MS = 650;
 

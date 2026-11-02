@@ -233,19 +233,27 @@ files that may import a primitive (fallow's `primitives` zone). Their hashes
 are locked in `primitives.lock.json`; `npm run lint` fails on any drift, and
 `npm run ui:add -- <name>` is the only way to add or update one.
 
-## Hooks: usehooks first
+## Hooks: ahooks first
 
-A React hook that `@uidotdev/usehooks` already offers is taken from there,
-never written again: `useLocalStorage`, `useSessionStorage`,
-`useGeolocation`, `useMediaQuery`, `useDebounce`, and the rest of its stable
-export list (`node_modules/@uidotdev/usehooks/index.d.ts`). Write a hook of
-your own in `shell/kit` only for what it lacks - timers and key shortcuts,
-because its `useInterval`, `useTimeout`, `useEventListener` and
-`useKeyPress` need React experimental. oxlint enforces the browser APIs in
-`src/renderer/**`: `localStorage`, `sessionStorage`, `matchMedia` and
-`navigator.geolocation` fail the lint with the hook to use instead. The one
-exception is the sticky note's storage migration in `main.tsx`, which must
-read the raw text the hook cannot parse.
+A hook over a browser API or a timer that `ahooks` offers is taken from
+there, never written again: `useInterval`, `useTimeout`, `useEventListener`,
+`useKeyPress`, `useDebounce` and the rest of its export list
+(`node_modules/ahooks/lib/index.d.ts`). Three hooks live in
+`shell/kit/browser.ts` instead
+(`docs/adr/0007-ahooks-replaces-usehooks.md`): `useGeolocation` and
+`useMediaQuery`, which ahooks lacks, and `useStoredValue`, the one way to
+keep a value in localStorage - it wraps ahooks' `useLocalStorageState` with
+`listenStorageChange`, so every component reading a key follows a write.
+App data loading (`useAsync` in `shell/kit/hooks.ts`) is not a browser hook
+and stays ours. A timeout that restarts when a value changes stays a
+`useEffect`: ahooks' `useTimeout` only restarts when its delay changes.
+
+oxlint enforces this in `src/renderer/**`: `localStorage`,
+`sessionStorage`, `matchMedia`, `navigator.geolocation` and ahooks'
+storage hooks fail the lint with the hook to use instead; `browser.ts` is
+the one module allowed to touch them. The other exception is the sticky
+note's storage migration in `main.tsx`, which must read the raw text the
+hook cannot parse.
 
 ## Code style
 
