@@ -9,7 +9,7 @@
  * `docs/adr/0002-safe-storage-fail-closed.md`.
  */
 
-export type ProviderId = 'finnhub' | 'openweathermap' | 'stormglass';
+export type ProviderId = 'finnhub' | 'openweathermap';
 
 export interface ProviderInfo {
     readonly id: ProviderId;
@@ -21,7 +21,7 @@ export interface ProviderInfo {
     readonly keyUrl: string;
 }
 
-/** Finnhub quotes stocks and crypto for the markets tiles. */
+/** Finnhub quotes stocks and crypto for the markets tile. */
 export const FINNHUB: ProviderInfo = {
     id: 'finnhub',
     title: 'Finnhub',
@@ -37,16 +37,8 @@ export const OPENWEATHERMAP: ProviderInfo = {
     keyUrl: 'home.openweathermap.org/api_keys'
 };
 
-/** Stormglass: the surf tile's swell and tides, ten requests a day on the free plan. */
-export const STORMGLASS: ProviderInfo = {
-    id: 'stormglass',
-    title: 'Stormglass',
-    description: 'Swell, wind and tides for the surf tile. The free plan allows 10 requests a day.',
-    keyUrl: 'stormglass.io'
-};
-
 /** Every provider of the manifest. */
-export const PROVIDERS: readonly ProviderInfo[] = [OPENWEATHERMAP, FINNHUB, STORMGLASS];
+export const PROVIDERS: readonly ProviderInfo[] = [OPENWEATHERMAP, FINNHUB];
 
 /** Whether `value` names a provider of the manifest. */
 export function providerExists(value: string): value is ProviderId {

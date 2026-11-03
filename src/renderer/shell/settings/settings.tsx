@@ -10,7 +10,8 @@ import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
 import { AppSeparator } from '../ui/app-separator';
-import { DefaultLocationOption, SurfSpotOption } from './default-location';
+import { DefaultLocationOption } from './default-location';
+import { ProviderChoice } from './provider-choice';
 import { ProviderKey } from './provider-key';
 import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
 
@@ -19,10 +20,10 @@ import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
  * dashboard. A sidebar lists the general section first - the choices that
  * belong to the person: the device location switch, the default location and
  * the temperature unit - then, under a separator, one section per provider of
- * the manifest, in manifest order, each with its mark, the tiles it serves and
- * its key. A key is one per provider and shows once, no matter how many tiles
- * it serves; a tile option that belongs to a keyed tile (today the surf spot)
- * lives in that provider's section.
+ * the manifest, in manifest order, even when it serves no tile yet, each with
+ * its mark, the tiles it serves and its key. A key is one per provider and
+ * shows once, no matter how many tiles it serves; a tile that can choose
+ * between several providers picks in the provider's section.
  */
 
 /** A sidebar entry: the words the search finds it by, and what it shows. */
@@ -44,22 +45,27 @@ function matches(section: Section, search: string): boolean {
 
 /** Whether a tile's live data comes from this provider. */
 function serves(provider: ProviderInfo, tile: TileDefinition): boolean {
-    return tile.providers?.some((p) => p.id === provider.id) ?? false;
+    return tile.providers?.some((candidate) => candidate.provider.id === provider.id) ?? false;
 }
 
-/** One sidebar section for a provider: its key, and the spot when a served tile has one. */
-function providerSection(provider: ProviderInfo, served: string[]): Section {
-    const hasSurfSpot = tiles.some((tile) => tile.surfSpot === true && serves(provider, tile));
+/** The one line under a provider section's heading, naming what it serves. */
+export function servesLine(served: readonly string[]): string {
+    return served.length > 0 ? `Serves ${served.join(' and ')}` : 'Serves no tile yet';
+}
+
+/** One sidebar section for a provider: its key, and the tiles' provider choices. */
+function providerSection(provider: ProviderInfo, servedTiles: readonly TileDefinition[]): Section {
+    const served = servedTiles.map((tile) => tile.title);
     return {
         id: provider.id,
         title: provider.title,
         icon: provider.id,
-        subtitle: `Serves ${served.join(' and ')}`,
-        terms: [provider.title, ...served, ...(hasSurfSpot ? ['Surf spot'] : [])],
+        subtitle: servesLine(served),
+        terms: [provider.title, ...served],
         Body: () => (
             <>
                 <ProviderKey provider={provider} />
-                {hasSurfSpot ? <SurfSpotOption /> : null}
+                <ProviderChoice provider={provider} tiles={servedTiles} />
             </>
         )
     };
@@ -232,15 +238,16 @@ const GENERAL: Section = {
     )
 };
 
+// Every provider of the manifest has a section, even one that serves no
+// tile yet: its key needs a place before any tile can use it.
 const SECTIONS: Section[] = [
     GENERAL,
-    ...PROVIDERS.map((provider) => ({
-        provider,
-        served: tiles.filter((tile) => serves(provider, tile)).map((tile) => tile.title)
-    }))
-        // A provider that serves no tile has no section to put its key in.
-        .filter(({ served }) => served.length > 0)
-        .map(({ provider, served }) => providerSection(provider, served))
+    ...PROVIDERS.map((provider) =>
+        providerSection(
+            provider,
+            tiles.filter((tile) => serves(provider, tile))
+        )
+    )
 ];
 
 export function Settings({

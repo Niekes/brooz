@@ -1,9 +1,19 @@
 import type { JSX } from 'react';
+import { IPC_CHANNELS } from '../../../shared/ipc';
+import type { IpcChannel } from '../../../shared/ipc';
+import { OPENWEATHERMAP } from '../../../shared/providers';
+import type { AirQualitySnapshot } from '../../../shared/weather';
 import { AIR_BAND, airCategory } from '../../shell/kit/air';
 import { Eyebrow, WIDGET_BODY } from '../../shell/kit/chrome';
+import { usePlaceData } from '../../shell/kit/hooks';
 import { pick, rng } from '../../shell/kit/seed';
-import { LiveAirFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
-import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
+import type {
+    CommandArgs,
+    LiveLoader,
+    LiveTileProps,
+    TileDefinition,
+    TileProps
+} from '../../shell/tile';
 
 const CITIES = ['Berlin', 'Tokyo', 'Lisbon', 'Oslo', 'Cairo', 'Melbourne'];
 
@@ -53,60 +63,58 @@ export function AirQuality({ seed }: TileProps): JSX.Element {
     );
 }
 
+/** Loads the air quality of the utterance's place over the chosen provider's channel. */
+function useLiveAir(args: CommandArgs, channel: IpcChannel): LiveLoader<AirQualitySnapshot> {
+    return usePlaceData<AirQualitySnapshot>(args.city, channel);
+}
+
 /** The current air quality of a city, or of the device location. */
-export function LiveAirQuality({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
+export function LiveAirQuality({ data }: LiveTileProps<AirQualitySnapshot>): JSX.Element {
+    const category = airCategory(data.aqi);
     return (
-        <LiveAirFrame label={label} lowConfidence={lowConfidence} city={args.city}>
-            {(data) => {
-                const category = airCategory(data.aqi);
-                return (
-                    <div className="flex h-full min-h-0 flex-col justify-between gap-2">
-                        <div className="flex min-h-0 flex-1 items-center justify-between gap-3">
-                            <div
-                                className="text-4xl leading-none font-light tracking-tight"
-                                style={{ color: category.color }}
-                            >
-                                {data.aqi}
-                            </div>
-                            <div className="min-w-0 text-right">
-                                <div className="text-[10px] font-medium tracking-[0.16em] text-white/70 uppercase">
-                                    {category.label}
-                                </div>
-                                <div className="mt-0.5 text-[9px] text-white/30">
-                                    OpenWeatherMap index
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="relative h-2">
-                            <div
-                                className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                                style={{ background: AIR_BAND }}
-                            />
-                            <span
-                                className="absolute top-1/2 size-2.5 -translate-1/2 rounded-full border border-white bg-white/20 shadow-[0_1px_4px_rgba(0,0,0,0.45)]"
-                                style={{ left: `${(data.aqi - 0.5) * 20}%` }}
-                            />
-                        </div>
-
-                        <div className="flex items-end justify-between gap-2 font-mono text-[10px] text-white/45">
-                            <span>PM2.5 {data.pm25}</span>
-                            <span>PM10 {data.pm10}</span>
-                            <span className="truncate">updated {data.observedAt}</span>
-                        </div>
+        <div className="flex h-full min-h-0 flex-col justify-between gap-2">
+            <div className="flex min-h-0 flex-1 items-center justify-between gap-3">
+                <div
+                    className="text-4xl leading-none font-light tracking-tight"
+                    style={{ color: category.color }}
+                >
+                    {data.aqi}
+                </div>
+                <div className="min-w-0 text-right">
+                    <div className="text-[10px] font-medium tracking-[0.16em] text-white/70 uppercase">
+                        {category.label}
                     </div>
-                );
-            }}
-        </LiveAirFrame>
+                    <div className="mt-0.5 text-[9px] text-white/30">OpenWeatherMap index</div>
+                </div>
+            </div>
+
+            <div className="relative h-2">
+                <div
+                    className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+                    style={{ background: AIR_BAND }}
+                />
+                <span
+                    className="absolute top-1/2 size-2.5 -translate-1/2 rounded-full border border-white bg-white/20 shadow-[0_1px_4px_rgba(0,0,0,0.45)]"
+                    style={{ left: `${(data.aqi - 0.5) * 20}%` }}
+                />
+            </div>
+
+            <div className="flex items-end justify-between gap-2 font-mono text-[10px] text-white/45">
+                <span>PM2.5 {data.pm25}</span>
+                <span>PM10 {data.pm10}</span>
+                <span className="truncate">updated {data.observedAt}</span>
+            </div>
+        </div>
     );
 }
 
-export const airQualityTile: TileDefinition = {
+export const airQualityTile: TileDefinition<AirQualitySnapshot> = {
     id: 'air-quality',
     title: 'Air Quality',
     Component: AirQuality,
     Live: LiveAirQuality,
-    providers: WEATHER_PROVIDERS,
+    providers: [{ provider: OPENWEATHERMAP, channel: IPC_CHANNELS.airQuality }],
+    liveData: useLiveAir,
     liveKey: ({ city }) => `air-quality:${city ?? ''}`,
     route: {
         description: 'Air quality index and pollution levels for a city.',

@@ -41,7 +41,7 @@ export function LiveFrame({ label, meta, lowConfidence, children }: LiveFramePro
     );
 }
 
-export function LiveSkeleton(): JSX.Element {
+function LiveSkeleton(): JSX.Element {
     return (
         <div
             className="flex h-full animate-pulse flex-col justify-between"

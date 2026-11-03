@@ -2,14 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ChangeEvent, JSX, KeyboardEvent, RefObject } from 'react';
 import { AppCard } from '../glass/app-card';
 import type { SummonRequest } from '../tile';
-import {
-    hintFor,
-    useAutoSummon,
-    useFocusShortcut,
-    useModelWarmup,
-    useNotice,
-    waitingText
-} from './ask-hooks';
+import { hintFor, useAutoSummon, useFocusShortcut, useModelWarmup, waitingText } from './ask-hooks';
 import {
     Chips,
     SearchIcon,
@@ -17,10 +10,9 @@ import {
     StatusLine,
     SuggestionList,
     isLowConfidence,
-    mergeMatches,
-    titleOf
+    mergeMatches
 } from './command-parts';
-import { routedTile } from './manifest';
+import { ROUTED_TILES } from './manifest';
 import { parseCommand } from './parse';
 import type { CommandMatch } from './parse';
 import { useLocalModel } from './use-local-model';
@@ -28,9 +20,9 @@ import type { LocalModel } from './use-local-model';
 import { useModelRouting } from './use-model-routing';
 import type { ModelRouting } from './use-model-routing';
 
-/** Example utterances for the empty field, one per tile with a live version. */
-const EXAMPLES = ['weather', 'air-quality', 'pomodoro', 'sticky-note', 'world-clock'].map(
-    (id) => routedTile(id)!.route.examples[0]
+/** Example utterances for the empty field, one per routed tile with a live version. */
+const EXAMPLES = ROUTED_TILES.filter((tile) => tile.Live !== undefined).map(
+    (tile) => tile.route.examples[0]
 );
 
 /** The ask field rides on the glass surface, tuned through its custom properties. */
@@ -175,7 +167,6 @@ function useAskActions(
     suppress: RefObject<boolean>,
     last: RefObject<string | null>
 ) {
-    const [notice, setNotice] = useNotice();
     const { inputRef, replaceQuery } = bar;
 
     const execute = (match: CommandMatch): void => {
@@ -187,11 +178,6 @@ function useAskActions(
             confidence: match.confidence,
             lowConfidence: isLowConfidence(match)
         });
-        if (!routedTile(match.widget)!.Live) {
-            setNotice(
-                `${titleOf(match.widget)} is still demo data — its live source is not connected yet.`
-            );
-        }
         replaceQuery('');
         inputRef.current!.focus();
     };
@@ -199,7 +185,6 @@ function useAskActions(
     const keys = keyActions(bar, execute);
 
     return {
-        notice,
         execute,
         pickExample: (text: string): void => {
             suppress.current = true;
@@ -273,8 +258,8 @@ export function CommandBar({
 
                 <StatusLine
                     model={model}
-                    hint={hintFor(actions.notice, lowConfidence, routing.failure)}
-                    warn={Boolean(actions.notice) || lowConfidence}
+                    hint={hintFor(lowConfidence, routing.failure)}
+                    warn={lowConfidence}
                     onEnable={enableModel}
                     onOpenSettings={onOpenSettings}
                 />

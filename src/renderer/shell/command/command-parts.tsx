@@ -15,7 +15,7 @@ export function isLowConfidence(match: CommandMatch): boolean {
 
 /**
  * The model ranks, but a confident rule hit stays on top: the small model
- * misroutes one-word asks like "surf" that a keyword settles for sure.
+ * misroutes one-word asks that a keyword settles for sure.
  */
 export function mergeMatches(rules: CommandMatch[], model: CommandMatch[]): CommandMatch[] {
     const rule = rules[0];
@@ -29,21 +29,12 @@ function truncate(value: string, limit: number): string {
     return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
-/** The args of a match in one line: "Rome · 25 min · “buy milk”". */
+/** The args of a match in one line: "Rome · AAPL · TSLA". */
 function summaryFor(args: CommandArgs): string {
-    return [
-        args.city,
-        args.durationMinutes && `${args.durationMinutes} min`,
-        args.when,
-        args.symbols?.join(' · '),
-        args.query && `“${truncate(args.query, 40)}”`,
-        args.note && `“${truncate(args.note, 46)}”`
-    ]
-        .filter(Boolean)
-        .join(' · ');
+    return [args.city, args.symbols?.join(' · ')].filter(Boolean).join(' · ');
 }
 
-export function titleOf(widget: string): string {
+function titleOf(widget: string): string {
     return routedTile(widget)!.title;
 }
 

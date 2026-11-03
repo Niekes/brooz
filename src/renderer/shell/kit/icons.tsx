@@ -93,18 +93,6 @@ function OpenWeatherMapIcon({ className }: { className?: string }): JSX.Element 
     );
 }
 
-/**
- * Stormglass's mark: a wind glyph, lightened from the brand's navy to a
- * seafoam so it reads on the dark glass.
- */
-function StormglassIcon({ className }: { className?: string }): JSX.Element {
-    return (
-        <BrandSvg id="stormglass" viewBox="0 0 31 31" fill="#5eead4" className={className}>
-            <path d="M12.564 1.486c.935 0 1.692.753 1.692 1.682v9.452L22.42 7.89a1.67 1.67 0 0 1 2.29.604c.46.8.18 1.826-.624 2.292l-8.182 4.739 8.182 4.74a1.683 1.683 0 0 1 .624 2.29 1.67 1.67 0 0 1-2.29.604l-8.163-4.728v9.4c0 .929-.757 1.682-1.692 1.682a1.687 1.687 0 0 1-1.692-1.682V18.44l-8.15 4.72a1.67 1.67 0 0 1-2.289-.603c-.46-.8-.18-1.826.624-2.292l8.182-4.74-8.182-4.738a1.683 1.683 0 0 1-.624-2.292 1.67 1.67 0 0 1 2.29-.604l8.149 4.72V3.169c0-.929.757-1.682 1.692-1.682" />
-        </BrandSvg>
-    );
-}
-
 /** Finnhub's mark: the brand's green gradient wordmark glyph. */
 function FinnhubIcon({ className }: { className?: string }): JSX.Element {
     return (
@@ -141,13 +129,12 @@ function FinnhubIcon({ className }: { className?: string }): JSX.Element {
 /** Every provider's mark, keyed by provider id. */
 const PROVIDER_ICONS: Record<ProviderId, ComponentType<{ className?: string }>> = {
     openweathermap: OpenWeatherMapIcon,
-    stormglass: StormglassIcon,
     finnhub: FinnhubIcon
 };
 
 /**
  * A provider's mark in the settings, in the provider's brand color.
- * Hand-kept, so the app needs no icon dependency for three glyphs.
+ * Hand-kept, so the app needs no icon dependency for two glyphs.
  */
 export function ProviderIcon({
     id,

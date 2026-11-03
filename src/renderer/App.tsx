@@ -17,7 +17,7 @@ export function App(): JSX.Element {
     return (
         <>
             <Backdrop />
-            <InfiniteGrid tiles={tiles}>
+            <InfiniteGrid tiles={tiles} onOpenSettings={() => setSettingsOpen(true)}>
                 {(summon) => (
                     <CommandBar onSummon={summon} onOpenSettings={() => setSettingsOpen(true)} />
                 )}

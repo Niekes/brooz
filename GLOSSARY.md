@@ -17,21 +17,18 @@ _Avoid_: service, API, backend, key source
 
 **Settings section**:
 One entry of the settings sidebar: General, or one provider of the manifest
-with its key. A section is keyed by provider, never by tile.
+with its key. A section is keyed by provider, never by tile, and exists even
+when the provider serves no tile yet.
 _Avoid_: tab, page, panel
 
 **API key**:
 The credential that unlocks a provider's data for the tiles that need it.
 _Avoid_: token, secret, password
 
-**Surf spot**:
-The one point on the water the surf tile forecasts; saved in the settings by its town and its coordinates.
-_Avoid_: favorite, break, location
+**Default tile**:
+The placeholder cell that fills every grid slot without a registered tile, so the grid is never empty. It is not in the registry and cannot be summoned; a click opens the settings.
+_Avoid_: empty cell, spacer, filler
 
-**Rating**:
-The surf tile's verdict for an hour - great, good, fair or poor - computed from wave height, swell period and wind, because the provider has no rating of its own.
-_Avoid_: status, grade, score
-
-**Best window**:
-The contiguous hours with the highest average rating, shown as the surf tile's best-surf line.
-_Avoid_: peak hours, best time
+**Chosen provider**:
+The one provider of a tile's candidates that is active, stored per tile as `brooz.tile.<id>.provider` and picked in the provider's settings section.
+_Avoid_: selected service, active source

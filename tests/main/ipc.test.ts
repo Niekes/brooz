@@ -12,7 +12,6 @@ const mockProviderKey = vi.fn((_provider: unknown): string | null => null);
 const mockCanStoreKeys = vi.fn(() => true);
 const mockProbeProvider = vi.fn();
 const mockStockQuotes = vi.fn();
-const mockSurf = vi.fn();
 
 vi.mock('electron', () => ({
     app: {
@@ -40,8 +39,7 @@ vi.mock('../../src/main/providers', () => ({
     probeProvider: (...args: unknown[]) => mockProbeProvider(...args),
     stockQuotes: (...args: unknown[]) => mockStockQuotes(...args),
     weather: (...args: unknown[]) => mockWeather(...args),
-    airQuality: (...args: unknown[]) => mockAirQuality(...args),
-    surf: (...args: unknown[]) => mockSurf(...args)
+    airQuality: (...args: unknown[]) => mockAirQuality(...args)
 }));
 
 type Handler = (event: { senderFrame: { url: string } | null }, ...args: unknown[]) => unknown;
@@ -73,7 +71,6 @@ describe('the IPC handlers', () => {
             'brooz:key-status',
             'brooz:key-test',
             'brooz:stock-quotes',
-            'brooz:surf',
             'brooz:style-nonce'
         ]);
     });
@@ -144,16 +141,6 @@ describe('the IPC handlers', () => {
             'air'
         );
         expect(mockAirQuality).toHaveBeenCalledWith({ latitude: 52.5, longitude: 13.4 });
-    });
-
-    it('fetches the surf forecast for spot coordinates, and refuses a city', () => {
-        mockSurf.mockReturnValue('surf');
-        registerIpcHandlers();
-        const surf = handlerFor('brooz:surf');
-        expect(surf(app, { latitude: 38.99, longitude: -9.42 })).toBe('surf');
-        expect(mockSurf).toHaveBeenCalledWith({ latitude: 38.99, longitude: -9.42 });
-        expect(() => surf(app, { city: 'Ericeira' })).toThrow(/out of range/);
-        expect(mockSurf).toHaveBeenCalledTimes(1);
     });
 
     it('saves a validated key of a provider of the manifest', () => {

@@ -1,34 +1,11 @@
-import {
-    act,
-    cleanup,
-    fireEvent,
-    render,
-    renderHook,
-    screen,
-    waitFor
-} from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { tiles } from '../../src/renderer/tiles';
 import { AboutTileBody } from '../../src/renderer/tiles/about';
-import { ActivityRings } from '../../src/renderer/tiles/activityRings';
 import { AirQuality, LiveAirQuality } from '../../src/renderer/tiles/airQuality';
-import { AnalogClock, LiveAnalogClock } from '../../src/renderer/tiles/analogClock';
-import { Calendar } from '../../src/renderer/tiles/calendar';
-import { LiveMoon, MoonPhase } from '../../src/renderer/tiles/moonPhase';
-import { getMoonPhase } from '../../src/renderer/tiles/moonPhase/moon';
-import { NowPlaying } from '../../src/renderer/tiles/nowPlaying';
-import { Photo } from '../../src/renderer/tiles/photo';
-import { LivePomodoro, Pomodoro } from '../../src/renderer/tiles/pomodoro';
-import { LiveNote, StickyNote, migrateStoredNote } from '../../src/renderer/tiles/stickyNote';
-import { SystemStats } from '../../src/renderer/tiles/systemStats';
-import { LiveSurf, Surf } from '../../src/renderer/tiles/surf';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
-import { LiveWorldClock, WorldClock } from '../../src/renderer/tiles/worldClock';
-import { useDefaultLocation } from '../../src/renderer/shell/kit/hooks';
-import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
-
-const live = { label: 'Live', lowConfidence: false };
+import { AIR, WEATHER, stubBrooz } from './stubs';
 
 /** A provider channel's answer with data. */
 function ok<T>(data: T): { status: 'ok'; data: T } {
@@ -79,20 +56,9 @@ describe('every resting tile', () => {
 
     it('is registered with the component its directory exports', () => {
         expect(tiles.map((tile) => tile.Component)).toEqual([
-            AnalogClock,
-            WorldClock,
             Weather,
-            NowPlaying,
-            ActivityRings,
-            SystemStats,
-            Ticker,
-            Calendar,
-            Pomodoro,
-            MoonPhase,
             AirQuality,
-            Surf,
-            StickyNote,
-            Photo,
+            Ticker,
             AboutTileBody
         ]);
     });
@@ -106,44 +72,44 @@ describe('every resting tile', () => {
         const keys = Object.fromEntries(
             tiles.map((tile) => [
                 tile.id,
-                [
-                    tile.liveKey?.({}),
-                    tile.liveKey?.({
-                        city: 'Rome',
-                        durationMinutes: 5,
-                        action: 'pause',
-                        note: 'x',
-                        symbols: ['AAPL', 'TSLA']
-                    })
-                ]
+                [tile.liveKey?.({}), tile.liveKey?.({ city: 'Rome', symbols: ['AAPL', 'TSLA'] })]
             ])
         );
         expect(keys).toMatchObject({
             weather: ['weather:', 'weather:Rome'],
             'air-quality': ['air-quality:', 'air-quality:Rome'],
-            'world-clock': ['world-clock:', 'world-clock:Rome'],
-            pomodoro: ['pomodoro:25:', 'pomodoro:5:pause'],
-            'sticky-note': ['sticky-note:', 'sticky-note:x'],
-            'analog-clock': [undefined, undefined],
             ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA'],
-            surf: ['surf', 'surf']
+            about: [undefined, undefined]
         });
+    });
+
+    it('declares the provider and channel its live tile loads through', () => {
+        expect(tiles.map((tile) => tile.providers?.map((p) => [p.provider.id, p.channel]))).toEqual(
+            [
+                [['openweathermap', 'brooz:weather']],
+                [['openweathermap', 'brooz:air-quality']],
+                [['finnhub', 'brooz:stock-quotes']],
+                undefined
+            ]
+        );
     });
 });
 
-describe('the live weather tiles', () => {
+describe('the live tile content', () => {
+    beforeEach(() => {
+        // The weather card enriches itself with the air quality of its place.
+        stubBrooz({ 'brooz:air-quality': () => new Promise(() => undefined) });
+    });
+
     afterEach(() => {
-        // The location watch is cleared on unmount, so unmount before unstubbing.
         cleanup();
         vi.unstubAllGlobals();
         localStorage.clear();
     });
 
-    it('shows the current weather of a city and the next five days', async () => {
-        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
-        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
-        expect(await screen.findByText('Rain')).toBeTruthy();
+    it('shows the current weather of a city and the next five days', () => {
+        render(<LiveWeather args={{ city: 'Rome' }} data={WEATHER} />);
+        expect(screen.getByText('Rain')).toBeTruthy();
         expect(screen.getByText('21°')).toBeTruthy();
         expect(screen.getAllByText('Rome').length).toBeGreaterThan(0);
         expect(
@@ -152,11 +118,10 @@ describe('the live weather tiles', () => {
         expect(screen.getByText('22')).toBeTruthy();
     });
 
-    it('shows the temperatures in Fahrenheit when the person chose it', async () => {
+    it('shows the temperatures in Fahrenheit when the person chose it', () => {
         localStorage.setItem('brooz.temperature.unit', '"F"');
-        stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('71°')).toBeTruthy();
+        render(<LiveWeather args={{ city: 'Rome' }} data={WEATHER} />);
+        expect(screen.getByText('71°')).toBeTruthy();
         expect(screen.getByText('72')).toBeTruthy();
         expect(screen.getByText('54')).toBeTruthy();
     });
@@ -167,31 +132,20 @@ describe('the live weather tiles', () => {
         [3, 'Moderate'],
         [4, 'Poor'],
         [5, 'Very poor']
-    ])('reads an OpenWeatherMap index of %i as %s', async (aqi, label) => {
-        stubBrooz({ 'brooz:air-quality': () => ok({ ...AIR, aqi }) });
-        render(<LiveAirQuality {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText(label)).toBeTruthy();
-    });
-
-    it('offers a retry when the weather cannot be loaded', async () => {
-        stubGeolocation();
-        const invoke = stubBrooz({
-            'brooz:air-quality': () => Promise.reject(new Error('Offline'))
-        });
-        render(<LiveAirQuality {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('Offline')).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', { city: 'Rome' });
+    ])('reads an OpenWeatherMap index of %i as %s', (aqi, label) => {
+        render(<LiveAirQuality args={{ city: 'Rome' }} data={{ ...AIR, aqi }} />);
+        expect(screen.getByText(label)).toBeTruthy();
     });
 
     it('shows the air quality category of the weather place once it is there', async () => {
         let answerAir!: (value: unknown) => void;
         const invoke = stubBrooz({
-            'brooz:weather': () => ok(WEATHER),
             'brooz:air-quality': () => new Promise((resolve) => (answerAir = resolve))
         });
-        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('21°')).toBeTruthy();
+        render(<LiveWeather args={{ city: 'Rome' }} data={WEATHER} />);
+        expect(screen.getByText('21°')).toBeTruthy();
         expect(screen.queryByRole('img', { name: /^Air quality/ })).toBe(null);
+        await act(async () => {});
         await act(async () => answerAir(ok({ ...AIR, aqi: 2 })));
         expect(screen.getByRole('img', { name: 'Air quality: Fair' }).textContent).toBe('Fair');
         expect(invoke).toHaveBeenCalledWith('brooz:air-quality', {
@@ -202,449 +156,31 @@ describe('the live weather tiles', () => {
 
     it('keeps the weather and drops the indicator when the air quality is not there', async () => {
         stubBrooz({
-            'brooz:weather': () => ok(WEATHER),
             'brooz:air-quality': () => ({ status: 'provider-error', message: 'Offline' })
         });
-        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('21°')).toBeTruthy();
+        render(<LiveWeather args={{ city: 'Rome' }} data={WEATHER} />);
+        expect(screen.getByText('21°')).toBeTruthy();
         await act(async () => {});
         expect(screen.queryByRole('img', { name: /^Air quality/ })).toBe(null);
         expect(screen.queryByText('Offline')).toBe(null);
     });
 
-    it('invites to the settings without an OpenWeatherMap key', async () => {
-        stubBrooz({ 'brooz:weather': () => ({ status: 'missing-key', reason: 'not-set' }) });
-        render(<LiveWeather {...live} args={{ city: 'Rome' }} />);
-        expect(await screen.findByText('Needs an API key from OpenWeatherMap.')).toBeTruthy();
-    });
-
-    it('shows the device location when there is one', async () => {
-        stubGeolocation({ latitude: 53.55, longitude: 9.99 });
-        const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        render(<LiveWeather {...live} args={{}} />);
-        expect((await screen.findAllByText(WEATHER.place.name)).length).toBeGreaterThan(0);
-        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 53.55, longitude: 9.99 });
-    });
-
-    it('falls back to the default location, by its saved name, without a device location', async () => {
-        stubGeolocation();
-        localStorage.setItem('brooz.location.default', JSON.stringify({ ...PLACE, name: 'Roma' }));
-        const invoke = stubBrooz({
-            'brooz:weather': () => ok({ ...WEATHER, place: { ...PLACE, name: 'Your location' } })
-        });
-        render(<LiveWeather {...live} args={{}} />);
-        expect((await screen.findAllByText('Roma')).length).toBeGreaterThan(0);
-        expect(screen.queryByText('Your location')).toBe(null);
-        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 41.9, longitude: 12.5 });
-    });
-
-    it('asks for a location without a device location and without a default one', () => {
-        stubGeolocation();
-        const invoke = stubBrooz({});
-        render(<LiveWeather {...live} args={{}} />);
-        expect(screen.getByText('Set a location first.')).toBeTruthy();
-        render(<LiveAirQuality {...live} args={{}} />);
-        expect(screen.getAllByText('Set a location first.')).toHaveLength(2);
-        expect(invoke).not.toHaveBeenCalled();
-    });
-
-    it('never asks for the device location once it is off, and follows the default location live', async () => {
-        localStorage.setItem('brooz.location.enabled', 'false');
-        const getCurrentPosition = vi.fn();
-        vi.stubGlobal('navigator', {
-            userAgent: navigator.userAgent,
-            geolocation: { getCurrentPosition, watchPosition: getCurrentPosition }
-        });
-        const invoke = stubBrooz({ 'brooz:weather': () => ok(WEATHER) });
-        render(<LiveWeather {...live} args={{}} />);
-        expect(screen.getByText('Set a location first.')).toBeTruthy();
-        const { result } = renderHook(() => useDefaultLocation());
-        act(() => result.current[1](PLACE));
-        expect((await screen.findAllByText('Rome')).length).toBeGreaterThan(0);
-        expect(invoke).toHaveBeenCalledWith('brooz:weather', { latitude: 41.9, longitude: 12.5 });
-        act(() => result.current[1](null));
-        expect(screen.getByText('Set a location first.')).toBeTruthy();
-        expect(getCurrentPosition).not.toHaveBeenCalled();
-    });
-});
-
-describe('the live clocks', () => {
-    beforeEach(() => {
-        vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
-        vi.setSystemTime(new Date('2026-10-24T10:20:30Z'));
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-    });
-
-    it('ticks the analog clock', () => {
-        const { container } = render(<LiveAnalogClock {...live} args={{}} />);
-        expect(container.querySelectorAll('line').length).toBe(63);
-        act(() => {
-            vi.advanceTimersByTime(1000);
-        });
-        expect(screen.getByText('Local')).toBeTruthy();
-    });
-
-    it('shows the local time when no city was named', () => {
-        stubBrooz({});
-        render(<LiveWorldClock {...live} args={{}} />);
-        expect(screen.getByText('Local')).toBeTruthy();
-        expect(screen.getByText(/· local$/)).toBeTruthy();
-    });
-
-    it('shows the time in a city once it is found', async () => {
-        stubBrooz({ 'brooz:geocode': () => ({ ...PLACE, timezone: 'Asia/Tokyo' }) });
-        render(<LiveWorldClock {...live} args={{ city: 'Tokyo' }} />);
-        expect(screen.getByLabelText('Loading live data')).toBeTruthy();
-        await waitFor(() => expect(screen.getByText('19:20')).toBeTruthy());
-        expect(screen.getByText('GMT+9 · Asia/Tokyo')).toBeTruthy();
-    });
-
-    it('offers a retry when the city is unknown', async () => {
-        stubBrooz({ 'brooz:geocode': () => Promise.reject(new Error('Unknown city')) });
-        render(<LiveWorldClock {...live} args={{ city: 'Atlantis' }} />);
-        await waitFor(() => expect(screen.getByText('Unknown city')).toBeTruthy());
-    });
-});
-
-describe('the moon', () => {
-    it('knows the phase of a date', () => {
-        expect(getMoonPhase(new Date(Date.UTC(2000, 0, 6, 18, 14)))).toMatchObject({
-            name: 'New Moon',
-            waxing: true,
-            daysUntilFull: 15
-        });
-        const full = getMoonPhase(new Date(Date.UTC(2000, 0, 21, 12)));
-        expect(full).toMatchObject({ name: 'Full Moon', daysUntilFull: 0 });
-        expect(full.illumination).toBeGreaterThan(0.99);
-        expect(getMoonPhase(new Date(Date.UTC(1999, 11, 30))).waxing).toBe(false);
-    });
-
-    it.each([
-        ['2000-01-08T00:00:00Z', 'Waxing', ' · in 14 days'],
-        ['2000-01-21T12:00:00Z', 'Waxing', ' · today'],
-        ['2000-01-30T00:00:00Z', 'Waning', ' · in 21 days']
-    ])('shows tonight on %s', (now, meta, until) => {
-        vi.useFakeTimers({ toFake: ['Date'] });
-        vi.setSystemTime(new Date(now));
-        const { container } = render(<LiveMoon {...live} args={{}} />);
-        expect(screen.getByText(meta)).toBeTruthy();
-        expect(container.textContent).toContain(until);
-        vi.useRealTimers();
-    });
-});
-
-describe('the live pomodoro', () => {
-    beforeEach(() => {
-        vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-    });
-
-    it('waits until it is started, then counts down and pauses', () => {
-        render(<LivePomodoro {...live} args={{ durationMinutes: 1 }} />);
-        expect(screen.getByText('Ready')).toBeTruthy();
-        expect(screen.getByText('01:00')).toBeTruthy();
-        fireEvent.click(screen.getByText('Start'));
-        act(() => {
-            vi.advanceTimersByTime(1000);
-        });
-        expect(screen.getByText('00:59')).toBeTruthy();
-        expect(screen.getByText('In focus')).toBeTruthy();
-        fireEvent.click(screen.getByText('Pause'));
-        expect(screen.getByText('Paused')).toBeTruthy();
-        fireEvent.click(screen.getByText('Reset'));
-        expect(screen.getByText('Ready')).toBeTruthy();
-    });
-
-    it('starts on its own when asked, completes and goes again', () => {
-        render(<LivePomodoro {...live} args={{ durationMinutes: 0.02, action: 'start' }} />);
-        for (let second = 0; second < 60; second++) {
-            act(() => {
-                vi.advanceTimersByTime(1000);
-            });
-        }
-        expect(screen.getByText('Complete')).toBeTruthy();
-        fireEvent.click(screen.getByText('Again'));
-        expect(screen.getByText('In focus')).toBeTruthy();
-    });
-
-    it('defaults to 25 minutes', () => {
-        render(<LivePomodoro {...live} args={{}} />);
-        expect(screen.getByText('25:00')).toBeTruthy();
-        expect(screen.getByText('25 min')).toBeTruthy();
-    });
-});
-
-describe('the live sticky note', () => {
-    beforeEach(() => {
-        vi.useFakeTimers();
-        localStorage.clear();
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-        vi.restoreAllMocks();
-    });
-
-    it('starts from the utterance, saves and clears', () => {
-        render(<LiveNote {...live} args={{ note: 'buy milk' }} />);
-        expect(screen.getByDisplayValue('buy milk')).toBeTruthy();
-        expect(screen.getByText('8 chars')).toBeTruthy();
-        act(() => {
-            vi.advanceTimersByTime(350);
-        });
-        expect(localStorage.getItem('brooz.note.v1')).toBe('"buy milk"');
-        expect(screen.getByText('Saved')).toBeTruthy();
-        act(() => {
-            vi.advanceTimersByTime(1600);
-        });
-        expect(screen.getByText('Local')).toBeTruthy();
-
-        fireEvent.change(screen.getByLabelText('Sticky note'), { target: { value: 'x' } });
-        expect(screen.getByText('Saving')).toBeTruthy();
-        expect(screen.getByText('1 char')).toBeTruthy();
-        fireEvent.click(screen.getByText('Clear'));
-        expect(screen.getByDisplayValue('')).toBeTruthy();
-    });
-
-    it('starts empty when nothing was saved', () => {
-        render(<LiveNote {...live} args={{}} />);
-        expect(screen.getByText('0 chars')).toBeTruthy();
-    });
-
-    it('starts from the saved note', () => {
-        localStorage.setItem('brooz.note.v1', '"saved before"');
-        render(<LiveNote {...live} args={{}} />);
-        expect(screen.getByDisplayValue('saved before')).toBeTruthy();
-    });
-
-    it('migrates a note saved as raw text, and leaves a JSON note alone', () => {
-        localStorage.setItem('brooz.note.v1', 'buy milk');
-        migrateStoredNote(localStorage);
-        expect(localStorage.getItem('brooz.note.v1')).toBe('"buy milk"');
-        migrateStoredNote(localStorage);
-        expect(localStorage.getItem('brooz.note.v1')).toBe('"buy milk"');
-
-        localStorage.setItem('brooz.note.v1', '42');
-        migrateStoredNote(localStorage);
-        expect(localStorage.getItem('brooz.note.v1')).toBe('"42"');
-
-        localStorage.clear();
-        migrateStoredNote(localStorage);
-        expect(localStorage.getItem('brooz.note.v1')).toBeNull();
-    });
-});
-
-describe('the live markets tile', () => {
-    it('quotes the symbols of the utterance', async () => {
-        stubBrooz({
-            'brooz:stock-quotes': () => ({
-                status: 'ok',
-                data: [
+    it('quotes the symbols of the utterance', () => {
+        render(
+            <LiveTicker
+                args={{ symbols: ['AAPL', 'TSLA'] }}
+                data={[
                     { symbol: 'AAPL', price: 189.4, changePercent: -1.2 },
                     { symbol: 'TSLA', price: 242.1, changePercent: 2.4 },
                     { symbol: 'SPY', price: 523.7, changePercent: null }
-                ]
-            })
-        });
-        render(<LiveTicker {...live} args={{ symbols: ['AAPL', 'TSLA'] }} />);
-        expect(await screen.findByText('Apple')).toBeTruthy();
+                ]}
+            />
+        );
+        expect(screen.getByText('Apple')).toBeTruthy();
         expect(screen.getByText('189.40')).toBeTruthy();
         expect(screen.getByText('▼ 1.20%')).toBeTruthy();
         expect(screen.getByText('▲ 2.40%')).toBeTruthy();
         expect(screen.getByText('Market')).toBeTruthy();
         expect(screen.getByText('—')).toBeTruthy();
-    });
-
-    it('quotes a default watchlist without symbols', async () => {
-        const invoke = stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'ok', data: [] }) });
-        render(<LiveTicker {...live} args={{}} />);
-        await waitFor(() =>
-            expect(invoke).toHaveBeenCalledWith('brooz:stock-quotes', ['AAPL', 'MSFT', 'NVDA'])
-        );
-    });
-
-    it('invites to the settings while the key is missing', async () => {
-        stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'missing-key', reason: 'not-set' }) });
-        render(<LiveTicker {...live} args={{}} />);
-        expect(await screen.findByText('Needs an API key from Finnhub.')).toBeTruthy();
-    });
-
-    it('explains when the system cannot store keys', async () => {
-        stubBrooz({
-            'brooz:stock-quotes': () => ({
-                status: 'missing-key',
-                reason: 'encryption-unavailable'
-            })
-        });
-        render(<LiveTicker {...live} args={{}} />);
-        expect(
-            await screen.findByText('This system offers no encrypted place for a Finnhub key.')
-        ).toBeTruthy();
-    });
-
-    it('caps a long watchlist at the five symbols of the contract', async () => {
-        const invoke = stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'ok', data: [] }) });
-        render(<LiveTicker {...live} args={{ symbols: ['A', 'B', 'C', 'D', 'E', 'F'] }} />);
-        await waitFor(() =>
-            expect(invoke).toHaveBeenCalledWith('brooz:stock-quotes', ['A', 'B', 'C', 'D', 'E'])
-        );
-    });
-
-    it('shows the provider error with a retry', async () => {
-        stubBrooz({
-            'brooz:stock-quotes': () => ({
-                status: 'provider-error',
-                message: 'Finnhub replied with 401.'
-            })
-        });
-        render(<LiveTicker {...live} args={{}} />);
-        expect(await screen.findByText('Finnhub replied with 401.')).toBeTruthy();
-    });
-});
-
-describe('the live surf tile', () => {
-    const SPOT = { ...PLACE, name: 'Ericeira', latitude: 38.99, longitude: -9.42, timezone: 'UTC' };
-    const at = (hour: number) => new Date(Date.UTC(2026, 10, 2, hour)).toISOString();
-    const hour = (index: number) => ({
-        time: at(8 + index),
-        waveHeightM: 1 + index / 10,
-        swellPeriodS: 11,
-        swellDirection: 290,
-        windKmh: 12,
-        windDirection: 80,
-        waterTemperatureC: 17
-    });
-    const FORECAST = {
-        hours: Array.from({ length: 12 }, (_, index) => hour(index)),
-        tides: [
-            { time: '2026-11-02T08:30:00.000Z', type: 'low' },
-            { time: '2026-11-02T14:10:00.000Z', type: 'high' },
-            { time: '2026-11-02T20:40:00.000Z', type: 'low' },
-            { time: '2026-11-03T02:50:00.000Z', type: 'high' }
-        ],
-        fetchedAt: '2026-11-02T08:00:00.000Z'
-    };
-
-    beforeEach(() => {
-        vi.useFakeTimers({ toFake: ['Date'], now: Date.UTC(2026, 10, 2, 9, 30) });
-        localStorage.setItem('brooz.surf.spot', JSON.stringify(SPOT));
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-        localStorage.clear();
-    });
-
-    it('asks for a surf spot before it spends a request', () => {
-        localStorage.clear();
-        const invoke = stubBrooz({});
-        render(<LiveSurf {...live} args={{ city: 'Biarritz' }} />);
-        expect(screen.getByText('Set a surf spot first.')).toBeTruthy();
-        expect(invoke).not.toHaveBeenCalled();
-    });
-
-    it('shows the card: rating, best window, the day as bars, range, wind and tides', async () => {
-        const invoke = stubBrooz({ 'brooz:surf': () => ok(FORECAST) });
-        render(<LiveSurf {...live} args={{ city: 'Biarritz' }} />);
-        expect(await screen.findByText('great')).toBeTruthy();
-        expect(invoke).toHaveBeenCalledWith('brooz:surf', { latitude: 38.99, longitude: -9.42 });
-        expect(screen.getByText('Ericeira')).toBeTruthy();
-        expect(screen.getByText('Best Surf')).toBeTruthy();
-        expect(screen.getByText('8 AM – 12 PM')).toBeTruthy();
-        expect(['6 AM', '12 PM', '6 PM'].map((label) => screen.getByText(label))).toHaveLength(3);
-        expect(screen.getByText('1-2 m · 11 s')).toBeTruthy();
-        expect(screen.getByText('12 km/h')).toBeTruthy();
-        expect(screen.getByText('High 14:10 · Low 20:40')).toBeTruthy();
-        expect(screen.queryByText('Low 08:30')).toBe(null);
-        expect(screen.getByText('updated 08:00')).toBeTruthy();
-    });
-
-    it('shows feet and mph in Fahrenheit, and a dash for what is missing', async () => {
-        localStorage.setItem('brooz.temperature.unit', JSON.stringify('F'));
-        vi.setSystemTime(Date.UTC(2026, 10, 2, 7));
-        const sparse = {
-            ...FORECAST,
-            hours: [
-                {
-                    ...hour(0),
-                    swellPeriodS: null,
-                    swellDirection: null,
-                    windKmh: null,
-                    windDirection: null
-                },
-                hour(1)
-            ]
-        };
-        stubBrooz({ 'brooz:surf': () => ok(sparse) });
-        render(<LiveSurf {...live} args={{}} />);
-        expect(await screen.findByText('fair')).toBeTruthy();
-        expect(screen.getByText('8 AM – 10 AM')).toBeTruthy();
-        expect(screen.getByText('3-4 ft · –')).toBeTruthy();
-        expect(screen.getByText('–')).toBeTruthy();
-    });
-
-    it('says no surf today when even the best window is poor', async () => {
-        const flat = {
-            ...FORECAST,
-            hours: Array.from({ length: 12 }, (_, index) => ({
-                ...hour(index),
-                waveHeightM: 0.2,
-                swellPeriodS: 4,
-                windKmh: 40
-            }))
-        };
-        stubBrooz({ 'brooz:surf': () => ok(flat) });
-        render(<LiveSurf {...live} args={{}} />);
-        expect(await screen.findByText('No surf today')).toBeTruthy();
-        expect(screen.getByText('poor')).toBeTruthy();
-    });
-
-    it('renders a stub bar for an hour without wave data inside the day', async () => {
-        const mixed = {
-            ...FORECAST,
-            hours: [{ ...hour(0), waveHeightM: null }, hour(1), hour(2), hour(3), hour(4)]
-        };
-        stubBrooz({ 'brooz:surf': () => ok(mixed) });
-        render(<LiveSurf {...live} args={{}} />);
-        expect(await screen.findByText('9 AM – 1 PM')).toBeTruthy();
-        expect(screen.getByText('1-1 m · 11 s')).toBeTruthy();
-    });
-
-    it('shows no day bars when every forecast hour is past 6 PM at the spot', async () => {
-        vi.setSystemTime(Date.UTC(2026, 10, 2, 22, 30));
-        const night = {
-            ...FORECAST,
-            hours: [20, 21, 22].map((h) => ({ ...hour(0), time: at(h) }))
-        };
-        stubBrooz({ 'brooz:surf': () => ok(night) });
-        render(<LiveSurf {...live} args={{}} />);
-        expect(await screen.findByText('No surf today')).toBeTruthy();
-        expect(screen.getByText('– · 11 s')).toBeTruthy();
-    });
-
-    it('asks to move the spot onto the water when there is no wave data', async () => {
-        const dry = {
-            ...FORECAST,
-            hours: [{ ...hour(0), waveHeightM: null, waterTemperatureC: null }]
-        };
-        stubBrooz({ 'brooz:surf': () => ok(dry) });
-        render(<LiveSurf {...live} args={{}} />);
-        expect(
-            await screen.findByText(
-                'No wave data at this spot. Move it onto the water in the settings.'
-            )
-        ).toBeTruthy();
-    });
-
-    it('invites to the settings without a Stormglass key', async () => {
-        stubBrooz({ 'brooz:surf': () => ({ status: 'missing-key', reason: 'not-set' }) });
-        render(<LiveSurf {...live} args={{}} />);
-        expect(await screen.findByText('Needs an API key from Stormglass.')).toBeTruthy();
     });
 });

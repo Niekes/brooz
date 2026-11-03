@@ -7,14 +7,13 @@ import { isAppOrigin } from './origin';
 import { STYLE_NONCE } from './protocol';
 import {
     parseCity,
-    parseCoordinates,
     parseKeyInput,
     parsePlaceQuery,
     parseProviderId,
     parseSymbols
 } from './validate';
 import { canStoreKeys, deleteKey, providerKey, saveKey } from './key-store';
-import { airQuality, probeProvider, stockQuotes, surf, weather } from './providers';
+import { airQuality, probeProvider, stockQuotes, weather } from './providers';
 
 /**
  * Registers one handler behind the sender check: it only answers frames from
@@ -53,6 +52,5 @@ export function registerIpcHandlers(devUrl?: string): void {
     }));
     handle(IPC_CHANNELS.keyTest, devUrl, (provider) => probeProvider(parseProviderId(provider)));
     handle(IPC_CHANNELS.stockQuotes, devUrl, (symbols) => stockQuotes(parseSymbols(symbols)));
-    handle(IPC_CHANNELS.surf, devUrl, (spot) => surf(parseCoordinates(spot)));
     handle(IPC_CHANNELS.styleNonce, devUrl, () => STYLE_NONCE);
 }

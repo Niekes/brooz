@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, JSX, ReactNode } from 'react';
 import type { SummonRequest, TileDefinition } from '../tile';
 import { AppTile } from './app-tile';
-import { DOME_PRESETS, PERSPECTIVE, SIZES, seedAt, tileIndexAt } from './dome';
+import { DEFAULT_TILE, DOME_PRESETS, PERSPECTIVE, SIZES, seedAt, tileIndexAt } from './dome';
 import type { Pool } from './dome';
+import { DefaultTile } from './default-tile';
 import { DomeEngine } from './engine';
+import { LiveSlot } from './live-slot';
 import { useMediaQuery } from '../kit/browser';
 
 const HIGHLIGHT_MS = 650;
@@ -13,8 +15,10 @@ const HIGHLIGHT_MS = 650;
 type LiveTiles = Record<string, { request: SummonRequest; slot: number }>;
 
 export interface InfiniteGridProps {
-    /** The registry. Slot (row, col) shows tiles[(row*5 + col*3) % tiles.length]. */
+    /** The registry. The slots nearest the pool's center carry the tiles in order; the rest show the default tile. */
     tiles: readonly TileDefinition[];
+    /** Opens the settings, which the default tile's click leads to. */
+    onOpenSettings: () => void;
     /** Rendered above the grid, with the function that summons a tile. */
     children?: (summon: (request: SummonRequest) => void) => ReactNode;
 }
@@ -71,24 +75,18 @@ function SlotContent({
     mock,
     highlighted
 }: {
-    tile: TileDefinition;
+    tile: TileDefinition | null;
     slot: number;
     entry: LiveTiles[string] | undefined;
     mock: ReactNode;
     highlighted: boolean;
 }): JSX.Element {
-    const { Live, liveKey, title } = tile;
     return (
         <div
             className={`size-full ${highlighted ? 'ring-2 ring-white/80 ring-offset-0 rounded-[inherit]' : ''}`}
         >
-            {Live && entry?.slot === slot ? (
-                <Live
-                    key={liveKey?.(entry.request.args) ?? tile.id}
-                    label={title}
-                    lowConfidence={entry.request.lowConfidence}
-                    args={entry.request.args}
-                />
+            {tile && entry?.slot === slot && tile.Live ? (
+                <LiveSlot key={tile.id} tile={tile} request={entry.request} />
             ) : (
                 mock
             )}
@@ -122,7 +120,7 @@ function useDome(tileCount: number, onInteract: () => void): Dome {
         [engine]
     );
     const kindAt = useCallback(
-        (slot: number) => tileIndexAt(slot, pool, tileCount)!,
+        (slot: number) => tileIndexAt(slot, pool, tileCount),
         [pool, tileCount]
     );
     const nearestOf = useCallback(
@@ -164,9 +162,10 @@ function useSummon(
 /**
  * The dashboard: an infinite grid of glass tiles on a dome. Drag or wheel
  * to pan; a summoned tile flies to the center and, when it has a live
- * version, turns live.
+ * version, turns live. Every registered tile sits on the slot nearest the
+ * center, once per pool; every other slot shows the default tile.
  */
-export function InfiniteGrid({ tiles, children }: InfiniteGridProps): JSX.Element {
+export function InfiniteGrid({ tiles, onOpenSettings, children }: InfiniteGridProps): JSX.Element {
     const [highlight, setHighlight] = useHighlight();
     const dome = useDome(tiles.length, () => setHighlight(null));
     const { pool, stageRef, cardRef, kindAt, nearestOf } = dome;
@@ -177,10 +176,14 @@ export function InfiniteGrid({ tiles, children }: InfiniteGridProps): JSX.Elemen
     const content = useMemo(
         () =>
             Array.from({ length: pool.cols * pool.rows }, (_, slot) => {
-                const { Component } = tiles[kindAt(slot)];
+                const kind = kindAt(slot);
+                if (kind === DEFAULT_TILE) {
+                    return <DefaultTile onOpenSettings={onOpenSettings} />;
+                }
+                const { Component } = tiles[kind];
                 return <Component seed={seedAt(slot, pool)} />;
             }),
-        [pool, tiles, kindAt]
+        [pool, tiles, kindAt, onOpenSettings]
     );
 
     const summon = useSummon(tiles, dome, live, place, setHighlight);
@@ -193,13 +196,14 @@ export function InfiniteGrid({ tiles, children }: InfiniteGridProps): JSX.Elemen
                 style={STAGE_STYLE}
             >
                 {content.map((mock, slot) => {
-                    const tile = tiles[kindAt(slot)];
+                    const kind = kindAt(slot);
+                    const tile = kind === DEFAULT_TILE ? null : tiles[kind];
                     return (
                         <AppTile key={slot} ref={cardRef} index={slot}>
                             <SlotContent
                                 tile={tile}
                                 slot={slot}
-                                entry={live[tile.id]}
+                                entry={tile ? live[tile.id] : undefined}
                                 mock={mock}
                                 highlighted={highlight === slot}
                             />

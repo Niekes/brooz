@@ -1,4 +1,4 @@
-import { FINNHUB, OPENWEATHERMAP, STORMGLASS } from '../shared/providers';
+import { FINNHUB, OPENWEATHERMAP } from '../shared/providers';
 import type {
     MissingKeyReason,
     ProviderId,
@@ -7,17 +7,10 @@ import type {
     ProviderProbe
 } from '../shared/providers';
 import type { StockQuote } from '../shared/quotes';
-import type { SurfForecast } from '../shared/surf';
-import type {
-    AirQualitySnapshot,
-    Coordinates,
-    PlaceQuery,
-    WeatherSnapshot
-} from '../shared/weather';
+import type { AirQualitySnapshot, PlaceQuery, WeatherSnapshot } from '../shared/weather';
 import { fetchQuotes, probeKey as probeFinnhub } from './finnhub';
 import { canStoreKeys, providerKey } from './key-store';
 import { fetchAirQuality, fetchWeather, probeKey as probeOpenWeatherMap } from './openweathermap';
-import { fetchSurf, probeKey as probeStormglass } from './stormglass';
 
 /**
  * The provider side of the contract, and the only code that reads a stored
@@ -27,8 +20,7 @@ import { fetchSurf, probeKey as probeStormglass } from './stormglass';
 
 const PROBES: Record<ProviderId, (key: string) => Promise<ProviderProbe>> = {
     finnhub: probeFinnhub,
-    openweathermap: probeOpenWeatherMap,
-    stormglass: probeStormglass
+    openweathermap: probeOpenWeatherMap
 };
 
 /** Why a key reads as missing: never set, or this OS cannot store keys. */
@@ -61,11 +53,6 @@ export function weather(query: PlaceQuery): Promise<ProviderOutcome<WeatherSnaps
 /** The air quality of a place, through OpenWeatherMap. */
 export function airQuality(query: PlaceQuery): Promise<ProviderOutcome<AirQualitySnapshot>> {
     return withKey(OPENWEATHERMAP, (key) => fetchAirQuality(key, query));
-}
-
-/** The swell and the tides of the surf spot, through Stormglass. */
-export function surf(spot: Coordinates): Promise<ProviderOutcome<SurfForecast>> {
-    return withKey(STORMGLASS, (key) => fetchSurf(key, spot));
 }
 
 /** Checks the provider's stored key against its service, for the settings. */

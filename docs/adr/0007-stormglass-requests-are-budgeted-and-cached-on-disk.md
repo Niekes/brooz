@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0012
+---
+
 # Stormglass requests are budgeted and cached on disk
 
 The surf tile's provider, Stormglass, allows ten requests a day per key on

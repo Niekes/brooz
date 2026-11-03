@@ -94,18 +94,44 @@ export function poolFor(width: number, height: number): Pool {
     };
 }
 
-/**
- * Which tile definition a slot shows: a horizontal step moves the index by
- * 3 and a vertical step by 5, so orthogonal neighbours never match as long
- * as neither divides the tile count.
- */
-export function tileIndexAt(slot: number, pool: Pool, count: number): number | null {
-    if (!Number.isInteger(slot) || slot < 0 || slot >= pool.cols * pool.rows) {
-        return null;
-    }
+/** What a slot shows when no registered tile sits on it: the default tile. */
+export const DEFAULT_TILE = -1;
+
+/** A slot's sort key: squared distance from the pool's center, wrapped, then its position. */
+function slotKey(slot: number, pool: Pool): [number, number, number] {
     const row = Math.floor(slot / pool.cols);
     const col = slot % pool.cols;
-    return (row * 5 + col * 3) % count;
+    const dy = Math.abs(wrap(row - (pool.rows - 1) / 2, pool.rows));
+    const dx = Math.abs(wrap(col - (pool.cols - 1) / 2, pool.cols));
+    return [dy * dy + dx * dx, row, col];
+}
+
+function compareKeys(a: [number, number, number], b: [number, number, number]): number {
+    return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+}
+
+/**
+ * Which tile a slot shows: the slots nearest the pool's center carry the
+ * registered tiles in registry order, every other slot - and every slot
+ * outside the pool - shows the default tile. The pool wraps, so each tile
+ * appears once per pool (docs/adr/0009).
+ */
+export function tileIndexAt(slot: number, pool: Pool, count: number): number {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= pool.cols * pool.rows) {
+        return DEFAULT_TILE;
+    }
+    if (count <= 0) {
+        return DEFAULT_TILE;
+    }
+    const key = slotKey(slot, pool);
+    let rank = 0;
+    const total = pool.cols * pool.rows;
+    for (let other = 0; other < total; other++) {
+        if (other !== slot && compareKeys(slotKey(other, pool), key) < 0) {
+            rank++;
+        }
+    }
+    return rank < count ? rank : DEFAULT_TILE;
 }
 
 /** The seed of a slot's mock data. */

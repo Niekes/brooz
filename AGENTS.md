@@ -126,8 +126,8 @@ Not negotiable, and pinned by unit tests:
   hands it to get-nonce). In dev mode the window loads the
   Vite dev server instead.
 - The renderer fetches nothing from the internet itself: OpenWeatherMap,
-  Stormglass and the Open-Meteo geocoder are called by the main process
-  (`src/main/openweathermap.ts`, `src/main/stormglass.ts`,
+  Finnhub and the Open-Meteo geocoder are called by the main process
+  (`src/main/openweathermap.ts`, `src/main/finnhub.ts`,
   `src/main/open-meteo.ts`, 10 s timeout, bounded cache), and the IPC handlers validate every argument
   (`src/main/validate.ts`) before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
@@ -148,26 +148,32 @@ complete one. A tile directory `src/renderer/tiles/<name>/` (camelCase, so
 - `index.tsx`, which exports the tile's components as `export function`
   and the definition as `export const <name>Tile: TileDefinition = {...}`,
   typed `TileDefinition` from `src/renderer/shell/tile.ts`;
-- any helper module of its own (`moonPhase/moon.ts`), and nothing else: a
-  tile never imports from another tile, and it reaches the main process
-  only through `window.brooz`.
+- any helper module of its own, and nothing else: a tile never imports from
+  another tile, and it reaches the main process only through `window.brooz`.
 
 A definition has:
 
 - `id` and `title` - the id is what the ask bar routes to (`'air-quality'`);
 - `Component` - the resting tile, rendered from a per-cell `seed`. It is
   deterministic: no `Math.random`, no `Date`, no timer;
-- `Live` (optional) - the summoned tile with real data, and `liveKey`,
-  which decides from the utterance's args when it remounts;
+- `Live` (optional) - the summoned tile, which receives the unwrapped `data`
+  and renders only its content; `liveKey` decides from the utterance's args
+  when it remounts. The shell owns the live chrome (status row, loading,
+  error, missing key), see `docs/adr/0010`;
+- `liveData` (with `Live`) - loads the live data over the chosen provider's
+  channel and returns the loader the shell renders;
 - `route` (optional) - a description for the model, keywords, examples, the
   rule pattern and its weight, and `args`, which keeps the utterance's args
   the tile understands. A tile without a route is never summoned;
-- `providers` (optional) - the providers whose keys the live tile needs.
-  Each provider gets a section in the settings, not the tile.
+- `providers` (optional) - the candidate providers with the channel each
+  serves the tile through; the person picks the active one in the provider's
+  settings section (`docs/adr/0011`).
 
-A new tile is registered in `src/renderer/tiles/index.ts`; its position in
-the list is its place in the grid pattern. A tile that is missing there is
-dead code - fallow reports its unused export.
+A new tile is registered in `src/renderer/tiles/index.ts`; the slots nearest
+the grid's center carry the registry in order, and every other slot shows the
+default tile (`docs/adr/0009`). Use the create-tile skill
+(`.agents/skills/create-tile`) to scaffold one. A tile that is missing from
+the registry is dead code - fallow reports its unused export.
 
 `scripts/check-template.mjs` enforces the naming and the isolation, fallow
 enforces the zones and the coverage. The routing benchmarks in
@@ -189,7 +195,7 @@ file system or the network, with a parser in `src/main/validate.ts` (see
 The channels: `brooz:app-version`, `brooz:geocode`, `brooz:style-nonce`,
 the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`
 and `brooz:key-test`, and the provider channels `brooz:weather`,
-`brooz:air-quality`, `brooz:stock-quotes` and `brooz:surf`.
+`brooz:air-quality` and `brooz:stock-quotes`.
 
 ## Provider keys
 
@@ -197,7 +203,7 @@ Tiles that need a keyed service never see its key: the renderer invokes a
 provider channel, the main process holds the key and makes the request
 (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`). Keys belong to
 a _provider_ of the manifest in `src/shared/providers.ts` (today:
-OpenWeatherMap, Finnhub and Stormglass), never to a tile. The key channels are write-only - the renderer can set,
+OpenWeatherMap and Finnhub), never to a tile. The key channels are write-only - the renderer can set,
 delete and ask for the status of a key, but no channel returns one. The
 keys live encrypted under `userData` through `safeStorage`, and the app
 fails closed where the OS offers no encryption
@@ -208,9 +214,10 @@ every tile handles the invitation to the settings. The settings overlay
 takes a key: a general section first, for the person's own choices (device
 location, default location, temperature unit), then - under a separator -
 one section per provider of the manifest, in manifest order, each with its
-mark, the tiles it serves and its key. A key shows once per provider, however
-many tiles it serves; a tile option that belongs to a keyed tile (today the
-surf spot) lives in that provider's section. A tile without its key renders that invitation, never an
+mark, the tiles it serves and its key - even when it serves no tile yet. A
+key shows once per provider, however many tiles it serves; a tile that can
+choose between several providers picks the active one in the provider's
+section. A tile without its key renders that invitation, never an
 input of its own.
 
 ## The local model
@@ -258,9 +265,7 @@ and stays ours. A timeout that restarts when a value changes stays a
 oxlint enforces this in `src/renderer/**`: `localStorage`,
 `sessionStorage`, `matchMedia`, `navigator.geolocation` and ahooks'
 storage hooks fail the lint with the hook to use instead; `browser.ts` is
-the one module allowed to touch them. The other exception is the sticky
-note's storage migration in `main.tsx`, which must read the raw text the
-hook cannot parse.
+the one module allowed to touch them.
 
 ## Code style
 

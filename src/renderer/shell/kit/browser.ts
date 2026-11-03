@@ -40,14 +40,20 @@ export interface DevicePosition {
     loading: boolean;
 }
 
-/** The device position, watched while the component is mounted. */
-export function useGeolocation(options: PositionOptions): DevicePosition {
+/**
+ * The device position, watched while the component is mounted. Disabled,
+ * no position is ever asked for and the result reads as unavailable.
+ */
+export function useGeolocation(options: PositionOptions, enabled = true): DevicePosition {
     const [position, setPosition] = useState<DevicePosition>({
         latitude: null,
         longitude: null,
         loading: true
     });
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
         const id = navigator.geolocation.watchPosition(
             ({ coords }) =>
                 setPosition({
@@ -59,6 +65,6 @@ export function useGeolocation(options: PositionOptions): DevicePosition {
             options
         );
         return () => navigator.geolocation.clearWatch(id);
-    }, [options]);
-    return position;
+    }, [options, enabled]);
+    return enabled ? position : { latitude: null, longitude: null, loading: false };
 }

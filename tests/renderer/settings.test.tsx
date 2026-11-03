@@ -1,8 +1,10 @@
 import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { FINNHUB } from '../../src/shared/providers';
+import { FINNHUB, OPENWEATHERMAP } from '../../src/shared/providers';
+import { ProviderChoice } from '../../src/renderer/shell/settings/provider-choice';
 import { ProviderKey } from '../../src/renderer/shell/settings/provider-key';
 import { Settings, useSettingsShortcut } from '../../src/renderer/shell/settings/settings';
+import type { TileDefinition } from '../../src/renderer/shell/tile';
 import { PLACE, stubBrooz } from './stubs';
 
 describe('the settings', () => {
@@ -20,12 +22,11 @@ describe('the settings', () => {
         expect(buttons.map((button) => button.textContent)).toEqual([
             'General',
             'OpenWeatherMap',
-            'Finnhub',
-            'Stormglass'
+            'Finnhub'
         ]);
         expect(
             buttons.map((button) => button.querySelector('[data-icon]')?.getAttribute('data-icon'))
-        ).toEqual([undefined, 'openweathermap', 'finnhub', 'stormglass']);
+        ).toEqual([undefined, 'openweathermap', 'finnhub']);
         expect(nav.querySelector('[data-slot="separator"]')).toBeTruthy();
         expect(within(nav).getByText('Provider keys')).toBeTruthy();
         expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
@@ -131,40 +132,6 @@ describe('the settings', () => {
         expect(JSON.parse(localStorage.getItem('brooz.location.default') ?? 'null')).toBe(null);
     });
 
-    it('finds a surf spot by town, then moves it by its coordinates', async () => {
-        stubBrooz({
-            'brooz:key-status': () => ({ present: false, canStore: true }),
-            'brooz:geocode': () => ({ ...PLACE, name: 'Ericeira', latitude: 38.96 })
-        });
-        render(<Settings open onOpenChange={vi.fn()} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Stormglass' }));
-        expect(screen.getByLabelText('Stormglass API key')).toBeTruthy();
-        expect(screen.getByText('Serves Surf')).toBeTruthy();
-        fireEvent.change(screen.getByLabelText('Town of the surf spot'), {
-            target: { value: 'Ericeira' }
-        });
-        fireEvent.click(
-            within(screen.getByRole('group', { name: 'Surf spot' })).getByRole('button', {
-                name: 'Save'
-            })
-        );
-        const field = (await screen.findByLabelText('Coordinates')) as HTMLInputElement;
-        expect(field.value).toBe('38.96, 12.5');
-        const stored = () => JSON.parse(localStorage.getItem('brooz.surf.spot')!);
-
-        fireEvent.change(field, { target: { value: ' 38.99 , -9.42 ' } });
-        fireEvent.blur(field);
-        expect(stored()).toMatchObject({ name: 'Ericeira', latitude: 38.99, longitude: -9.42 });
-
-        for (const wrong of ['91, 0', '0, 181', 'Ericeira', '']) {
-            const moved = screen.getByLabelText('Coordinates') as HTMLInputElement;
-            fireEvent.change(moved, { target: { value: wrong } });
-            fireEvent.blur(moved);
-            expect(moved.value).toBe('38.99, -9.42');
-        }
-        expect(stored()).toMatchObject({ latitude: 38.99, longitude: -9.42 });
-    });
-
     it('opens the section a person picks', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
@@ -184,8 +151,8 @@ describe('the settings', () => {
         expect(screen.queryByText('Provider keys')).toBe(null);
         fireEvent.change(search, { target: { value: ' AIR ' } });
         expect(screen.getByRole('heading', { name: 'OpenWeatherMap' })).toBeTruthy();
-        fireEvent.change(search, { target: { value: 'surf' } });
-        expect(screen.getByRole('heading', { name: 'Stormglass' })).toBeTruthy();
+        fireEvent.change(search, { target: { value: 'markets' } });
+        expect(screen.getByRole('heading', { name: 'Finnhub' })).toBeTruthy();
         fireEvent.change(search, { target: { value: 'Fahrenheit' } });
         expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
         expect(screen.queryByText('Provider keys')).toBe(null);
@@ -348,5 +315,72 @@ describe('a provider key in the settings', () => {
         render(<ProviderKey provider={FINNHUB} />);
         expect(screen.getByText('Checking')).toBeTruthy();
         expect(screen.getByText('Save')).toBeTruthy();
+    });
+});
+
+describe('the serves line of a provider section', () => {
+    it('names the served tiles, or that none is served yet', async () => {
+        const { servesLine } = await import('../../src/renderer/shell/settings/settings');
+        expect(servesLine(['Weather', 'Air Quality'])).toBe('Serves Weather and Air Quality');
+        expect(servesLine(['Markets'])).toBe('Serves Markets');
+        expect(servesLine([])).toBe('Serves no tile yet');
+    });
+});
+
+describe('the provider choice of a tile', () => {
+    afterEach(() => localStorage.clear());
+
+    const multiTile = {
+        id: 'demo',
+        title: 'Demo',
+        Component: () => null,
+        providers: [
+            { provider: OPENWEATHERMAP, channel: 'brooz:weather' },
+            { provider: FINNHUB, channel: 'brooz:stock-quotes' }
+        ]
+    } as const satisfies TileDefinition;
+
+    const singleTile = {
+        id: 'solo',
+        title: 'Solo',
+        Component: () => null,
+        providers: [{ provider: FINNHUB, channel: 'brooz:stock-quotes' }]
+    } as const satisfies TileDefinition;
+
+    it('shows nothing for tiles with a single candidate or no provider at all', () => {
+        const keyless = {
+            id: 'plain',
+            title: 'Plain',
+            Component: () => null
+        } as const satisfies TileDefinition;
+        const { container, rerender } = render(
+            <ProviderChoice provider={FINNHUB} tiles={[singleTile, keyless]} />
+        );
+        expect(container.firstChild).toBe(null);
+        rerender(<ProviderChoice provider={OPENWEATHERMAP} tiles={[keyless]} />);
+        expect(container.firstChild).toBe(null);
+    });
+
+    it('defaults to the first candidate and stores the picked provider per tile', () => {
+        render(<ProviderChoice provider={OPENWEATHERMAP} tiles={[multiTile]} />);
+        const radio = screen.getByRole('radio', { name: /Demo uses OpenWeatherMap/ });
+        expect((radio as HTMLInputElement).checked).toBe(true);
+        expect(localStorage.getItem('brooz.tile.demo.provider')).toBe(null);
+
+        render(<ProviderChoice provider={FINNHUB} tiles={[multiTile]} />);
+        const other = screen.getByRole('radio', { name: /Demo uses Finnhub/ });
+        expect((other as HTMLInputElement).checked).toBe(false);
+        fireEvent.click(other);
+        expect(localStorage.getItem('brooz.tile.demo.provider')).toBe('"finnhub"');
+        expect((other as HTMLInputElement).checked).toBe(true);
+        expect((radio as HTMLInputElement).checked).toBe(false);
+    });
+
+    it('reads a stored choice in every section of the tile', () => {
+        localStorage.setItem('brooz.tile.demo.provider', '"finnhub"');
+        render(<ProviderChoice provider={FINNHUB} tiles={[multiTile]} />);
+        expect(
+            (screen.getByRole('radio', { name: /Demo uses Finnhub/ }) as HTMLInputElement).checked
+        ).toBe(true);
     });
 });
