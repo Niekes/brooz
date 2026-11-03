@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { tiles } from '../../src/renderer/tiles';
 import { AboutTileBody } from '../../src/renderer/tiles/about';
 import { AirQuality, LiveAirQuality } from '../../src/renderer/tiles/airQuality';
+import { LiveSurf, Surf } from '../../src/renderer/tiles/surf';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
-import { AIR, WEATHER, stubBrooz } from './stubs';
+import { AIR, PLACE, WEATHER, stubBrooz } from './stubs';
 
 /** A provider channel's answer with data. */
 function ok<T>(data: T): { status: 'ok'; data: T } {
@@ -59,6 +60,7 @@ describe('every resting tile', () => {
             Weather,
             AirQuality,
             Ticker,
+            Surf,
             AboutTileBody
         ]);
     });
@@ -79,6 +81,7 @@ describe('every resting tile', () => {
             weather: ['weather:', 'weather:Rome'],
             'air-quality': ['air-quality:', 'air-quality:Rome'],
             ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA'],
+            surf: ['surf', 'surf'],
             about: [undefined, undefined]
         });
     });
@@ -89,6 +92,7 @@ describe('every resting tile', () => {
                 [['openweathermap', 'brooz:weather']],
                 [['openweathermap', 'brooz:air-quality']],
                 [['finnhub', 'brooz:stock-quotes']],
+                [['stormglass', 'brooz:surf']],
                 undefined
             ]
         );
@@ -182,5 +186,123 @@ describe('the live tile content', () => {
         expect(screen.getByText('▲ 2.40%')).toBeTruthy();
         expect(screen.getByText('Market')).toBeTruthy();
         expect(screen.getByText('—')).toBeTruthy();
+    });
+});
+
+describe('the live surf content', () => {
+    const SPOT = { ...PLACE, name: 'Ericeira', latitude: 38.99, longitude: -9.42, timezone: 'UTC' };
+    const at = (hour: number) => new Date(Date.UTC(2026, 10, 2, hour)).toISOString();
+    const hour = (index: number) => ({
+        time: at(8 + index),
+        waveHeightM: 1 + index / 10,
+        swellPeriodS: 11,
+        swellDirection: 290,
+        windKmh: 12,
+        windDirection: 80,
+        waterTemperatureC: 17
+    });
+    const FORECAST = {
+        hours: Array.from({ length: 12 }, (_, index) => hour(index)),
+        tides: [
+            { time: '2026-11-02T08:30:00.000Z', type: 'low' as const },
+            { time: '2026-11-02T14:10:00.000Z', type: 'high' as const },
+            { time: '2026-11-02T20:40:00.000Z', type: 'low' as const },
+            { time: '2026-11-03T02:50:00.000Z', type: 'high' as const }
+        ],
+        fetchedAt: '2026-11-02T08:00:00.000Z'
+    };
+
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.UTC(2026, 10, 2, 9, 30) });
+        localStorage.setItem('brooz.surf.spot', JSON.stringify(SPOT));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        localStorage.clear();
+    });
+
+    it('shows the card: rating, best window, the day as bars, range, wind and tides', () => {
+        render(<LiveSurf args={{}} data={FORECAST} />);
+        expect(screen.getByText('great')).toBeTruthy();
+        expect(screen.getByText('Ericeira')).toBeTruthy();
+        expect(screen.getByText('Best Surf')).toBeTruthy();
+        expect(screen.getByText('8 AM – 12 PM')).toBeTruthy();
+        expect(['6 AM', '12 PM', '6 PM'].map((label) => screen.getByText(label))).toHaveLength(3);
+        expect(screen.getByText('1-2 m · 11 s')).toBeTruthy();
+        expect(screen.getByText('12 km/h')).toBeTruthy();
+        expect(screen.getByText('High 14:10 · Low 20:40')).toBeTruthy();
+        expect(screen.queryByText('Low 08:30')).toBe(null);
+        expect(screen.getByText('updated 08:00')).toBeTruthy();
+    });
+
+    it('shows feet and mph in Fahrenheit, and a dash for what is missing', () => {
+        localStorage.setItem('brooz.temperature.unit', JSON.stringify('F'));
+        vi.setSystemTime(Date.UTC(2026, 10, 2, 7));
+        const sparse = {
+            ...FORECAST,
+            hours: [
+                {
+                    ...hour(0),
+                    swellPeriodS: null,
+                    swellDirection: null,
+                    windKmh: null,
+                    windDirection: null
+                },
+                hour(1)
+            ]
+        };
+        render(<LiveSurf args={{}} data={sparse} />);
+        expect(screen.getByText('fair')).toBeTruthy();
+        expect(screen.getByText('8 AM – 10 AM')).toBeTruthy();
+        expect(screen.getByText('3-4 ft · –')).toBeTruthy();
+        expect(screen.getByText('–')).toBeTruthy();
+    });
+
+    it('says no surf today when even the best window is poor', () => {
+        const flat = {
+            ...FORECAST,
+            hours: Array.from({ length: 12 }, (_, index) => ({
+                ...hour(index),
+                waveHeightM: 0.2,
+                swellPeriodS: 4,
+                windKmh: 40
+            }))
+        };
+        render(<LiveSurf args={{}} data={flat} />);
+        expect(screen.getByText('No surf today')).toBeTruthy();
+        expect(screen.getByText('poor')).toBeTruthy();
+    });
+
+    it('renders a stub bar for an hour without wave data inside the day', () => {
+        const mixed = {
+            ...FORECAST,
+            hours: [{ ...hour(0), waveHeightM: null }, hour(1), hour(2), hour(3), hour(4)]
+        };
+        render(<LiveSurf args={{}} data={mixed} />);
+        expect(screen.getByText('9 AM – 1 PM')).toBeTruthy();
+        expect(screen.getByText('1-1 m · 11 s')).toBeTruthy();
+    });
+
+    it('shows no day bars when every forecast hour is past 6 PM at the spot', () => {
+        vi.setSystemTime(Date.UTC(2026, 10, 2, 22, 30));
+        const night = {
+            ...FORECAST,
+            hours: [20, 21, 22].map((h) => ({ ...hour(0), time: at(h) }))
+        };
+        render(<LiveSurf args={{}} data={night} />);
+        expect(screen.getByText('No surf today')).toBeTruthy();
+        expect(screen.getByText('– · 11 s')).toBeTruthy();
+    });
+
+    it('asks to move the spot onto the water when there is no wave data', () => {
+        const dry = {
+            ...FORECAST,
+            hours: [{ ...hour(0), waveHeightM: null, waterTemperatureC: null }]
+        };
+        render(<LiveSurf args={{}} data={dry} />);
+        expect(
+            screen.getByText('No wave data at this spot. Move it onto the water in the settings.')
+        ).toBeTruthy();
     });
 });

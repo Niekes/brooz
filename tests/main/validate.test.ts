@@ -44,12 +44,12 @@ describe('the IPC argument validation', () => {
         expect(() => parseCoordinates(place)).toThrow(error);
     });
 
-    it('takes a place as coordinates, never as a city', () => {
+    it('takes the surf spot as coordinates only, never as a city', () => {
         expect(parseCoordinates({ latitude: 38.99, longitude: -9.42 })).toEqual({
             latitude: 38.99,
             longitude: -9.42
         });
-        expect(() => parseCoordinates({ city: 'Rome' })).toThrow(/out of range/);
+        expect(() => parseCoordinates({ city: 'Ericeira' })).toThrow(/out of range/);
     });
 });
 

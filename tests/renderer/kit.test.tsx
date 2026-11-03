@@ -17,7 +17,15 @@ import type { ProviderOutcome } from '../../src/shared/providers';
 import { airCategory } from '../../src/renderer/shell/kit/air';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
 import { pick, rng } from '../../src/renderer/shell/kit/seed';
-import { inUnit, weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
+import {
+    inUnit,
+    lengthInUnit,
+    lengthUnit,
+    speedInUnit,
+    speedUnit,
+    weatherInfo,
+    weatherTone
+} from '../../src/renderer/shell/kit/weather';
 import { PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 describe('the seeded data', () => {
@@ -126,6 +134,22 @@ describe('the weather codes', () => {
         expect(inUnit(21.4, 'F')).toBe(71);
         expect(inUnit(-40, 'F')).toBe(-40);
     });
+
+    it('names the length and speed unit of the temperature choice', () => {
+        expect(lengthUnit('C')).toBe('m');
+        expect(lengthUnit('F')).toBe('ft');
+        expect(speedUnit('C')).toBe('km/h');
+        expect(speedUnit('F')).toBe('mph');
+    });
+
+    it('converts a length and a speed before it rounds', () => {
+        expect(lengthInUnit(1.5, 'C')).toBe(2);
+        expect(lengthInUnit(1.5, 'F')).toBe(5);
+        expect(lengthInUnit(0.3, 'F')).toBe(1);
+        expect(speedInUnit(12, 'C')).toBe(12);
+        expect(speedInUnit(12, 'F')).toBe(7);
+        expect(speedInUnit(1.609344, 'F')).toBe(1);
+    });
 });
 
 describe('the live data hooks', () => {
@@ -140,6 +164,10 @@ describe('the live data hooks', () => {
 
     async function hooks() {
         return import('../../src/renderer/shell/kit/hooks');
+    }
+
+    async function stored() {
+        return import('../../src/renderer/shell/kit/stored');
     }
 
     it('follows the device location, a kilometre at a time', async () => {
@@ -202,18 +230,32 @@ describe('the live data hooks', () => {
         expect(result.current).toEqual({ query: null, pending: true, name: null });
     });
 
-    it('resolves the live location: the city, else the device, else the default', async () => {
+    it('resolves the live location: the city, else the tile, else the device, else the default', async () => {
         stubGeolocation({ latitude: 53.55, longitude: 9.99 });
         const { useLiveLocation } = await hooks();
-        const city = renderHook(() => useLiveLocation('Rome'));
+        const city = renderHook(() => useLiveLocation('Rome', 'weather'));
         expect(city.result.current).toEqual({
             query: { city: 'Rome' },
             pending: false,
             name: null
         });
 
-        localStorage.setItem('brooz.location.default', JSON.stringify(PLACE));
-        const device = renderHook(() => useLiveLocation(undefined));
+        // The tile's own location wins over the device location.
+        localStorage.setItem(
+            'brooz.tile.weather.location',
+            JSON.stringify({ ...PLACE, name: 'Lisbon' })
+        );
+        const tile = renderHook(() => useLiveLocation(undefined, 'weather'));
+        await waitFor(() =>
+            expect(tile.result.current).toEqual({
+                query: { latitude: 41.9, longitude: 12.5 },
+                pending: false,
+                name: 'Lisbon'
+            })
+        );
+
+        // Another tile without its own location follows the device location.
+        const device = renderHook(() => useLiveLocation(undefined, 'air-quality'));
         await waitFor(() =>
             expect(device.result.current).toEqual({
                 query: { latitude: 53.55, longitude: 9.99 },
@@ -222,8 +264,9 @@ describe('the live data hooks', () => {
             })
         );
 
+        localStorage.setItem('brooz.location.default', JSON.stringify(PLACE));
         localStorage.setItem('brooz.location.enabled', 'false');
-        const fallback = renderHook(() => useLiveLocation(undefined));
+        const fallback = renderHook(() => useLiveLocation(undefined, 'ticker'));
         await waitFor(() =>
             expect(fallback.result.current).toEqual({
                 query: { latitude: 41.9, longitude: 12.5 },
@@ -231,6 +274,19 @@ describe('the live data hooks', () => {
                 name: 'Rome'
             })
         );
+    });
+
+    it('keeps the surf spot and the start tile as stored values', async () => {
+        const { START_TILE_KEY, useStartTile, useSurfSpot } = await stored();
+        expect(START_TILE_KEY).toBe('brooz.start.tile');
+        const spot = renderHook(() => useSurfSpot());
+        expect(spot.result.current[0]).toBe(null);
+        act(() => spot.result.current[1](PLACE));
+        expect(localStorage.getItem('brooz.surf.spot')).toBe(JSON.stringify(PLACE));
+        const start = renderHook(() => useStartTile());
+        expect(start.result.current[0]).toBe('about');
+        act(() => start.result.current[1]('surf'));
+        expect(localStorage.getItem(START_TILE_KEY)).toBe('"surf"');
     });
 
     it('loads a provider channel over IPC, and nothing without a key', async () => {
@@ -314,14 +370,14 @@ describe('the live data hooks', () => {
         stubGeolocation();
         const invoke = stubBrooz({ 'brooz:weather': () => ({ status: 'ok', data: WEATHER }) });
         const { usePlaceData } = await hooks();
-        const withCity = renderHook(() => usePlaceData('Rome', 'brooz:weather'));
+        const withCity = renderHook(() => usePlaceData('Rome', 'brooz:weather', 'weather'));
         expect(withCity.result.current.notice).toBe(null);
         await waitFor(() => expect(withCity.result.current.state.data?.status).toBe('ok'));
         expect(invoke).toHaveBeenCalledWith('brooz:weather', { city: 'Rome' });
 
         localStorage.removeItem('brooz.location.default');
         localStorage.setItem('brooz.location.enabled', 'false');
-        const without = renderHook(() => usePlaceData(undefined, 'brooz:weather'));
+        const without = renderHook(() => usePlaceData(undefined, 'brooz:weather', 'weather'));
         expect(without.result.current.notice).toBe('Set a location first.');
         expect(without.result.current.state.data).toBe(null);
         expect(invoke).toHaveBeenCalledTimes(1);
@@ -337,13 +393,13 @@ describe('the live data hooks', () => {
         });
         stubBrooz({});
         const { usePlaceData } = await hooks();
-        const { result } = renderHook(() => usePlaceData(undefined, 'brooz:weather'));
+        const { result } = renderHook(() => usePlaceData(undefined, 'brooz:weather', 'weather'));
         expect(result.current.pending).toBe(true);
         expect(result.current.notice).toBe(null);
     });
 
     it('picks the stored provider of a tile, or its first candidate', async () => {
-        const { chosenProviderKey, useChosenProvider } = await hooks();
+        const { chosenProviderKey, useChosenProvider } = await stored();
         const { OPENWEATHERMAP, FINNHUB } = await import('../../src/shared/providers');
         const tile = {
             id: 'demo',

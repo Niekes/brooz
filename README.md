@@ -25,9 +25,9 @@ and the matching tile flies to the center and comes alive. Every registered
 tile sits once near the center; the remaining cells are the default tile,
 which opens the settings.
 
-| Live tiles (keyed providers)                             | Demo tiles (seeded data for now) |
-| -------------------------------------------------------- | -------------------------------- |
-| Weather, Air Quality (OpenWeatherMap), Markets (Finnhub) | About                            |
+| Live tiles (keyed providers)                                                | Demo tiles (seeded data for now) |
+| --------------------------------------------------------------------------- | -------------------------------- |
+| Weather, Air Quality (OpenWeatherMap), Markets (Finnhub), Surf (Stormglass) | About                            |
 
 The ask bar routes with keyword rules out of the box. For harder phrasings
 you can enable a small local model (open-jev on Transformers.js) from the
@@ -43,6 +43,9 @@ from the cache in a few seconds.
   (keyless, no account).
 - The tickers of a markets tile, sent by the main process to
   [Finnhub](https://finnhub.io) with your own key.
+- The coordinates of the surf spot, sent by the main process to
+  [Stormglass](https://stormglass.io) with your own key, at most a few
+  times a day.
 - The one-time model download from the Hugging Face hub, only after you
   enable the local model.
 - The update check against this repository's GitHub releases.

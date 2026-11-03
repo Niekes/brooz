@@ -89,6 +89,10 @@ export interface TileDefinition<T = unknown> {
     readonly route?: TileRoute;
     /** The providers whose keys the live tile can use; the first is the default. */
     readonly providers?: readonly TileProvider[];
+    /** Whether the live tile loads a place it owns (today the surf spot); its settings live in the tile's section. */
+    readonly ownPlace?: boolean;
+    /** Whether the tile shows a place and can save its own location in its settings section. */
+    readonly place?: boolean;
     /**
      * Loads the live data over the chosen provider's channel. The shell calls
      * it while the tile is summoned, so it may use hooks; a live tile always

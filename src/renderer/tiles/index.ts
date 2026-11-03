@@ -1,5 +1,6 @@
 import { aboutTile } from './about';
 import { airQualityTile } from './airQuality';
+import { surfTile } from './surf';
 import { tickerTile } from './ticker';
 import { weatherTile } from './weather';
 import type { TileDefinition } from '../shell/tile';
@@ -14,5 +15,6 @@ export const tiles: readonly TileDefinition[] = [
     weatherTile,
     airQualityTile,
     tickerTile,
+    surfTile,
     aboutTile
 ];

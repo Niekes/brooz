@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { useChosenProvider } from '../kit/hooks';
+import { useChosenProvider } from '../kit/stored';
 import { LiveFrame, NeedsSetting, ProviderData } from '../kit/live';
 import type { SummonRequest, TileDefinition } from '../tile';
 

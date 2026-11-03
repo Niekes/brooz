@@ -5,7 +5,8 @@ import { OPENWEATHERMAP } from '../../../shared/providers';
 import type { WeatherSnapshot } from '../../../shared/weather';
 import { airCategory } from '../../shell/kit/air';
 import type { AirCategory } from '../../shell/kit/air';
-import { useAirQuality, usePlaceData, useTemperatureUnit } from '../../shell/kit/hooks';
+import { useAirQuality, usePlaceData } from '../../shell/kit/hooks';
+import { useTemperatureUnit } from '../../shell/kit/stored';
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { pick, rng } from '../../shell/kit/seed';
@@ -151,7 +152,7 @@ function weekday(date: string): string {
 
 /** Loads the weather of the utterance's place over the chosen provider's channel. */
 function useLiveWeather(args: CommandArgs, channel: IpcChannel): LiveLoader<WeatherSnapshot> {
-    return usePlaceData<WeatherSnapshot>(args.city, channel);
+    return usePlaceData<WeatherSnapshot>(args.city, channel, 'weather');
 }
 
 /** The weather now and for the next five days, of a city or the device location. */
@@ -192,6 +193,7 @@ export const weatherTile: TileDefinition<WeatherSnapshot> = {
     Component: Weather,
     Live: LiveWeather,
     providers: [{ provider: OPENWEATHERMAP, channel: IPC_CHANNELS.weather }],
+    place: true,
     liveData: useLiveWeather,
     liveKey: ({ city }) => `weather:${city ?? ''}`,
     route: {

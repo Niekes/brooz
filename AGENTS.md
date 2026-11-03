@@ -166,8 +166,16 @@ A definition has:
   rule pattern and its weight, and `args`, which keeps the utterance's args
   the tile understands. A tile without a route is never summoned;
 - `providers` (optional) - the candidate providers with the channel each
-  serves the tile through; the person picks the active one in the provider's
-  settings section (`docs/adr/0011`).
+  serves the tile through; the person picks the active one in the tile's
+  settings section (`docs/adr/0011`);
+- `place` / `ownPlace` (optional) - the tile shows a place: `place` tiles
+  (weather, air quality) can save their own location in their settings
+  section, `ownPlace` tiles (today surf) own a place of their own (the surf
+  spot) - both appear in the tile's section (`docs/adr/0014`).
+
+The settings list General, then one section per registered tile, then the
+providers; the start tile setting in General picks which tile the grid
+centers on at launch (`docs/adr/0015`).
 
 A new tile is registered in `src/renderer/tiles/index.ts`; the slots nearest
 the grid's center carry the registry in order, and every other slot shows the
@@ -195,7 +203,7 @@ file system or the network, with a parser in `src/main/validate.ts` (see
 The channels: `brooz:app-version`, `brooz:geocode`, `brooz:style-nonce`,
 the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`
 and `brooz:key-test`, and the provider channels `brooz:weather`,
-`brooz:air-quality` and `brooz:stock-quotes`.
+`brooz:air-quality`, `brooz:stock-quotes` and `brooz:surf`.
 
 ## Provider keys
 
@@ -203,7 +211,7 @@ Tiles that need a keyed service never see its key: the renderer invokes a
 provider channel, the main process holds the key and makes the request
 (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`). Keys belong to
 a _provider_ of the manifest in `src/shared/providers.ts` (today:
-OpenWeatherMap and Finnhub), never to a tile. The key channels are write-only - the renderer can set,
+OpenWeatherMap, Finnhub and Stormglass), never to a tile. The key channels are write-only - the renderer can set,
 delete and ask for the status of a key, but no channel returns one. The
 keys live encrypted under `userData` through `safeStorage`, and the app
 fails closed where the OS offers no encryption
@@ -211,13 +219,14 @@ fails closed where the OS offers no encryption
 with the union `ok | missing-key | provider-error` instead of throwing, so
 every tile handles the invitation to the settings. The settings overlay
 (`src/renderer/shell/settings`, ⌘, or Ctrl+,) is the only surface that
-takes a key: a general section first, for the person's own choices (device
-location, default location, temperature unit), then - under a separator -
-one section per provider of the manifest, in manifest order, each with its
-mark, the tiles it serves and its key - even when it serves no tile yet. A
-key shows once per provider, however many tiles it serves; a tile that can
-choose between several providers picks the active one in the provider's
-section. A tile without its key renders that invitation, never an
+takes a key: a general section first, for the person's own choices (start
+tile, device location, default location, temperature unit), then - under a
+separator - one section per registered tile with its own settings (its own
+location, its own place like the surf spot, its provider choice), then -
+under another separator - one section per provider of the manifest, in
+manifest order, each with its mark, the tiles it serves and its key - even
+when it serves no tile yet (docs/adr/0014). A
+key shows once per provider, however many tiles it serves. A tile without its key renders that invitation, never an
 input of its own.
 
 ## The local model

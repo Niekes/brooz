@@ -93,6 +93,9 @@ describe('the infinite grid', () => {
 
     it('ignores a tile it does not know', () => {
         const { summon } = renderGrid();
+        act(() => {
+            vi.advanceTimersByTime(650);
+        });
         summon(request('nope'));
         expect(highlighted()).toHaveLength(0);
     });
@@ -125,5 +128,52 @@ describe('the infinite grid', () => {
         const { unmount } = renderGrid();
         unmount();
         expect(slots()).toHaveLength(0);
+    });
+
+    it('centers and highlights the start tile on launch, About by default', () => {
+        renderGrid();
+        expect(highlighted()).toHaveLength(1);
+        expect(screen.getAllByText('About').length).toBeGreaterThan(0);
+    });
+
+    it('centers the stored start tile instead, and falls back on an unknown id', () => {
+        localStorage.setItem('brooz.start.tile', '"ticker"');
+        const { unmount } = renderGrid();
+        expect(highlighted()).toHaveLength(1);
+        const slot = document.querySelector('.ring-2')!.closest('[data-index]')!;
+        expect(slot.textContent).toContain('Markets');
+        unmount();
+
+        localStorage.setItem('brooz.start.tile', '"gone"');
+        renderGrid();
+        expect(highlighted()).toHaveLength(1);
+        expect(document.querySelector('.ring-2')!.closest('[data-index]')!.textContent).toContain(
+            'About'
+        );
+    });
+
+    it('falls back to the first tile when even About is not registered, and highlights nothing without tiles', () => {
+        localStorage.setItem('brooz.start.tile', '"gone"');
+        const onlyTicker = render(
+            <InfiniteGrid
+                tiles={[tiles.find((tile) => tile.id === 'ticker')!]}
+                onOpenSettings={vi.fn()}
+            >
+                {() => null}
+            </InfiniteGrid>
+        );
+        expect(highlighted()).toHaveLength(1);
+        expect(document.querySelector('.ring-2')!.closest('[data-index]')!.textContent).toContain(
+            'Markets'
+        );
+        onlyTicker.unmount();
+
+        render(
+            <InfiniteGrid tiles={[]} onOpenSettings={vi.fn()}>
+                {() => null}
+            </InfiniteGrid>
+        );
+        expect(highlighted()).toHaveLength(0);
+        expect(slots().length).toBeGreaterThan(0);
     });
 });

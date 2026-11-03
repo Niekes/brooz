@@ -23,6 +23,29 @@ export function inUnit(celsius: number, unit: TemperatureUnit): number {
     return Math.round(unit === 'F' ? (celsius * 9) / 5 + 32 : celsius);
 }
 
+/**
+ * The length unit of the app: meters with Celsius, feet with Fahrenheit -
+ * the temperature choice is the one unit setting there is.
+ */
+export function lengthUnit(unit: TemperatureUnit): 'm' | 'ft' {
+    return unit === 'F' ? 'ft' : 'm';
+}
+
+/** A meters reading in the length unit, rounded only after converting. */
+export function lengthInUnit(meters: number, unit: TemperatureUnit): number {
+    return Math.round(unit === 'F' ? meters * 3.28084 : meters);
+}
+
+/** The speed unit of the app: km/h with Celsius, mph with Fahrenheit. */
+export function speedUnit(unit: TemperatureUnit): 'km/h' | 'mph' {
+    return unit === 'F' ? 'mph' : 'km/h';
+}
+
+/** A km/h reading in the speed unit, rounded only after converting. */
+export function speedInUnit(kmh: number, unit: TemperatureUnit): number {
+    return Math.round(unit === 'F' ? kmh / 1.609344 : kmh);
+}
+
 /** A WMO weather code as a label and an icon. */
 export function weatherInfo(code: number): { label: string; icon: CondName } {
     const band = WMO_BANDS.find(({ from, to }) => code >= from && code <= to);

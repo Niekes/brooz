@@ -65,7 +65,7 @@ export function AirQuality({ seed }: TileProps): JSX.Element {
 
 /** Loads the air quality of the utterance's place over the chosen provider's channel. */
 function useLiveAir(args: CommandArgs, channel: IpcChannel): LiveLoader<AirQualitySnapshot> {
-    return usePlaceData<AirQualitySnapshot>(args.city, channel);
+    return usePlaceData<AirQualitySnapshot>(args.city, channel, 'air-quality');
 }
 
 /** The current air quality of a city, or of the device location. */
@@ -114,6 +114,7 @@ export const airQualityTile: TileDefinition<AirQualitySnapshot> = {
     Component: AirQuality,
     Live: LiveAirQuality,
     providers: [{ provider: OPENWEATHERMAP, channel: IPC_CHANNELS.airQuality }],
+    place: true,
     liveData: useLiveAir,
     liveKey: ({ city }) => `air-quality:${city ?? ''}`,
     route: {

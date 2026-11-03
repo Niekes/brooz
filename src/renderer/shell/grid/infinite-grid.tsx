@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, JSX, ReactNode } from 'react';
 import type { SummonRequest, TileDefinition } from '../tile';
 import { AppTile } from './app-tile';
@@ -8,6 +8,7 @@ import { DefaultTile } from './default-tile';
 import { DomeEngine } from './engine';
 import { LiveSlot } from './live-slot';
 import { useMediaQuery } from '../kit/browser';
+import { useStartTile } from '../kit/stored';
 
 const HIGHLIGHT_MS = 650;
 
@@ -160,6 +161,38 @@ function useSummon(
 }
 
 /**
+ * Centers and highlights the start tile once, when the first pool is there.
+ * It is not summoned live (docs/adr/0015); an unknown stored id falls back to
+ * About, then to the first registered tile.
+ */
+function useStartTileCenter(
+    tiles: readonly TileDefinition[],
+    pool: Pool,
+    nearestOf: (kind: number) => number | null,
+    engine: DomeEngine,
+    setHighlight: (slot: number | null) => void
+): void {
+    const [startTile] = useStartTile();
+    const started = useRef(false);
+    useEffect(() => {
+        if (started.current || pool.cols === 0) {
+            return;
+        }
+        started.current = true;
+        const start =
+            tiles.find((tile) => tile.id === startTile) ??
+            tiles.find((tile) => tile.id === 'about') ??
+            tiles[0];
+        const kind = start ? tiles.indexOf(start) : -1;
+        const slot = kind >= 0 ? nearestOf(kind) : null;
+        if (slot !== null) {
+            engine.centerOn(slot);
+            setHighlight(slot);
+        }
+    }, [pool, tiles, startTile, nearestOf, engine, setHighlight]);
+}
+
+/**
  * The dashboard: an infinite grid of glass tiles on a dome. Drag or wheel
  * to pan; a summoned tile flies to the center and, when it has a live
  * version, turns live. Every registered tile sits on the slot nearest the
@@ -168,8 +201,9 @@ function useSummon(
 export function InfiniteGrid({ tiles, onOpenSettings, children }: InfiniteGridProps): JSX.Element {
     const [highlight, setHighlight] = useHighlight();
     const dome = useDome(tiles.length, () => setHighlight(null));
-    const { pool, stageRef, cardRef, kindAt, nearestOf } = dome;
+    const { pool, engine, stageRef, cardRef, kindAt, nearestOf } = dome;
     const [live, place] = useLiveTiles(tiles, nearestOf);
+    useStartTileCenter(tiles, pool, nearestOf, engine, setHighlight);
 
     // The resting content per slot, memoized on the pool, so a re-render
     // hands the memoized AppTile the same children and skips every tile.

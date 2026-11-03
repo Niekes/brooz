@@ -10,27 +10,27 @@ import { isSettingsShortcut } from '../kit/shortcut';
 import { AppDialog } from '../ui/app-dialog';
 import { AppInput } from '../ui/app-input';
 import { AppSeparator } from '../ui/app-separator';
-import { DefaultLocationOption } from './default-location';
-import { ProviderChoice } from './provider-choice';
+import { DefaultLocationOption, SurfSpotOption, TileLocationOption } from './default-location';
 import { ProviderKey } from './provider-key';
-import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/hooks';
+import { TileProviderChoice } from './provider-choice';
+import { StartTileOption } from './start-tile';
+import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/stored';
 
 /**
- * The settings: the one surface that manages keys and options, shown over the
- * dashboard. A sidebar lists the general section first - the choices that
- * belong to the person: the device location switch, the default location and
- * the temperature unit - then, under a separator, one section per provider of
- * the manifest, in manifest order, even when it serves no tile yet, each with
- * its mark, the tiles it serves and its key. A key is one per provider and
- * shows once, no matter how many tiles it serves; a tile that can choose
- * between several providers picks in the provider's section.
+ * The settings: the one surface that manages tiles, keys and options, shown
+ * over the dashboard. A sidebar lists the general section first - the
+ * choices that belong to the person: the start tile, the device location
+ * switch, the default location and the temperature unit - then, under a
+ * separator, one section per registered tile with its own settings, then,
+ * under another separator, one section per provider of the manifest with its
+ * key (docs/adr/0014).
  */
 
 /** A sidebar entry: the words the search finds it by, and what it shows. */
 interface Section {
     id: string;
     title: string;
-    /** The provider's mark, in the nav and the heading; General has none. */
+    /** The provider's mark, in the nav and the heading; General and tiles have none. */
     icon?: ProviderId;
     /** One line under the heading, naming what the section serves. */
     subtitle?: string;
@@ -53,19 +53,49 @@ export function servesLine(served: readonly string[]): string {
     return served.length > 0 ? `Serves ${served.join(' and ')}` : 'Serves no tile yet';
 }
 
-/** One sidebar section for a provider: its key, and the tiles' provider choices. */
+/** One sidebar section for a provider: its key. */
 function providerSection(provider: ProviderInfo, servedTiles: readonly TileDefinition[]): Section {
-    const served = servedTiles.map((tile) => tile.title);
     return {
         id: provider.id,
         title: provider.title,
         icon: provider.id,
-        subtitle: servesLine(served),
-        terms: [provider.title, ...served],
+        subtitle: servesLine(servedTiles.map((tile) => tile.title)),
+        terms: [provider.title, ...servedTiles.map((tile) => tile.title)],
+        Body: () => <ProviderKey provider={provider} />
+    };
+}
+
+/** The words the search finds a tile's section by. */
+export function tileTerms(tile: TileDefinition): string[] {
+    const terms = [tile.title];
+    if (tile.place === true) {
+        terms.push('Location', 'City');
+    }
+    if (tile.ownPlace === true) {
+        terms.push('Surf spot');
+    }
+    if ((tile.providers?.length ?? 0) > 1) {
+        terms.push('Provider');
+    }
+    return terms;
+}
+
+/** One sidebar section for a tile: its own settings. */
+function tileSection(tile: TileDefinition): Section {
+    const place = tile.place === true;
+    const ownPlace = tile.ownPlace === true;
+    const choosable = (tile.providers?.length ?? 0) > 1;
+    const empty = !place && !ownPlace && !choosable;
+    return {
+        id: `tile:${tile.id}`,
+        title: tile.title,
+        terms: tileTerms(tile),
         Body: () => (
             <>
-                <ProviderKey provider={provider} />
-                <ProviderChoice provider={provider} tiles={servedTiles} />
+                {place ? <TileLocationOption tile={tile} /> : null}
+                {ownPlace ? <SurfSpotOption /> : null}
+                <TileProviderChoice tile={tile} />
+                {empty ? <p className="text-sm text-white/40">No settings for this tile.</p> : null}
             </>
         )
     };
@@ -108,7 +138,46 @@ function NavItem({
     );
 }
 
-/** The sidebar: the search, the general section, then the providers under a separator. */
+/** One labelled group of nav rows, with a separator above it when needed. */
+function NavGroup({
+    label,
+    sections,
+    current,
+    onSelect,
+    withSeparator
+}: {
+    label: string;
+    sections: Section[];
+    current: Section | undefined;
+    onSelect: (id: string) => void;
+    withSeparator: boolean;
+}): JSX.Element {
+    if (sections.length === 0) {
+        return <></>;
+    }
+    return (
+        <>
+            {withSeparator ? (
+                <>
+                    <AppSeparator className="my-2" />
+                    <p className="px-2.5 pb-1 text-xs text-white/40">{label}</p>
+                </>
+            ) : null}
+            <ul className="flex flex-col gap-0.5">
+                {sections.map((section) => (
+                    <NavItem
+                        key={section.id}
+                        section={section}
+                        current={current}
+                        onSelect={onSelect}
+                    />
+                ))}
+            </ul>
+        </>
+    );
+}
+
+/** The sidebar: the search, the general section, then the tiles, then the providers. */
 function SectionNav({
     search,
     onSearch,
@@ -123,9 +192,10 @@ function SectionNav({
     onSelect: (id: string) => void;
 }): JSX.Element {
     const general = visible.filter((section) => section.id === 'general');
-    const providers = visible.filter((section) => section.id !== 'general');
-    // A separator with nothing above it means nothing, so it needs both groups.
-    const showDivider = general.length > 0 && providers.length > 0;
+    const tileSections = visible.filter((section) => section.id.startsWith('tile:'));
+    const providerSections = visible.filter(
+        (section) => section.id !== 'general' && !section.id.startsWith('tile:')
+    );
     return (
         <nav
             aria-label="Settings sections"
@@ -139,32 +209,27 @@ function SectionNav({
                 aria-label="Search settings"
             />
             <div className="min-h-0 flex-1 overflow-y-auto">
-                <ul className="flex flex-col gap-0.5">
-                    {general.map((section) => (
-                        <NavItem
-                            key={section.id}
-                            section={section}
-                            current={current}
-                            onSelect={onSelect}
-                        />
-                    ))}
-                </ul>
-                {showDivider ? (
-                    <>
-                        <AppSeparator className="my-2" />
-                        <p className="px-2.5 pb-1 text-xs text-white/40">Provider keys</p>
-                    </>
-                ) : null}
-                <ul className="flex flex-col gap-0.5">
-                    {providers.map((section) => (
-                        <NavItem
-                            key={section.id}
-                            section={section}
-                            current={current}
-                            onSelect={onSelect}
-                        />
-                    ))}
-                </ul>
+                <NavGroup
+                    label=""
+                    sections={general}
+                    current={current}
+                    onSelect={onSelect}
+                    withSeparator={false}
+                />
+                <NavGroup
+                    label="Tiles"
+                    sections={tileSections}
+                    current={current}
+                    onSelect={onSelect}
+                    withSeparator={general.length > 0}
+                />
+                <NavGroup
+                    label="Provider keys"
+                    sections={providerSections}
+                    current={current}
+                    onSelect={onSelect}
+                    withSeparator={general.length > 0 || tileSections.length > 0}
+                />
                 {visible.length === 0 ? (
                     <p className="px-2.5 py-1.5 text-xs text-white/40">No setting matches.</p>
                 ) : null}
@@ -226,11 +291,18 @@ function TemperatureUnitOption(): JSX.Element {
 const GENERAL: Section = {
     id: 'general',
     title: 'General',
-    terms: ['General', 'Use device location', 'Default location', 'Temperature unit'].concat(
-        UNITS.map(({ label }) => label)
-    ),
+    terms: [
+        'General',
+        'Start tile',
+        'Use device location',
+        'Default location',
+        'Temperature unit',
+        ...tiles.map((tile) => tile.title),
+        ...UNITS.map(({ label }) => label)
+    ],
     Body: () => (
         <>
+            <StartTileOption />
             <DeviceLocationOption />
             <DefaultLocationOption />
             <TemperatureUnitOption />
@@ -238,10 +310,12 @@ const GENERAL: Section = {
     )
 };
 
-// Every provider of the manifest has a section, even one that serves no
-// tile yet: its key needs a place before any tile can use it.
+// General first, then one section per registered tile, then one per provider
+// of the manifest - every provider has a section, even one that serves no
+// tile yet, so its key has a place before any tile uses it.
 const SECTIONS: Section[] = [
     GENERAL,
+    ...tiles.map(tileSection),
     ...PROVIDERS.map((provider) =>
         providerSection(
             provider,
@@ -267,7 +341,7 @@ export function Settings({
             open={open}
             onOpenChange={onOpenChange}
             title="Settings"
-            description="Your general options, and the keys of the providers."
+            description="Your general options, the tiles' settings, and the keys of the providers."
         >
             <SectionNav
                 search={search}

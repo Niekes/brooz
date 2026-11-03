@@ -30,7 +30,12 @@ export const DEVELOPMENT_SET: readonly RoutingCase[] = [
     // ticker
     { text: 'how is apple stock doing', expected: 'ticker' },
     { text: 'show me the price of bitcoin', expected: 'ticker' },
-    { text: 'market overview for tesla and nvidia', expected: 'ticker' }
+    { text: 'market overview for tesla and nvidia', expected: 'ticker' },
+
+    // surf
+    { text: 'is it worth surfing today', expected: 'surf' },
+    { text: 'how big is the swell this morning', expected: 'surf' },
+    { text: 'when is high tide', expected: 'surf' }
 ];
 
 export const HOLDOUT_SET: readonly RoutingCase[] = [
@@ -41,7 +46,9 @@ export const HOLDOUT_SET: readonly RoutingCase[] = [
     { text: 'how polluted is the air in Beijing', expected: 'air-quality' },
     { text: 'air quality in Sydney', expected: 'air-quality' },
     { text: 'how are the markets doing today', expected: 'ticker' },
-    { text: "what's Apple's stock price", expected: 'ticker' }
+    { text: "what's Apple's stock price", expected: 'ticker' },
+    { text: 'is it worth surfing today', expected: 'surf' },
+    { text: 'how big is the swell', expected: 'surf' }
 ];
 
 /** A second holdout set, written after the first pass but before testing. */
@@ -52,5 +59,6 @@ export const HOLDOUT_SET_2: readonly RoutingCase[] = [
     { text: 'how is the stock market', expected: 'ticker' },
     { text: "how's the air in Paris", expected: 'air-quality' },
     { text: "what's the weather like in Oslo", expected: 'weather' },
-    { text: 'stock price of Microsoft', expected: 'ticker' }
+    { text: 'stock price of Microsoft', expected: 'ticker' },
+    { text: 'when is high tide', expected: 'surf' }
 ];

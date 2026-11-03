@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useGeolocation, useStoredValue } from './browser';
+import { useGeolocation } from './browser';
+import { useDefaultLocation, useDeviceLocationSetting, useTileLocation } from './stored';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { IpcChannel } from '../../../shared/ipc';
 import { placeKey } from '../../../shared/weather';
 import type { AirQualitySnapshot, GeoPlace, PlaceQuery } from '../../../shared/weather';
 import type { AsyncView } from './live';
-import type { TemperatureUnit } from './weather';
 import type { KeyStatus, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
-import type { LiveLoader, TileDefinition, TileProvider } from '../tile';
+import type { LiveLoader } from '../tile';
 
 /**
  * Electron wraps an error thrown by an IPC handler as
@@ -96,16 +96,6 @@ function coarse(degrees: number): number {
     return Math.round(degrees * 100) / 100;
 }
 
-/** Whether tiles may follow the device location: on until the person turns it off. */
-export function useDeviceLocationSetting(): [boolean, (on: boolean) => void] {
-    return useStoredValue<boolean>('brooz.location.enabled', true);
-}
-
-/** The default location the person saved in the settings, or `null`; every tile follows a change. */
-export function useDefaultLocation(): [GeoPlace | null, (place: GeoPlace | null) => void] {
-    return useStoredValue<GeoPlace | null>('brooz.location.default', null);
-}
-
 /** No location at all: the tile asks for one instead of guessing. */
 export const NO_LOCATION: LiveLocation = { query: null, pending: false, name: null };
 
@@ -118,13 +108,6 @@ export function savedLocation(place: GeoPlace | null): LiveLocation {
               name: place.name
           }
         : NO_LOCATION;
-}
-
-/** The temperature unit: Celsius until the person picks Fahrenheit. */
-export function useTemperatureUnit(): [TemperatureUnit, (unit: TemperatureUnit) => void] {
-    const [unit, setUnit] = useStoredValue<TemperatureUnit>('brooz.temperature.unit', 'C');
-    // The stored value is untyped JSON: anything but 'F' reads as Celsius.
-    return [unit === 'F' ? 'F' : 'C', setUnit];
 }
 
 /**
@@ -148,17 +131,22 @@ export function useDeviceLocation(fallback: LiveLocation, enabled = true): LiveL
 }
 
 /**
- * Where a live tile shows its data: the city of the utterance, or - without
- * one - the device location while the person allows it, else the default
- * location under its saved name. Without any, the tile asks for a location.
+ * Where a live tile shows its data: the city of the utterance, else the
+ * tile's own location, else the device location while the person allows it,
+ * else the default location under its saved name (docs/adr/0014). Without
+ * any, the tile asks for a location.
  */
-export function useLiveLocation(city: string | undefined): LiveLocation {
+export function useLiveLocation(city: string | undefined, tileId: string): LiveLocation {
     const [followDevice] = useDeviceLocationSetting();
     const [place] = useDefaultLocation();
+    const [tilePlace] = useTileLocation(tileId);
     const fallback = savedLocation(place);
-    const device = useDeviceLocation(fallback, !city && followDevice);
+    const device = useDeviceLocation(fallback, !city && !tilePlace && followDevice);
     if (city) {
         return { query: { city }, pending: false, name: null };
+    }
+    if (tilePlace) {
+        return savedLocation(tilePlace);
     }
     return followDevice ? device : fallback;
 }
@@ -208,9 +196,10 @@ export function useProviderData<T>(
  */
 export function usePlaceData<T extends { place: GeoPlace }>(
     city: string | undefined,
-    channel: IpcChannel
+    channel: IpcChannel,
+    tileId: string
 ): LiveLoader<T> {
-    const location = useLiveLocation(city);
+    const location = useLiveLocation(city, tileId);
     const state = useProviderData<T>(channel, location.query ? placeKey(location.query) : null, [
         location.query
     ]);
@@ -229,21 +218,6 @@ export function usePlaceData<T extends { place: GeoPlace }>(
         notice: !location.query && !location.pending ? 'Set a location first.' : null,
         state: { ...state, data: named }
     };
-}
-
-/** The storage key of a tile's chosen provider. */
-export function chosenProviderKey(tileId: string): string {
-    return `brooz.tile.${tileId}.provider`;
-}
-
-/**
- * The provider a live tile is served by: the stored choice while it is still
- * one of the tile's candidates, the first candidate otherwise.
- */
-export function useChosenProvider(tile: TileDefinition): TileProvider | undefined {
-    const candidates = tile.providers ?? [];
-    const [stored] = useStoredValue<string | null>(chosenProviderKey(tile.id), null);
-    return candidates.find((candidate) => candidate.provider.id === stored) ?? candidates[0];
 }
 
 /** Whether a provider's key is stored, and whether this system can store keys. */

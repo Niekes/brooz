@@ -1,13 +1,12 @@
 import type { JSX } from 'react';
 import type { ProviderInfo } from '../../../shared/providers';
 import { useStoredValue } from '../kit/browser';
-import { chosenProviderKey } from '../kit/hooks';
+import { chosenProviderKey } from '../kit/stored';
 import type { TileDefinition } from '../tile';
 
 /**
- * One radio of the provider picker: the tile uses this provider when it is
- * chosen. The radios of a tile share one name across the provider sections,
- * so the sections stay keyed by provider while the choice is per tile.
+ * One radio of a tile's provider picker: the tile uses this provider when it
+ * is chosen. The radios of a tile share one name, so the choice is per tile.
  */
 function TileChoice({
     provider,
@@ -28,33 +27,26 @@ function TileChoice({
                 onChange={() => setChosen(provider.id)}
                 className="accent-white"
             />
-            {tile.title} uses {provider.title}
+            {provider.title}
         </label>
     );
 }
 
 /**
- * The provider picker of a provider's settings section: one radio per served
- * tile that can choose between several providers. A tile with a single
- * candidate has nothing to choose, so it shows no radio.
+ * The provider picker of a tile's settings section: one radio per candidate
+ * provider. A tile with a single candidate has nothing to choose, so it
+ * shows no radio (docs/adr/0011).
  */
-export function ProviderChoice({
-    provider,
-    tiles
-}: {
-    provider: ProviderInfo;
-    tiles: readonly TileDefinition[];
-}): JSX.Element | null {
-    // The caller passes only the tiles this provider serves.
-    const choosable = tiles.filter((tile) => (tile.providers?.length ?? 0) > 1);
-    if (choosable.length === 0) {
+export function TileProviderChoice({ tile }: { tile: TileDefinition }): JSX.Element | null {
+    const candidates = tile.providers ?? [];
+    if (candidates.length <= 1) {
         return null;
     }
     return (
         <fieldset className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/2 p-4 text-sm">
-            <legend className="px-1 text-white">Tiles using this provider</legend>
-            {choosable.map((tile) => (
-                <TileChoice key={tile.id} provider={provider} tile={tile} />
+            <legend className="px-1 text-white">Provider</legend>
+            {candidates.map((candidate) => (
+                <TileChoice key={candidate.provider.id} provider={candidate.provider} tile={tile} />
             ))}
         </fieldset>
     );

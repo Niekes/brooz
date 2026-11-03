@@ -9,9 +9,11 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { LiveSlot } from '../../src/renderer/shell/grid/live-slot';
-import { useDefaultLocation, useProviderData } from '../../src/renderer/shell/kit/hooks';
+import { useProviderData } from '../../src/renderer/shell/kit/hooks';
+import { useDefaultLocation } from '../../src/renderer/shell/kit/stored';
 import type { SummonRequest, TileDefinition } from '../../src/renderer/shell/tile';
 import { airQualityTile } from '../../src/renderer/tiles/airQuality';
+import { surfTile } from '../../src/renderer/tiles/surf';
 import { tickerTile } from '../../src/renderer/tiles/ticker';
 import { weatherTile } from '../../src/renderer/tiles/weather';
 import { FINNHUB } from '../../src/shared/providers';
@@ -211,6 +213,66 @@ describe('the live slot: the shell chrome around a summoned tile', () => {
                 longitude: 12.5
             })
         );
+    });
+
+    it('asks for a surf spot before it spends a request', async () => {
+        localStorage.clear();
+        const invoke = stubBrooz({});
+        render(<LiveSlot tile={surfTile} request={request('surf', { city: 'Biarritz' })} />);
+        expect(await screen.findByText('Set a surf spot first.')).toBeTruthy();
+        expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('loads the surf forecast of the saved spot over the provider channel', async () => {
+        localStorage.setItem(
+            'brooz.surf.spot',
+            JSON.stringify({
+                ...PLACE,
+                name: 'Ericeira',
+                latitude: 38.99,
+                longitude: -9.42,
+                timezone: 'UTC'
+            })
+        );
+        const invoke = stubBrooz({
+            'brooz:surf': () => ({
+                status: 'ok',
+                data: {
+                    hours: [
+                        {
+                            time: new Date(Date.UTC(2026, 10, 2, 8)).toISOString(),
+                            waveHeightM: null,
+                            swellPeriodS: null,
+                            swellDirection: null,
+                            windKmh: null,
+                            windDirection: null,
+                            waterTemperatureC: null
+                        }
+                    ],
+                    tides: [],
+                    fetchedAt: '2026-11-02T08:00:00.000Z'
+                }
+            })
+        });
+        render(<LiveSlot tile={surfTile} request={request('surf', {})} />);
+        expect(await screen.findByText(/No wave data at this spot/)).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:surf', { latitude: 38.99, longitude: -9.42 });
+    });
+
+    it('invites to the settings without a Stormglass key', async () => {
+        localStorage.setItem(
+            'brooz.surf.spot',
+            JSON.stringify({
+                ...PLACE,
+                name: 'Ericeira',
+                latitude: 38.99,
+                longitude: -9.42,
+                timezone: 'UTC'
+            })
+        );
+        stubBrooz({ 'brooz:surf': () => ({ status: 'missing-key', reason: 'not-set' }) });
+        render(<LiveSlot tile={surfTile} request={request('surf', {})} />);
+        expect(await screen.findByText('Needs an API key from Stormglass.')).toBeTruthy();
     });
 
     it('reloads when the key arrives meanwhile', async () => {

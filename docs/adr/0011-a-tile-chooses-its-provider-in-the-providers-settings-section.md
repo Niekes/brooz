@@ -1,3 +1,7 @@
+---
+status: superseded in part by ADR-0014 (the picker now lives in the tile's section, not the provider's)
+---
+
 # A tile with several candidate providers chooses in the provider's settings section
 
 A tile declares the providers whose keys its live data can use, each with the

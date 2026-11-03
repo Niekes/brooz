@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { GeoPlace } from '../../../shared/weather';
-import { errorMessage, useDefaultLocation } from '../kit/hooks';
+import { errorMessage } from '../kit/hooks';
+import { useDefaultLocation, useSurfSpot, useTileLocation } from '../kit/stored';
+import type { TileDefinition } from '../tile';
 import { AppButton } from '../ui/app-button';
 import { AppInput } from '../ui/app-input';
 
@@ -81,19 +83,57 @@ function PlaceField({
     );
 }
 
+/** "latitude, longitude", the way a map copies a point. */
+const COORDINATES = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/;
+
+/**
+ * The coordinates of a saved place, to move it exactly. Both are saved at
+ * once, so a move is one change; a value off the globe puts the saved one back.
+ */
+function Coordinates({
+    place,
+    setPlace
+}: {
+    place: GeoPlace;
+    setPlace: (place: GeoPlace) => void;
+}): JSX.Element {
+    const shown = `${place.latitude}, ${place.longitude}`;
+    return (
+        <AppInput
+            key={shown}
+            aria-label="Coordinates"
+            placeholder="Latitude, longitude"
+            defaultValue={shown}
+            onBlur={(event) => {
+                const [, latitude, longitude] = (COORDINATES.exec(event.target.value) ?? []).map(
+                    Number
+                );
+                if (Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+                    setPlace({ ...place, latitude, longitude });
+                } else {
+                    event.target.value = shown;
+                }
+            }}
+        />
+    );
+}
+
 /** A saved place, looked up by city, that a person can change or clear. */
 function PlaceOption({
     title,
     description,
     label,
     place,
-    setPlace
+    setPlace,
+    coordinates = false
 }: {
     title: string;
     description: string;
     label: string;
     place: GeoPlace | null;
     setPlace: (place: GeoPlace | null) => void;
+    /** The saved coordinates stay editable, to move the place exactly. */
+    coordinates?: boolean;
 }): JSX.Element {
     const [editing, setEditing] = useState(false);
 
@@ -114,6 +154,7 @@ function PlaceOption({
                         onChange={() => setEditing(true)}
                         onClear={() => setPlace(null)}
                     />
+                    {coordinates ? <Coordinates place={place} setPlace={setPlace} /> : null}
                 </>
             ) : (
                 <PlaceField
@@ -142,6 +183,42 @@ export function DefaultLocationOption(): JSX.Element {
             label="City of the default location"
             place={place}
             setPlace={setPlace}
+        />
+    );
+}
+
+/**
+ * The location of one tile, saved in the tile's own settings section. Empty
+ * means the tile follows the device location and the default location
+ * (docs/adr/0014).
+ */
+export function TileLocationOption({ tile }: { tile: TileDefinition }): JSX.Element {
+    const [place, setPlace] = useTileLocation(tile.id);
+    return (
+        <PlaceOption
+            title={`${tile.title} location`}
+            description={`Where ${tile.title} looks when the utterance names no city. Without one, it follows the device location and the default location.`}
+            label={`City of the ${tile.title} location`}
+            place={place}
+            setPlace={setPlace}
+        />
+    );
+}
+
+/**
+ * The surf spot: found by a town's name, then moved onto the water by its
+ * coordinates. Saving it spends no Stormglass request.
+ */
+export function SurfSpotOption(): JSX.Element {
+    const [spot, setSpot] = useSurfSpot();
+    return (
+        <PlaceOption
+            title="Surf spot"
+            description="Find the town, then paste the break's coordinates from a map: the forecast needs a point on the water."
+            label="Town of the surf spot"
+            place={spot}
+            setPlace={setSpot}
+            coordinates
         />
     );
 }

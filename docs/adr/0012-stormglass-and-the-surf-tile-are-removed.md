@@ -1,6 +1,8 @@
-# Stormglass and the surf tile are removed
+---
+status: superseded by ADR-0013
+---
 
-Status: superseded by this ADR - see `0007` for the history.
+# Stormglass and the surf tile are removed
 
 The dashboard keeps two providers, OpenWeatherMap and Finnhub, and the tiles
 that serve them (weather, air quality, markets). Stormglass, the surf tile,

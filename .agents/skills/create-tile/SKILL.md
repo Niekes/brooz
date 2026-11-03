@@ -49,12 +49,19 @@ Create `src/renderer/tiles/<name>/index.tsx` from this shape:
   renders **only the content**. The shell owns the status row, loading,
   error and missing-key overlays (ADR 0010); never import `LiveFrame` or
   `ProviderData` in a tile.
-- `providers: [{ provider: X, channel: 'brooz:...' }]` per candidate.
+- `providers: [{ provider: X, channel: 'brooz:...' }]` per candidate; with
+  more than one, the tile's settings section gets a provider radio
+  (ADR 0011).
+- `place: true` when the tile shows a place - it then gets its own location
+  option in its settings section (ADR 0014); `ownPlace: true` when it owns a
+  place of its own (like the surf spot).
 - `route` when summonable; `liveKey` from the args that change the data.
 - `export const <name>Tile: TileDefinition<T> = {...}`.
 
 Then register it in `src/renderer/tiles/index.ts` (registry order = placement
-from the grid center outward, ADR 0009).
+from the grid center outward, ADR 0009). The tile appears in the settings
+between General and the providers, and in the start-tile picker in General
+(ADR 0014, ADR 0015).
 
 ## Finish
 
