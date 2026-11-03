@@ -3,7 +3,7 @@
 Keys are encrypted with Electron's `safeStorage` (macOS Keychain, Windows DPAPI,
 Linux keyring) and persisted as encrypted blobs in a file under `userData`,
 decrypted on demand per provider call — no plaintext cache in memory. When
-`safeStorage.isEncryptionAvailable()` returns false (typically Linux without a
+`safeStorage.isAsyncEncryptionAvailable()` returns false (typically Linux without a
 running keyring service), the app refuses to store keys at all and shows why
 in the settings; it never falls back to plaintext. A provider rejecting a key
 (401) never deletes or flags the stored key — the user rotates it manually,

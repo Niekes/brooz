@@ -52,16 +52,16 @@ function persist(): void {
 }
 
 /** Whether the OS offers encrypted key storage. */
-export function canStoreKeys(): boolean {
-    return safeStorage.isEncryptionAvailable();
+export async function canStoreKeys(): Promise<boolean> {
+    return safeStorage.isAsyncEncryptionAvailable();
 }
 
 /**
  * The decrypted key of a provider, or null: never set, unreadable, or the OS
  * cannot decrypt anything here. No caller outside the main process exists.
  */
-export function providerKey(provider: ProviderId): string | null {
-    if (!canStoreKeys()) {
+export async function providerKey(provider: ProviderId): Promise<string | null> {
+    if (!(await canStoreKeys())) {
         return null;
     }
     load();
@@ -70,26 +70,33 @@ export function providerKey(provider: ProviderId): string | null {
         return null;
     }
     try {
-        const key = safeStorage.decryptString(Buffer.from(blob, 'base64'));
-        return key.length > 0 ? key : null;
+        const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(
+            Buffer.from(blob, 'base64')
+        );
+        if (shouldReEncrypt) {
+            // The OS rotated its key (Linux): store the key again under the new one.
+            blobs.set(provider, (await safeStorage.encryptStringAsync(result)).toString('base64'));
+            persist();
+        }
+        return result.length > 0 ? result : null;
     } catch {
         return null;
     }
 }
 
 /** Saves a key, or refuses to when this system cannot encrypt it. */
-export function saveKey(provider: ProviderId, key: string): KeySave {
-    if (!canStoreKeys()) {
+export async function saveKey(provider: ProviderId, key: string): Promise<KeySave> {
+    if (!(await canStoreKeys())) {
         return { status: 'encryption-unavailable' };
     }
     load();
-    blobs.set(provider, safeStorage.encryptString(key).toString('base64'));
+    blobs.set(provider, (await safeStorage.encryptStringAsync(key)).toString('base64'));
     persist();
     return { status: 'ok' };
 }
 
 /** Deletes a provider's key, whenever it was stored. */
-export function deleteKey(provider: ProviderId): void {
+export async function deleteKey(provider: ProviderId): Promise<void> {
     load();
     if (blobs.delete(provider)) {
         persist();

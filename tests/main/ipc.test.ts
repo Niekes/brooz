@@ -8,8 +8,8 @@ const mockWeather = vi.fn();
 const mockAirQuality = vi.fn();
 const mockSaveKey = vi.fn();
 const mockDeleteKey = vi.fn();
-const mockProviderKey = vi.fn((_provider: unknown): string | null => null);
-const mockCanStoreKeys = vi.fn(() => true);
+const mockProviderKey = vi.fn(async (_provider: unknown): Promise<string | null> => null);
+const mockCanStoreKeys = vi.fn(async () => true);
 const mockProbeProvider = vi.fn();
 const mockStockQuotes = vi.fn();
 const mockSurf = vi.fn();
@@ -156,27 +156,29 @@ describe('the IPC handlers', () => {
         expect(mockSurf).toHaveBeenCalledTimes(1);
     });
 
-    it('saves a validated key of a provider of the manifest', () => {
-        mockSaveKey.mockReturnValue({ status: 'ok' });
+    it('saves a validated key of a provider of the manifest', async () => {
+        mockSaveKey.mockResolvedValue({ status: 'ok' });
         registerIpcHandlers();
-        expect(handlerFor('brooz:key-set')(app, 'finnhub', '  k1 ')).toEqual({ status: 'ok' });
+        expect(await handlerFor('brooz:key-set')(app, 'finnhub', '  k1 ')).toEqual({
+            status: 'ok'
+        });
         expect(mockSaveKey).toHaveBeenCalledWith('finnhub', 'k1');
     });
 
-    it('deletes a key of a provider of the manifest', () => {
+    it('deletes a key of a provider of the manifest', async () => {
         registerIpcHandlers();
-        handlerFor('brooz:key-delete')(app, 'finnhub');
+        await handlerFor('brooz:key-delete')(app, 'finnhub');
         expect(mockDeleteKey).toHaveBeenCalledWith('finnhub');
     });
 
-    it('reports a key status, never the key', () => {
+    it('reports a key status, never the key', async () => {
         registerIpcHandlers();
-        expect(handlerFor('brooz:key-status')(app, 'finnhub')).toEqual({
+        expect(await handlerFor('brooz:key-status')(app, 'finnhub')).toEqual({
             present: false,
             canStore: true
         });
-        mockProviderKey.mockReturnValue('k1');
-        expect(handlerFor('brooz:key-status')(app, 'finnhub')).toEqual({
+        mockProviderKey.mockResolvedValue('k1');
+        expect(await handlerFor('brooz:key-status')(app, 'finnhub')).toEqual({
             present: true,
             canStore: true
         });
@@ -204,19 +206,23 @@ describe('the IPC handlers', () => {
         expect(handlerFor('brooz:style-nonce')(app)).toBe('n0nce');
     });
 
-    it('validates the arguments before anything reaches the network', () => {
+    it('validates the arguments before anything reaches the network', async () => {
         registerIpcHandlers();
         expect(() => handlerFor('brooz:geocode')(app, 42)).toThrow(/must be a string/);
         expect(() => handlerFor('brooz:weather')(app, null)).toThrow(/city or coordinates/);
         expect(() => handlerFor('brooz:air-quality')(app, { latitude: 91, longitude: 0 })).toThrow(
             /out of range/
         );
-        expect(() => handlerFor('brooz:key-set')(app, 'unknown', 'k1')).toThrow(/Unknown provider/);
-        expect(() => handlerFor('brooz:key-set')(app, 'finnhub', '  ')).toThrow(
+        await expect(handlerFor('brooz:key-set')(app, 'unknown', 'k1')).rejects.toThrow(
+            /Unknown provider/
+        );
+        await expect(handlerFor('brooz:key-set')(app, 'finnhub', '  ')).rejects.toThrow(
             /1 to 256 characters/
         );
-        expect(() => handlerFor('brooz:key-delete')(app, 42)).toThrow(/Unknown provider/);
-        expect(() => handlerFor('brooz:key-status')(app, 'unknown')).toThrow(/Unknown provider/);
+        await expect(handlerFor('brooz:key-delete')(app, 42)).rejects.toThrow(/Unknown provider/);
+        await expect(handlerFor('brooz:key-status')(app, 'unknown')).rejects.toThrow(
+            /Unknown provider/
+        );
         expect(() => handlerFor('brooz:key-test')(app, 'unknown')).toThrow(/Unknown provider/);
         expect(() => handlerFor('brooz:stock-quotes')(app, 'AAPL')).toThrow(/a list of/);
         expect(() => handlerFor('brooz:stock-quotes')(app, ['ok!'])).toThrow(/at most 12/);
