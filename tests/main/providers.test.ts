@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
-const canStoreKeys = vi.fn(async () => true);
-const providerKey = vi.fn(async (_provider: string): Promise<string | null> => 'k1');
+const canStoreKeys = vi.fn(() => true);
+const providerKey = vi.fn((_provider: string): string | null => 'k1');
 const fetchQuotes = vi.fn(async (_key: string, _symbols: string[]) => ({
     status: 'ok',
     data: [{ symbol: 'AAPL', price: 1, changePercent: null }]
@@ -38,14 +38,14 @@ vi.mock('../../src/main/stormglass', () => ({
 describe('the provider side of the contract', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        canStoreKeys.mockResolvedValue(true);
-        providerKey.mockResolvedValue('k1');
+        canStoreKeys.mockReturnValue(true);
+        providerKey.mockReturnValue('k1');
     });
 
     it('tells the reason a key is missing', async () => {
         const api = await import('../../src/main/providers');
         expect(await api.missingKeyReason()).toBe('not-set');
-        canStoreKeys.mockResolvedValue(false);
+        canStoreKeys.mockReturnValue(false);
         expect(await api.missingKeyReason()).toBe('encryption-unavailable');
     });
 
@@ -61,7 +61,7 @@ describe('the provider side of the contract', () => {
     });
 
     it('answers missing-key when no key was ever set', async () => {
-        providerKey.mockResolvedValue(null);
+        providerKey.mockReturnValue(null);
         const result = await import('../../src/main/providers').then((api) =>
             api.stockQuotes(['AAPL'])
         );
@@ -70,8 +70,8 @@ describe('the provider side of the contract', () => {
     });
 
     it('answers missing-key with the encryption reason when the OS cannot store keys', async () => {
-        canStoreKeys.mockResolvedValue(false);
-        providerKey.mockResolvedValue(null);
+        canStoreKeys.mockReturnValue(false);
+        providerKey.mockReturnValue(null);
         const result = await import('../../src/main/providers').then((api) =>
             api.stockQuotes(['AAPL'])
         );
@@ -87,7 +87,7 @@ describe('the provider side of the contract', () => {
     });
 
     it('answers a probe of a missing key with the reason', async () => {
-        providerKey.mockResolvedValue(null);
+        providerKey.mockReturnValue(null);
         const result = await import('../../src/main/providers').then((api) =>
             api.probeProvider('finnhub')
         );
@@ -108,7 +108,7 @@ describe('the provider side of the contract', () => {
     });
 
     it('answers missing-key for the weather without a key', async () => {
-        providerKey.mockResolvedValue(null);
+        providerKey.mockReturnValue(null);
         const api = await import('../../src/main/providers');
         await expect(api.weather({ city: 'Oslo' })).resolves.toEqual({
             status: 'missing-key',

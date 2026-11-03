@@ -52,7 +52,7 @@ function persist(): void {
 }
 
 /** Whether the OS offers encrypted key storage. */
-export async function canStoreKeys(): Promise<boolean> {
+export function canStoreKeys(): Promise<boolean> {
     return safeStorage.isAsyncEncryptionAvailable();
 }
 
@@ -69,18 +69,36 @@ export async function providerKey(provider: ProviderId): Promise<string | null> 
     if (blob === undefined) {
         return null;
     }
+    let decrypted: Electron.DecryptStringAsyncReturnValue;
     try {
-        const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(
-            Buffer.from(blob, 'base64')
-        );
-        if (shouldReEncrypt) {
-            // The OS rotated its key (Linux): store the key again under the new one.
-            blobs.set(provider, (await safeStorage.encryptStringAsync(result)).toString('base64'));
-            persist();
-        }
-        return result.length > 0 ? result : null;
+        decrypted = await safeStorage.decryptStringAsync(Buffer.from(blob, 'base64'));
     } catch {
         return null;
+    }
+    const key = decrypted.result;
+    if (key.length === 0) {
+        return null;
+    }
+    if (decrypted.shouldReEncrypt) {
+        await reEncrypt(provider, blob, key);
+    }
+    return key;
+}
+
+/**
+ * Rewrites a blob the OS asked to re-encrypt, unless a save or delete
+ * replaced it meanwhile. The old blob still reads, so a failure retries
+ * on the next read.
+ */
+async function reEncrypt(provider: ProviderId, blob: string, key: string): Promise<void> {
+    try {
+        const fresh = (await safeStorage.encryptStringAsync(key)).toString('base64');
+        if (blobs.get(provider) === blob) {
+            blobs.set(provider, fresh);
+            persist();
+        }
+    } catch {
+        // Keep the old blob.
     }
 }
 
@@ -96,7 +114,7 @@ export async function saveKey(provider: ProviderId, key: string): Promise<KeySav
 }
 
 /** Deletes a provider's key, whenever it was stored. */
-export async function deleteKey(provider: ProviderId): Promise<void> {
+export function deleteKey(provider: ProviderId): void {
     load();
     if (blobs.delete(provider)) {
         persist();

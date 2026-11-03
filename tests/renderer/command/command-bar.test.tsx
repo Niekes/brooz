@@ -252,13 +252,13 @@ describe('the ask bar with the local model', () => {
         });
         expect(routeRequests(worker)).toHaveLength(0);
 
-        type('rain this weekend in Lisbon');
+        type('should I bring a jacket in Lisbon');
         act(() => {
             vi.advanceTimersByTime(240);
         });
         expect(screen.getByText('Thinking with the local model…')).toBeTruthy();
         const [request] = routeRequests(worker);
-        expect(request).toMatchObject({ id: 0, text: 'rain this weekend in Lisbon' });
+        expect(request).toMatchObject({ id: 0, text: 'should I bring a jacket in Lisbon' });
         expect(screen.getByLabelText('Routing')).toBeTruthy();
 
         await emit({
@@ -284,6 +284,52 @@ describe('the ask bar with the local model', () => {
         expect(onSummon).toHaveBeenCalledWith(
             expect.objectContaining({ widget: 'weather', source: 'model', confidence: 0.91 })
         );
+    });
+
+    it('keeps a confident rule hit on top when the model disagrees', async () => {
+        const { type } = setup();
+        await emit(ready);
+        type('surf');
+        act(() => {
+            vi.advanceTimersByTime(240);
+        });
+        await emit({
+            type: 'routed',
+            id: 0,
+            result: {
+                widget: 'system-stats',
+                confidence: 0.3,
+                probabilities: { 'system-stats': 0.3, weather: 0.19, surf: 0.05 },
+                latencyMs: 12
+            }
+        });
+        const options = screen.getAllByRole('option').map((option) => option.textContent);
+        expect(options).toHaveLength(3);
+        expect(options[0]).toContain('Surf');
+        expect(options[0]).toContain('rules');
+        expect(options[1]).toContain('System');
+    });
+
+    it('keeps the model answer when it agrees with the rule hit', async () => {
+        const { type } = setup();
+        await emit(ready);
+        type('weather in Rome');
+        act(() => {
+            vi.advanceTimersByTime(240);
+        });
+        await emit({
+            type: 'routed',
+            id: 0,
+            result: {
+                widget: 'weather',
+                confidence: 0.9,
+                probabilities: { weather: 0.9, 'air-quality': 0.1 },
+                latencyMs: 12
+            }
+        });
+        const [first] = screen.getAllByRole('option').map((option) => option.textContent);
+        expect(first).toContain('Weather');
+        expect(first).toContain('model');
     });
 
     it('shows the failure when the model cannot route', async () => {

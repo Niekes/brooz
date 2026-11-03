@@ -10,6 +10,7 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,6 +40,8 @@ const run = (command, args) =>
  * the original back.
  */
 function nameDevBundle() {
+    // Electron 45 downloads its binary on the first require, so a fresh install has no bundle yet.
+    createRequire(import.meta.url)('electron');
     const { productName } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
     const plist = join(ROOT, 'node_modules/electron/dist/Electron.app/Contents/Info.plist');
     for (const key of ['CFBundleName', 'CFBundleDisplayName']) {

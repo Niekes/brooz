@@ -41,11 +41,11 @@ export function registerIpcHandlers(devUrl?: string): void {
     handle(IPC_CHANNELS.weather, devUrl, (query) => weather(parsePlaceQuery(query)));
     handle(IPC_CHANNELS.airQuality, devUrl, (query) => airQuality(parsePlaceQuery(query)));
     // The key channels: the renderer writes and asks, it never reads a key.
-    handle(IPC_CHANNELS.keySet, devUrl, async (provider, key) =>
+    handle(IPC_CHANNELS.keySet, devUrl, (provider, key) =>
         saveKey(parseProviderId(provider), parseKeyInput(key))
     );
-    handle(IPC_CHANNELS.keyDelete, devUrl, async (provider) => {
-        await deleteKey(parseProviderId(provider));
+    handle(IPC_CHANNELS.keyDelete, devUrl, (provider) => {
+        deleteKey(parseProviderId(provider));
     });
     handle(IPC_CHANNELS.keyStatus, devUrl, async (provider) => ({
         present: (await providerKey(parseProviderId(provider))) !== null,

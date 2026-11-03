@@ -4,20 +4,14 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 let dir: string;
-let encryptCount = 0;
 const isAsyncEncryptionAvailable = vi.fn(async () => true);
-// A counter in the blob, so a re-encryption is visible as a new blob.
-const encryptStringAsync = vi.fn(async (key: string) =>
-    Buffer.from(`enc(${key})#${++encryptCount}`, 'utf8')
-);
+const encryptStringAsync = vi.fn(async (key: string) => Buffer.from(`enc(${key})`, 'utf8'));
 const decryptStringAsync = vi.fn(async (blob: Buffer) => {
-    // The optional counter suffix is this suite's; blobs written by the
-    // deprecated sync encryptString have none and stay readable.
-    const match = /^enc\((.*)\)(?:#\d+)?$/.exec(blob.toString('utf8'));
-    if (!match) {
+    const text = blob.toString('utf8');
+    if (!text.startsWith('enc(') || !text.endsWith(')')) {
         throw new Error('unreadable blob');
     }
-    return { result: match[1], shouldReEncrypt: false };
+    return { result: text.slice(4, -1), shouldReEncrypt: false };
 });
 
 vi.mock('electron', () => ({
@@ -40,7 +34,6 @@ const readStore = (): Record<string, unknown> => JSON.parse(readFileSync(file(),
 describe('the provider key store', () => {
     beforeEach(() => {
         dir = mkdtempSync(join(tmpdir(), 'brooz-keys-'));
-        encryptCount = 0;
         isAsyncEncryptionAvailable.mockResolvedValue(true);
         vi.resetModules();
     });
@@ -100,26 +93,6 @@ describe('the provider key store', () => {
         expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
-    it('re-encrypts and persists a key when the OS rotated its key', async () => {
-        const keys = await store();
-        await keys.saveKey('finnhub', 'k1');
-        const before = readStore().finnhub;
-        const encryptsBefore = encryptStringAsync.mock.calls.length;
-        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
-        expect(await keys.providerKey('finnhub')).toBe('k1');
-        expect(encryptStringAsync.mock.calls.length).toBe(encryptsBefore + 1);
-        expect(readStore().finnhub).not.toBe(before);
-    });
-
-    it('reads a blob written by the deprecated sync encryptString', async () => {
-        writeFileSync(
-            file(),
-            JSON.stringify({ finnhub: Buffer.from('enc(k1)').toString('base64') })
-        );
-        const keys = await store();
-        expect(await keys.providerKey('finnhub')).toBe('k1');
-    });
-
     it('treats an unreadable blob as no key', async () => {
         writeFileSync(
             file(),
@@ -139,10 +112,10 @@ describe('the provider key store', () => {
     it('deletes a key from memory and from the file', async () => {
         const keys = await store();
         await keys.saveKey('finnhub', 'k1');
-        await keys.deleteKey('finnhub');
+        keys.deleteKey('finnhub');
         expect(await keys.providerKey('finnhub')).toBe(null);
         expect(readStore()).toEqual({});
-        await keys.deleteKey('finnhub');
+        keys.deleteKey('finnhub');
         expect(readStore()).toEqual({});
     });
 
@@ -150,9 +123,38 @@ describe('the provider key store', () => {
         await (await store()).saveKey('finnhub', 'k1');
         vi.resetModules();
         const keys = await store();
-        await keys.deleteKey('finnhub');
+        keys.deleteKey('finnhub');
         expect(await keys.providerKey('finnhub')).toBe(null);
         expect(readStore()).toEqual({});
+    });
+
+    it('re-encrypts a key the OS asks to, and still reads it on failure', async () => {
+        const keys = await store();
+        await keys.saveKey('finnhub', 'k1');
+        const before = readStore().finnhub;
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        encryptStringAsync.mockResolvedValueOnce(Buffer.from('enc(k1)v2', 'utf8'));
+        expect(await keys.providerKey('finnhub')).toBe('k1');
+        expect(readStore().finnhub).not.toBe(before);
+
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        encryptStringAsync.mockRejectedValueOnce(new Error('keychain locked'));
+        expect(await keys.providerKey('finnhub')).toBe('k1');
+    });
+
+    it('never brings back a key deleted while it was re-encrypted', async () => {
+        const keys = await store();
+        await keys.saveKey('finnhub', 'k1');
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        let finish: (blob: Buffer<ArrayBuffer>) => void = () => undefined;
+        encryptStringAsync.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+        const read = keys.providerKey('finnhub');
+        await vi.waitFor(() => expect(encryptStringAsync).toHaveBeenCalledTimes(2));
+        keys.deleteKey('finnhub');
+        finish(Buffer.from('enc(k1)v2', 'utf8'));
+        expect(await read).toBe('k1');
+        expect(readStore()).toEqual({});
+        expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
     it('reports whether this system can store keys', async () => {

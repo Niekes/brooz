@@ -29,7 +29,8 @@
         "lint:fallow": "fallow dead-code --ci --format ${FALLOW_FORMAT:-human} && fallow health --ci --coverage-gaps --min-score 97 --format ${FALLOW_FORMAT:-human} && fallow dupes --ci --format ${FALLOW_FORMAT:-human}",
         "hooks:install": "fallow hooks install --target git && fallow hooks install --target agent --agent claude && fallow hooks install --target agent --agent codex",
         "smoke": "node scripts/smoke.mjs",
-        "verify": "npm run typecheck && npm run lint && npm run coverage"
+        "verify": "npm run typecheck && npm run lint && npm run coverage",
+        "bench:model": "vp test run tests/renderer/command/model-accuracy.test.ts"
     },
     "dependencies": {
         "ahooks": "^3.11.0",
