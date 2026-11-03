@@ -105,19 +105,35 @@ function StormglassIcon({ className }: { className?: string }): JSX.Element {
     );
 }
 
-/** Finnhub's mark: a rising chart line on a rounded square, in green. */
+/** Finnhub's mark: the brand's green gradient wordmark glyph. */
 function FinnhubIcon({ className }: { className?: string }): JSX.Element {
     return (
-        <BrandSvg
-            id="finnhub"
-            viewBox="0 0 24 24"
-            stroke="#3ddc97"
-            strokeWidth={2}
-            className={className}
-        >
-            <rect x="3" y="3" width="18" height="18" rx="4.5" />
-            <path d="M7.5 15l3-3.5 2.5 2.5 4.5-5" />
-            <path d="M14.5 9h3v3" />
+        <BrandSvg id="finnhub" viewBox="40 94 656 420" className={className}>
+            <defs>
+                <linearGradient id="finnhub-a" x1="136" x2="693" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stopColor="#6db530" />
+                    <stop offset="1" stopColor="#3dac58" />
+                </linearGradient>
+                <linearGradient id="finnhub-c">
+                    <stop offset="0" stopColor="#6db530" />
+                    <stop offset="1" stopColor="#3dac58" />
+                </linearGradient>
+                <mask id="finnhub-b">
+                    <path fill="#fff" d="M40 94h656v420H40z" />
+                    <rect width="341" height="104" x="26" y="267" rx="52" />
+                    <rect width="229" height="92" x="26" y="362" rx="46" />
+                </mask>
+            </defs>
+            <g fill="url(#finnhub-a)" mask="url(#finnhub-b)">
+                <ellipse cx="334" cy="277" rx="198" ry="181" />
+                <path d="M180 222h372.5v281H180z" />
+                <circle cx="552.5" cy="362.5" r="140.5" />
+            </g>
+            <g fill="url(#finnhub-c)">
+                <rect width="309" height="72" x="42" y="283" rx="36" />
+                <rect width="197" height="60" x="42" y="378" rx="30" />
+                <rect width="109" height="55" x="46" y="456" rx="27.5" />
+            </g>
         </BrandSvg>
     );
 }
