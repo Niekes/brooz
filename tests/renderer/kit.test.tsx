@@ -17,7 +17,15 @@ import type { ProviderOutcome } from '../../src/shared/providers';
 import { airCategory } from '../../src/renderer/shell/kit/air';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
 import { HUES, clock, pick, rng } from '../../src/renderer/shell/kit/seed';
-import { inUnit, weatherInfo, weatherTone } from '../../src/renderer/shell/kit/weather';
+import {
+    inUnit,
+    lengthInUnit,
+    lengthUnit,
+    speedInUnit,
+    speedUnit,
+    weatherInfo,
+    weatherTone
+} from '../../src/renderer/shell/kit/weather';
 import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 describe('the seeded data', () => {
@@ -130,6 +138,22 @@ describe('the weather codes', () => {
         expect(inUnit(21.4, 'C')).toBe(21);
         expect(inUnit(21.4, 'F')).toBe(71);
         expect(inUnit(-40, 'F')).toBe(-40);
+    });
+
+    it('names the length and speed unit of the temperature choice', () => {
+        expect(lengthUnit('C')).toBe('m');
+        expect(lengthUnit('F')).toBe('ft');
+        expect(speedUnit('C')).toBe('km/h');
+        expect(speedUnit('F')).toBe('mph');
+    });
+
+    it('converts a length and a speed before it rounds', () => {
+        expect(lengthInUnit(1.5, 'C')).toBe(2);
+        expect(lengthInUnit(1.5, 'F')).toBe(5);
+        expect(lengthInUnit(0.3, 'F')).toBe(1);
+        expect(speedInUnit(12, 'C')).toBe(12);
+        expect(speedInUnit(12, 'F')).toBe(7);
+        expect(speedInUnit(1.609344, 'F')).toBe(1);
     });
 });
 

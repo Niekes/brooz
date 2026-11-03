@@ -549,24 +549,23 @@ describe('the live surf tile', () => {
         expect(invoke).not.toHaveBeenCalled();
     });
 
-    it('shows the swell of the current hour, the next hours and the coming tides', async () => {
+    it('shows the card: rating, best window, the day as bars, range, wind and tides', async () => {
         const invoke = stubBrooz({ 'brooz:surf': () => ok(FORECAST) });
         render(<LiveSurf {...live} args={{ city: 'Biarritz' }} />);
-        expect(await screen.findByText('1.1 m')).toBeTruthy();
+        expect(await screen.findByText('great')).toBeTruthy();
         expect(invoke).toHaveBeenCalledWith('brooz:surf', { latitude: 38.99, longitude: -9.42 });
         expect(screen.getByText('Ericeira')).toBeTruthy();
-        expect(screen.getByText('Swell 11 s WNW')).toBeTruthy();
-        expect(screen.getByText('Wind 12 km/h E')).toBeTruthy();
-        expect(screen.getByText('Water 17°')).toBeTruthy();
-        expect(['12:00', '15:00', '18:00'].map((time) => screen.getByText(time))).toHaveLength(3);
-        expect(screen.getByText('2.0 m')).toBeTruthy();
-        expect(screen.getByText('High 14:10')).toBeTruthy();
-        expect(screen.getByText('Low 20:40')).toBeTruthy();
+        expect(screen.getByText('Best Surf')).toBeTruthy();
+        expect(screen.getByText('8 AM – 12 PM')).toBeTruthy();
+        expect(['6 AM', '12 PM', '6 PM'].map((label) => screen.getByText(label))).toHaveLength(3);
+        expect(screen.getByText('1-2 m · 11 s')).toBeTruthy();
+        expect(screen.getByText('12 km/h')).toBeTruthy();
+        expect(screen.getByText('High 14:10 · Low 20:40')).toBeTruthy();
         expect(screen.queryByText('Low 08:30')).toBe(null);
         expect(screen.getByText('updated 08:00')).toBeTruthy();
     });
 
-    it('shows the water in Fahrenheit, a dash for what is missing, and no hours past the forecast', async () => {
+    it('shows feet and mph in Fahrenheit, and a dash for what is missing', async () => {
         localStorage.setItem('brooz.temperature.unit', JSON.stringify('F'));
         vi.setSystemTime(Date.UTC(2026, 10, 2, 7));
         const sparse = {
@@ -584,10 +583,49 @@ describe('the live surf tile', () => {
         };
         stubBrooz({ 'brooz:surf': () => ok(sparse) });
         render(<LiveSurf {...live} args={{}} />);
-        expect(await screen.findByText('1.0 m')).toBeTruthy();
-        expect(screen.getByText('Water 63°')).toBeTruthy();
-        expect(screen.getByText('Swell – –')).toBeTruthy();
-        expect(screen.queryByText('09:00')).toBe(null);
+        expect(await screen.findByText('fair')).toBeTruthy();
+        expect(screen.getByText('8 AM – 10 AM')).toBeTruthy();
+        expect(screen.getByText('3-4 ft · –')).toBeTruthy();
+        expect(screen.getByText('–')).toBeTruthy();
+    });
+
+    it('says no surf today when even the best window is poor', async () => {
+        const flat = {
+            ...FORECAST,
+            hours: Array.from({ length: 12 }, (_, index) => ({
+                ...hour(index),
+                waveHeightM: 0.2,
+                swellPeriodS: 4,
+                windKmh: 40
+            }))
+        };
+        stubBrooz({ 'brooz:surf': () => ok(flat) });
+        render(<LiveSurf {...live} args={{}} />);
+        expect(await screen.findByText('No surf today')).toBeTruthy();
+        expect(screen.getByText('poor')).toBeTruthy();
+    });
+
+    it('renders a stub bar for an hour without wave data inside the day', async () => {
+        const mixed = {
+            ...FORECAST,
+            hours: [{ ...hour(0), waveHeightM: null }, hour(1), hour(2), hour(3), hour(4)]
+        };
+        stubBrooz({ 'brooz:surf': () => ok(mixed) });
+        render(<LiveSurf {...live} args={{}} />);
+        expect(await screen.findByText('9 AM – 1 PM')).toBeTruthy();
+        expect(screen.getByText('1-1 m · 11 s')).toBeTruthy();
+    });
+
+    it('shows no day bars when every forecast hour is past 6 PM at the spot', async () => {
+        vi.setSystemTime(Date.UTC(2026, 10, 2, 22, 30));
+        const night = {
+            ...FORECAST,
+            hours: [20, 21, 22].map((h) => ({ ...hour(0), time: at(h) }))
+        };
+        stubBrooz({ 'brooz:surf': () => ok(night) });
+        render(<LiveSurf {...live} args={{}} />);
+        expect(await screen.findByText('No surf today')).toBeTruthy();
+        expect(screen.getByText('– · 11 s')).toBeTruthy();
     });
 
     it('asks to move the spot onto the water when there is no wave data', async () => {
