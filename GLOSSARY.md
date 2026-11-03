@@ -23,3 +23,15 @@ _Avoid_: tab, page, panel
 **API key**:
 The credential that unlocks a provider's data for the tiles that need it.
 _Avoid_: token, secret, password
+
+**Surf spot**:
+The one point on the water the surf tile forecasts; saved in the settings by its town and its coordinates.
+_Avoid_: favorite, break, location
+
+**Rating**:
+The surf tile's verdict for an hour - great, good, fair or poor - computed from wave height, swell period and wind, because the provider has no rating of its own.
+_Avoid_: status, grade, score
+
+**Best window**:
+The contiguous hours with the highest average rating, shown as the surf tile's best-surf line.
+_Avoid_: peak hours, best time
