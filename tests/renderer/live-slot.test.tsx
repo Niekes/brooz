@@ -9,12 +9,11 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { LiveSlot } from '../../src/renderer/shell/grid/live-slot';
-import { useDefaultLocation } from '../../src/renderer/shell/kit/hooks';
+import { useDefaultLocation, useProviderData } from '../../src/renderer/shell/kit/hooks';
 import type { SummonRequest, TileDefinition } from '../../src/renderer/shell/tile';
 import { airQualityTile } from '../../src/renderer/tiles/airQuality';
 import { tickerTile } from '../../src/renderer/tiles/ticker';
 import { weatherTile } from '../../src/renderer/tiles/weather';
-import type { WeatherSnapshot } from '../../src/shared/weather';
 import { FINNHUB } from '../../src/shared/providers';
 import { PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
@@ -58,6 +57,38 @@ describe('the live slot: the shell chrome around a summoned tile', () => {
         render(<LiveSlot tile={keyless} request={request('plain')} />);
         expect(await screen.findByText('got x')).toBeTruthy();
         expect(screen.getByText('Plain')).toBeTruthy();
+    });
+
+    it("loads over the stored chosen provider's channel, not the first candidate's", async () => {
+        const { OPENWEATHERMAP } = await import('../../src/shared/providers');
+        const multi: TileDefinition = {
+            id: 'multi',
+            title: 'Multi',
+            Component: () => null,
+            Live: ({ data }) => <p>got {String(data)}</p>,
+            providers: [
+                { provider: OPENWEATHERMAP, channel: 'brooz:weather' },
+                { provider: FINNHUB, channel: 'brooz:stock-quotes' }
+            ],
+            liveData: (_args, channel) => ({
+                pending: false,
+                notice: null,
+                state: useProviderData(channel, 'k', [])
+            })
+        };
+        const invoke = stubBrooz({
+            'brooz:weather': () => ({ status: 'ok', data: 'weather-data' }),
+            'brooz:stock-quotes': () => ({ status: 'ok', data: 'quotes-data' })
+        });
+        const first = render(<LiveSlot tile={multi} request={request('multi')} />);
+        expect(await screen.findByText('got weather-data')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:weather');
+        first.unmount();
+
+        localStorage.setItem('brooz.tile.multi.provider', '"finnhub"');
+        render(<LiveSlot tile={multi} request={request('multi')} />);
+        expect(await screen.findByText('got quotes-data')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:stock-quotes');
     });
 
     it('renders nothing for a live tile without a provider', () => {
@@ -152,7 +183,7 @@ describe('the live slot: the shell chrome around a summoned tile', () => {
                 data: {
                     ...WEATHER,
                     place: { ...PLACE, name: 'Your location' }
-                } satisfies WeatherSnapshot
+                } satisfies typeof WEATHER
             }),
             'brooz:air-quality': () => new Promise(() => undefined)
         });
