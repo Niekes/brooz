@@ -52,16 +52,16 @@ function persist(): void {
 }
 
 /** Whether the OS offers encrypted key storage. */
-export function canStoreKeys(): boolean {
-    return safeStorage.isEncryptionAvailable();
+export function canStoreKeys(): Promise<boolean> {
+    return safeStorage.isAsyncEncryptionAvailable();
 }
 
 /**
  * The decrypted key of a provider, or null: never set, unreadable, or the OS
  * cannot decrypt anything here. No caller outside the main process exists.
  */
-export function providerKey(provider: ProviderId): string | null {
-    if (!canStoreKeys()) {
+export async function providerKey(provider: ProviderId): Promise<string | null> {
+    if (!(await canStoreKeys())) {
         return null;
     }
     load();
@@ -69,21 +69,46 @@ export function providerKey(provider: ProviderId): string | null {
     if (blob === undefined) {
         return null;
     }
+    let decrypted: Electron.DecryptStringAsyncReturnValue;
     try {
-        const key = safeStorage.decryptString(Buffer.from(blob, 'base64'));
-        return key.length > 0 ? key : null;
+        decrypted = await safeStorage.decryptStringAsync(Buffer.from(blob, 'base64'));
     } catch {
         return null;
+    }
+    const key = decrypted.result;
+    if (key.length === 0) {
+        return null;
+    }
+    if (decrypted.shouldReEncrypt) {
+        await reEncrypt(provider, blob, key);
+    }
+    return key;
+}
+
+/**
+ * Rewrites a blob the OS asked to re-encrypt, unless a save or delete
+ * replaced it meanwhile. The old blob still reads, so a failure retries
+ * on the next read.
+ */
+async function reEncrypt(provider: ProviderId, blob: string, key: string): Promise<void> {
+    try {
+        const fresh = (await safeStorage.encryptStringAsync(key)).toString('base64');
+        if (blobs.get(provider) === blob) {
+            blobs.set(provider, fresh);
+            persist();
+        }
+    } catch {
+        // Keep the old blob.
     }
 }
 
 /** Saves a key, or refuses to when this system cannot encrypt it. */
-export function saveKey(provider: ProviderId, key: string): KeySave {
-    if (!canStoreKeys()) {
+export async function saveKey(provider: ProviderId, key: string): Promise<KeySave> {
+    if (!(await canStoreKeys())) {
         return { status: 'encryption-unavailable' };
     }
     load();
-    blobs.set(provider, safeStorage.encryptString(key).toString('base64'));
+    blobs.set(provider, (await safeStorage.encryptStringAsync(key)).toString('base64'));
     persist();
     return { status: 'ok' };
 }

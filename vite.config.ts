@@ -52,7 +52,7 @@ const browserApiProperties = [
     }
 ];
 // ahooks' storage hooks keep each call apart unless told to listen; every
-// stored value goes through useStoredValue, which always does (docs/adr/0007).
+// stored value goes through useStoredValue, which always does (docs/adr/0008).
 const ahooksStorage = {
     name: 'ahooks',
     importNames: ['useLocalStorageState', 'useSessionStorageState'],

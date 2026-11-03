@@ -47,9 +47,9 @@ export function registerIpcHandlers(devUrl?: string): void {
     handle(IPC_CHANNELS.keyDelete, devUrl, (provider) => {
         deleteKey(parseProviderId(provider));
     });
-    handle(IPC_CHANNELS.keyStatus, devUrl, (provider) => ({
-        present: providerKey(parseProviderId(provider)) !== null,
-        canStore: canStoreKeys()
+    handle(IPC_CHANNELS.keyStatus, devUrl, async (provider) => ({
+        present: (await providerKey(parseProviderId(provider))) !== null,
+        canStore: await canStoreKeys()
     }));
     handle(IPC_CHANNELS.keyTest, devUrl, (provider) => probeProvider(parseProviderId(provider)));
     handle(IPC_CHANNELS.stockQuotes, devUrl, (symbols) => stockQuotes(parseSymbols(symbols)));

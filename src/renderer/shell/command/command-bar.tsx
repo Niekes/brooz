@@ -17,6 +17,7 @@ import {
     StatusLine,
     SuggestionList,
     isLowConfidence,
+    mergeMatches,
     titleOf
 } from './command-parts';
 import { routedTile } from './manifest';
@@ -101,7 +102,7 @@ interface AskBar {
 
 /**
  * The state of the bar. The rules answer immediately; once the local model
- * is ready, only the model decides.
+ * is ready, it ranks, but a confident rule hit stays on top.
  */
 function useAskBar(
     onSummon: (request: SummonRequest) => void,
@@ -117,7 +118,8 @@ function useAskBar(
     const enableModel = useModelWarmup(model.status, model.load);
     useFocusShortcut(inputRef);
 
-    const suggestions = model.status === 'ready' ? routing.matches : parsed.matches;
+    const suggestions =
+        model.status === 'ready' ? mergeMatches(parsed.matches, routing.matches) : parsed.matches;
     const activeIndex = Math.min(selected, Math.max(suggestions.length - 1, 0));
     const active: CommandMatch | undefined = suggestions[activeIndex];
     useAutoSummon(query, active, suppress, last, onSummon);
@@ -221,9 +223,10 @@ function useAskActions(
 /**
  * The ask bar: one always-visible input that routes an English utterance
  * to a tile. The rules answer immediately; the local model warms up in the
- * background and, once ready, decides alone. A confident route summons its
- * tile after a short pause (auto-summon), Enter summons the selection with
- * everything the utterance said.
+ * background and, once ready, ranks the tiles; a confident rule hit stays
+ * on top. A confident route summons its tile after a short pause
+ * (auto-summon), Enter summons the selection with everything the utterance
+ * said.
  */
 export function CommandBar({
     onSummon,

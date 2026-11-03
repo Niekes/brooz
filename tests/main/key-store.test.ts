@@ -4,22 +4,22 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 let dir: string;
-const isEncryptionAvailable = vi.fn(() => true);
-const encryptString = vi.fn((key: string) => Buffer.from(`enc(${key})`, 'utf8'));
-const decryptString = vi.fn((blob: Buffer) => {
+const isAsyncEncryptionAvailable = vi.fn(async () => true);
+const encryptStringAsync = vi.fn(async (key: string) => Buffer.from(`enc(${key})`, 'utf8'));
+const decryptStringAsync = vi.fn(async (blob: Buffer) => {
     const text = blob.toString('utf8');
     if (!text.startsWith('enc(') || !text.endsWith(')')) {
         throw new Error('unreadable blob');
     }
-    return text.slice(4, -1);
+    return { result: text.slice(4, -1), shouldReEncrypt: false };
 });
 
 vi.mock('electron', () => ({
     app: { getPath: () => dir },
     safeStorage: {
-        isEncryptionAvailable: () => isEncryptionAvailable(),
-        encryptString: (key: string) => encryptString(key),
-        decryptString: (blob: Buffer) => decryptString(blob)
+        isAsyncEncryptionAvailable: () => isAsyncEncryptionAvailable(),
+        encryptStringAsync: (key: string) => encryptStringAsync(key),
+        decryptStringAsync: (blob: Buffer) => decryptStringAsync(blob)
     }
 }));
 
@@ -34,7 +34,7 @@ const readStore = (): Record<string, unknown> => JSON.parse(readFileSync(file(),
 describe('the provider key store', () => {
     beforeEach(() => {
         dir = mkdtempSync(join(tmpdir(), 'brooz-keys-'));
-        isEncryptionAvailable.mockReturnValue(true);
+        isAsyncEncryptionAvailable.mockResolvedValue(true);
         vi.resetModules();
     });
 
@@ -44,53 +44,53 @@ describe('the provider key store', () => {
 
     it('has no key before one is saved', async () => {
         const keys = await store();
-        expect(keys.providerKey('finnhub')).toBe(null);
+        expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
     it('saves a key encrypted and reads it back', async () => {
         const keys = await store();
-        expect(keys.saveKey('finnhub', 's3cret')).toEqual({ status: 'ok' });
+        expect(await keys.saveKey('finnhub', 's3cret')).toEqual({ status: 'ok' });
         const stored = readStore();
         expect(stored).toEqual({ finnhub: expect.any(String) });
         expect(JSON.stringify(stored)).not.toContain('s3cret');
-        expect(keys.providerKey('finnhub')).toBe('s3cret');
+        expect(await keys.providerKey('finnhub')).toBe('s3cret');
     });
 
     it('reads a key a previous session stored', async () => {
-        (await store()).saveKey('finnhub', 'k1');
+        await (await store()).saveKey('finnhub', 'k1');
         vi.resetModules();
-        expect((await store()).providerKey('finnhub')).toBe('k1');
+        expect(await (await store()).providerKey('finnhub')).toBe('k1');
     });
 
     it('refuses to save when the OS cannot encrypt, and writes nothing', async () => {
-        isEncryptionAvailable.mockReturnValue(false);
+        isAsyncEncryptionAvailable.mockResolvedValue(false);
         const keys = await store();
-        expect(keys.saveKey('finnhub', 'k1')).toEqual({ status: 'encryption-unavailable' });
+        expect(await keys.saveKey('finnhub', 'k1')).toEqual({ status: 'encryption-unavailable' });
         expect(existsSync(file())).toBe(false);
-        expect(encryptString).not.toHaveBeenCalled();
-        expect(keys.providerKey('finnhub')).toBe(null);
+        expect(encryptStringAsync).not.toHaveBeenCalled();
+        expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
     it('treats a stored key as missing when the OS cannot decrypt', async () => {
         const keys = await store();
-        keys.saveKey('finnhub', 'k1');
-        isEncryptionAvailable.mockReturnValue(false);
-        expect(keys.providerKey('finnhub')).toBe(null);
+        await keys.saveKey('finnhub', 'k1');
+        isAsyncEncryptionAvailable.mockResolvedValue(false);
+        expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
     it('survives a corrupt store file', async () => {
         writeFileSync(file(), '{ not json');
         const keys = await store();
-        expect(keys.providerKey('finnhub')).toBe(null);
-        expect(keys.saveKey('finnhub', 'k2')).toEqual({ status: 'ok' });
-        expect(keys.providerKey('finnhub')).toBe('k2');
+        expect(await keys.providerKey('finnhub')).toBe(null);
+        expect(await keys.saveKey('finnhub', 'k2')).toEqual({ status: 'ok' });
+        expect(await keys.providerKey('finnhub')).toBe('k2');
     });
 
     it('treats a key that decrypts to nothing as no key', async () => {
         const keys = await store();
-        keys.saveKey('finnhub', 'k1');
-        decryptString.mockReturnValueOnce('');
-        expect(keys.providerKey('finnhub')).toBe(null);
+        await keys.saveKey('finnhub', 'k1');
+        decryptStringAsync.mockResolvedValueOnce({ result: '', shouldReEncrypt: false });
+        expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
     it('treats an unreadable blob as no key', async () => {
@@ -99,37 +99,66 @@ describe('the provider key store', () => {
             JSON.stringify({ finnhub: Buffer.from('garbage').toString('base64') })
         );
         const keys = await store();
-        expect(keys.providerKey('finnhub')).toBe(null);
+        expect(await keys.providerKey('finnhub')).toBe(null);
     });
 
     it('ignores entries of providers the manifest does not know', async () => {
         writeFileSync(file(), JSON.stringify({ unknown: 'enc(x)' }));
         const keys = await store();
-        keys.saveKey('finnhub', 'k1');
+        await keys.saveKey('finnhub', 'k1');
         expect(readStore()).toEqual({ finnhub: expect.any(String) });
     });
 
     it('deletes a key from memory and from the file', async () => {
         const keys = await store();
-        keys.saveKey('finnhub', 'k1');
+        await keys.saveKey('finnhub', 'k1');
         keys.deleteKey('finnhub');
-        expect(keys.providerKey('finnhub')).toBe(null);
+        expect(await keys.providerKey('finnhub')).toBe(null);
         expect(readStore()).toEqual({});
         keys.deleteKey('finnhub');
         expect(readStore()).toEqual({});
     });
 
     it('deletes a key a previous session stored', async () => {
-        (await store()).saveKey('finnhub', 'k1');
+        await (await store()).saveKey('finnhub', 'k1');
         vi.resetModules();
         const keys = await store();
         keys.deleteKey('finnhub');
-        expect(keys.providerKey('finnhub')).toBe(null);
+        expect(await keys.providerKey('finnhub')).toBe(null);
         expect(readStore()).toEqual({});
     });
 
+    it('re-encrypts a key the OS asks to, and still reads it on failure', async () => {
+        const keys = await store();
+        await keys.saveKey('finnhub', 'k1');
+        const before = readStore().finnhub;
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        encryptStringAsync.mockResolvedValueOnce(Buffer.from('enc(k1)v2', 'utf8'));
+        expect(await keys.providerKey('finnhub')).toBe('k1');
+        expect(readStore().finnhub).not.toBe(before);
+
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        encryptStringAsync.mockRejectedValueOnce(new Error('keychain locked'));
+        expect(await keys.providerKey('finnhub')).toBe('k1');
+    });
+
+    it('never brings back a key deleted while it was re-encrypted', async () => {
+        const keys = await store();
+        await keys.saveKey('finnhub', 'k1');
+        decryptStringAsync.mockResolvedValueOnce({ result: 'k1', shouldReEncrypt: true });
+        let finish: (blob: Buffer<ArrayBuffer>) => void = () => undefined;
+        encryptStringAsync.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+        const read = keys.providerKey('finnhub');
+        await vi.waitFor(() => expect(encryptStringAsync).toHaveBeenCalledTimes(2));
+        keys.deleteKey('finnhub');
+        finish(Buffer.from('enc(k1)v2', 'utf8'));
+        expect(await read).toBe('k1');
+        expect(readStore()).toEqual({});
+        expect(await keys.providerKey('finnhub')).toBe(null);
+    });
+
     it('reports whether this system can store keys', async () => {
-        isEncryptionAvailable.mockReturnValue(false);
-        expect((await store()).canStoreKeys()).toBe(false);
+        isAsyncEncryptionAvailable.mockResolvedValue(false);
+        expect(await (await store()).canStoreKeys()).toBe(false);
     });
 });
