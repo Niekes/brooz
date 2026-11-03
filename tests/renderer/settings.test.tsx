@@ -12,19 +12,29 @@ describe('the settings', () => {
     const status = () =>
         stubBrooz({ 'brooz:key-status': () => ({ present: false, canStore: true }) });
 
-    it('opens on the general section, then lists a section for every tile with a provider', async () => {
+    it('opens on the general section, then lists a marked section for every provider', async () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        const buttons = within(nav).getAllByRole('button');
+        expect(buttons.map((button) => button.textContent)).toEqual([
+            'General',
+            'OpenWeatherMap',
+            'Finnhub',
+            'Stormglass'
+        ]);
         expect(
-            within(nav)
-                .getAllByRole('button')
-                .map((button) => button.textContent)
-        ).toEqual(['General', 'Weather', 'Markets', 'Air Quality', 'Surf']);
+            buttons.map((button) => button.querySelector('[data-icon]')?.getAttribute('data-icon'))
+        ).toEqual([undefined, 'openweathermap', 'finnhub', 'stormglass']);
+        expect(nav.querySelector('[data-slot="separator"]')).toBeTruthy();
+        expect(within(nav).getByText('Provider keys')).toBeTruthy();
         expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
-        fireEvent.click(screen.getByRole('button', { name: 'Weather' }));
+        fireEvent.click(screen.getByRole('button', { name: 'OpenWeatherMap' }));
         expect(await screen.findByText('No key')).toBeTruthy();
         expect(screen.getByLabelText('OpenWeatherMap API key')).toBeTruthy();
+        expect(screen.getByText('Serves Weather and Air Quality')).toBeTruthy();
+        const heading = screen.getByRole('heading', { name: 'OpenWeatherMap' });
+        expect(heading.querySelector('[data-icon="openweathermap"]')).toBeTruthy();
     });
 
     it('turns the device location off and on in the general section, and nowhere else', () => {
@@ -35,7 +45,7 @@ describe('the settings', () => {
         fireEvent.click(option);
         expect(option.checked).toBe(false);
         expect(localStorage.getItem('brooz.location.enabled')).toBe('false');
-        fireEvent.click(screen.getByRole('button', { name: 'Weather' }));
+        fireEvent.click(screen.getByRole('button', { name: 'OpenWeatherMap' }));
         expect(screen.queryByLabelText(/Use device location/)).toBe(null);
         expect(screen.queryByLabelText('City of the default location')).toBe(null);
     });
@@ -46,7 +56,7 @@ describe('the settings', () => {
         expect((screen.getByLabelText('Celsius') as HTMLInputElement).checked).toBe(true);
         fireEvent.click(screen.getByLabelText('Fahrenheit'));
         expect(localStorage.getItem('brooz.temperature.unit')).toBe('"F"');
-        fireEvent.click(screen.getByRole('button', { name: 'Weather' }));
+        fireEvent.click(screen.getByRole('button', { name: 'OpenWeatherMap' }));
         expect(screen.queryByLabelText('Celsius')).toBe(null);
     });
 
@@ -127,8 +137,9 @@ describe('the settings', () => {
             'brooz:geocode': () => ({ ...PLACE, name: 'Ericeira', latitude: 38.96 })
         });
         render(<Settings open onOpenChange={vi.fn()} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Surf' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Stormglass' }));
         expect(screen.getByLabelText('Stormglass API key')).toBeTruthy();
+        expect(screen.getByText('Serves Surf')).toBeTruthy();
         fireEvent.change(screen.getByLabelText('Town of the surf spot'), {
             target: { value: 'Ericeira' }
         });
@@ -157,26 +168,34 @@ describe('the settings', () => {
     it('opens the section a person picks', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Markets' }));
-        expect(screen.getByRole('heading', { name: 'Markets' })).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Finnhub' }));
+        expect(screen.getByRole('heading', { name: 'Finnhub' })).toBeTruthy();
         expect(screen.getByLabelText('Finnhub API key')).toBeTruthy();
+        expect(screen.getByText('Serves Markets')).toBeTruthy();
     });
 
-    it('filters the sections by title, provider name and the general options', () => {
+    it('filters the sections by provider, the tiles they serve and the general options', () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const search = screen.getByLabelText('Search settings');
         fireEvent.change(search, { target: { value: 'finn' } });
-        expect(screen.getByRole('heading', { name: 'Markets' })).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'Finnhub' })).toBeTruthy();
+        // Only one group matches, so the separator and its label go too.
+        expect(screen.queryByText('Provider keys')).toBe(null);
         fireEvent.change(search, { target: { value: ' AIR ' } });
-        expect(screen.getByRole('heading', { name: 'Air Quality' })).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'OpenWeatherMap' })).toBeTruthy();
+        fireEvent.change(search, { target: { value: 'surf' } });
+        expect(screen.getByRole('heading', { name: 'Stormglass' })).toBeTruthy();
         fireEvent.change(search, { target: { value: 'Fahrenheit' } });
         expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
+        expect(screen.queryByText('Provider keys')).toBe(null);
         fireEvent.change(search, { target: { value: 'location' } });
         expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
         fireEvent.change(search, { target: { value: 'nothing like it' } });
         expect(screen.getByText('No setting matches.')).toBeTruthy();
         expect(screen.queryByRole('region')).toBe(null);
+        fireEvent.change(search, { target: { value: '' } });
+        expect(screen.getByText('Provider keys')).toBeTruthy();
     });
 
     it('renders nothing while it is closed', () => {

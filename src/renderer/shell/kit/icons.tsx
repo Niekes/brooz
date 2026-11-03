@@ -1,4 +1,5 @@
-import type { JSX } from 'react';
+import type { ComponentType, JSX } from 'react';
+import type { ProviderId } from '../../../shared/providers';
 
 export type CondName = 'sun' | 'cloud' | 'rain' | 'snow' | 'storm';
 
@@ -39,4 +40,106 @@ export function ConditionIcon({
             {name === 'storm' && <path d="M12.4 18.4 10.4 21.4h2.8l-1.5 1.8" />}
         </svg>
     );
+}
+
+/** The svg shell every provider mark shares; the colors are the providers' own. */
+function BrandSvg({
+    id,
+    viewBox,
+    className,
+    fill = 'none',
+    stroke,
+    strokeWidth,
+    children
+}: {
+    id: ProviderId;
+    viewBox: string;
+    className?: string;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    children: JSX.Element | readonly JSX.Element[];
+}): JSX.Element {
+    return (
+        <svg
+            viewBox={viewBox}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            data-icon={id}
+            className={className}
+        >
+            {children}
+        </svg>
+    );
+}
+
+/** OpenWeatherMap's mark: wind strokes in the brand's orange. */
+function OpenWeatherMapIcon({ className }: { className?: string }): JSX.Element {
+    return (
+        <BrandSvg
+            id="openweathermap"
+            viewBox="0 0 50.8 50.8"
+            stroke="#e46b4a"
+            strokeWidth={3.175}
+            className={className}
+        >
+            <path d="M7.859 29.266a14.95 14.95 0 0 1 5.864-16.112 14.95 14.95 0 0 1 17.147 0 14.95 14.95 0 0 1 5.865 16.112m-8.266 0h14.129m-37.298 0h4.487m.003 5.594h8.943m15.398 0h2.514m5.3 0h2.514m-31.771 5.594h23.757m-9.294-5.594h1.844M9.79 29.266a2.797 2.797 0 0 1 2.797 2.798A2.797 2.797 0 0 1 9.79 34.86m8.943 0a2.797 2.797 0 0 1 2.798 2.798 2.797 2.797 0 0 1-2.798 2.797m8.418 0a2.8 2.8 0 0 1-2.422-1.398 2.8 2.8 0 0 1 0-2.797 2.8 2.8 0 0 1 2.422-1.4" />
+            <path d="M28.47 34.86a2.8 2.8 0 0 1-2.422-1.398 2.8 2.8 0 0 1 0-2.797 2.8 2.8 0 0 1 2.423-1.399" />
+        </BrandSvg>
+    );
+}
+
+/**
+ * Stormglass's mark: a wind glyph, lightened from the brand's navy to a
+ * seafoam so it reads on the dark glass.
+ */
+function StormglassIcon({ className }: { className?: string }): JSX.Element {
+    return (
+        <BrandSvg id="stormglass" viewBox="0 0 31 31" fill="#5eead4" className={className}>
+            <path d="M12.564 1.486c.935 0 1.692.753 1.692 1.682v9.452L22.42 7.89a1.67 1.67 0 0 1 2.29.604c.46.8.18 1.826-.624 2.292l-8.182 4.739 8.182 4.74a1.683 1.683 0 0 1 .624 2.29 1.67 1.67 0 0 1-2.29.604l-8.163-4.728v9.4c0 .929-.757 1.682-1.692 1.682a1.687 1.687 0 0 1-1.692-1.682V18.44l-8.15 4.72a1.67 1.67 0 0 1-2.289-.603c-.46-.8-.18-1.826.624-2.292l8.182-4.74-8.182-4.738a1.683 1.683 0 0 1-.624-2.292 1.67 1.67 0 0 1 2.29-.604l8.149 4.72V3.169c0-.929.757-1.682 1.692-1.682" />
+        </BrandSvg>
+    );
+}
+
+/** Finnhub's mark: a rising chart line on a rounded square, in green. */
+function FinnhubIcon({ className }: { className?: string }): JSX.Element {
+    return (
+        <BrandSvg
+            id="finnhub"
+            viewBox="0 0 24 24"
+            stroke="#3ddc97"
+            strokeWidth={2}
+            className={className}
+        >
+            <rect x="3" y="3" width="18" height="18" rx="4.5" />
+            <path d="M7.5 15l3-3.5 2.5 2.5 4.5-5" />
+            <path d="M14.5 9h3v3" />
+        </BrandSvg>
+    );
+}
+
+/** Every provider's mark, keyed by provider id. */
+const PROVIDER_ICONS: Record<ProviderId, ComponentType<{ className?: string }>> = {
+    openweathermap: OpenWeatherMapIcon,
+    stormglass: StormglassIcon,
+    finnhub: FinnhubIcon
+};
+
+/**
+ * A provider's mark in the settings, in the provider's brand color.
+ * Hand-kept, so the app needs no icon dependency for three glyphs.
+ */
+export function ProviderIcon({
+    id,
+    className
+}: {
+    id: ProviderId;
+    className?: string;
+}): JSX.Element {
+    const Icon = PROVIDER_ICONS[id];
+    return <Icon className={className} />;
 }
