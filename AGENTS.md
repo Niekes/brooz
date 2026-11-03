@@ -162,7 +162,7 @@ A definition has:
   rule pattern and its weight, and `args`, which keeps the utterance's args
   the tile understands. A tile without a route is never summoned;
 - `providers` (optional) - the providers whose keys the live tile needs.
-  Each such tile gets a section in the settings.
+  Each provider gets a section in the settings, not the tile.
 
 A new tile is registered in `src/renderer/tiles/index.ts`; its position in
 the list is its place in the grid pattern. A tile that is missing there is
@@ -205,8 +205,11 @@ with the union `ok | missing-key | provider-error` instead of throwing, so
 every tile handles the invitation to the settings. The settings overlay
 (`src/renderer/shell/settings`, ⌘, or Ctrl+,) is the only surface that
 takes a key: a general section first, for the person's own choices (device
-location, default location, temperature unit), then one section per tile
-with `providers`, each showing its providers' keys. A tile without its key renders that invitation, never an
+location, default location, temperature unit), then - under a separator -
+one section per provider of the manifest, in manifest order, each with its
+mark, the tiles it serves and its key. A key shows once per provider, however
+many tiles it serves; a tile option that belongs to a keyed tile (today the
+surf spot) lives in that provider's section. A tile without its key renders that invitation, never an
 input of its own.
 
 ## The local model

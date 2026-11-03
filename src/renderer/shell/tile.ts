@@ -69,8 +69,8 @@ export interface TileDefinition {
     readonly Live?: ComponentType<LiveTileProps>;
     readonly liveKey?: (args: CommandArgs) => string;
     readonly route?: TileRoute;
-    /** The providers whose keys the live tile needs: each gets it a settings section. */
+    /** The providers whose keys the live tile needs; each provider gets a settings section. */
     readonly providers?: readonly ProviderInfo[];
-    /** The live tile shows the surf spot; its settings section takes it. */
+    /** The live tile shows the surf spot; its provider's settings section takes it. */
     readonly surfSpot?: boolean;
 }
