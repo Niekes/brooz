@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { KeyStatus, ProviderInfo, ProviderProbe } from '../../../shared/providers';
 import { errorMessage, useKeyStatus } from '../kit/hooks';
+import type { AsyncView } from '../kit/live';
 import { AppBadge } from '../ui/app-badge';
 import { AppButton } from '../ui/app-button';
 import { AppInput } from '../ui/app-input';
@@ -151,6 +152,54 @@ function KeyHeader({
     );
 }
 
+/** The controls row: the key field, and the actions while a key is stored. */
+function KeyControls({
+    provider,
+    status,
+    busy,
+    locked,
+    run,
+    onNotice
+}: {
+    provider: ProviderInfo;
+    status: AsyncView<KeyStatus>;
+    busy: boolean;
+    locked: boolean;
+    run: (action: () => Promise<void>) => Promise<void>;
+    onNotice: (notice: string | null) => void;
+}): JSX.Element {
+    return (
+        <div className="flex items-center gap-2">
+            <KeyField
+                provider={provider}
+                busy={busy}
+                locked={locked}
+                run={run}
+                onSaved={(saved) => {
+                    onNotice(
+                        saved ? 'Key saved.' : 'This system offers no encrypted place for keys.'
+                    );
+                    if (saved) {
+                        status.reload();
+                    }
+                }}
+            />
+            {status.data?.present ? (
+                <StoredKeyActions
+                    provider={provider}
+                    busy={busy}
+                    run={run}
+                    onNotice={onNotice}
+                    onRemoved={() => {
+                        onNotice('Key removed.');
+                        status.reload();
+                    }}
+                />
+            ) : null}
+        </div>
+    );
+}
+
 /** One provider's key: its status, where it comes from, and its controls. */
 export function ProviderKey({ provider }: { provider: ProviderInfo }): JSX.Element {
     const status = useKeyStatus(provider);
@@ -169,40 +218,19 @@ export function ProviderKey({ provider }: { provider: ProviderInfo }): JSX.Eleme
         }
     }
 
-    const state = status.data;
-    const locked = state !== null && !state.canStore;
+    const locked = status.data !== null && !status.data.canStore;
 
     return (
         <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/3 p-4">
             <KeyHeader provider={provider} status={status} locked={locked} />
-            <div className="flex items-center gap-2">
-                <KeyField
-                    provider={provider}
-                    busy={busy}
-                    locked={locked}
-                    run={run}
-                    onSaved={(saved) => {
-                        setNotice(
-                            saved ? 'Key saved.' : 'This system offers no encrypted place for keys.'
-                        );
-                        if (saved) {
-                            status.reload();
-                        }
-                    }}
-                />
-                {state?.present ? (
-                    <StoredKeyActions
-                        provider={provider}
-                        busy={busy}
-                        run={run}
-                        onNotice={setNotice}
-                        onRemoved={() => {
-                            setNotice('Key removed.');
-                            status.reload();
-                        }}
-                    />
-                ) : null}
-            </div>
+            <KeyControls
+                provider={provider}
+                status={status}
+                busy={busy}
+                locked={locked}
+                run={run}
+                onNotice={setNotice}
+            />
             {notice !== null ? (
                 <p role="status" className="text-xs text-white/60">
                     {notice}

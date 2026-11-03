@@ -27,6 +27,9 @@ const MARKETS = [
     { sym: 'SPY', name: 'S&P 500', price: 523.7 }
 ];
 
+/** One entry of the seeded mock feed. */
+type Market = (typeof MARKETS)[number];
+
 /** Semantic red and green: the one place where hue is the data itself. */
 const UP = '#4ade80';
 const DOWN = '#f87171';
@@ -69,6 +72,41 @@ function sparkline(next: () => number, up: boolean): string {
         .join(' ');
 }
 
+/** One seeded mock row: a market, its sparkline, price and day's change. */
+function MockRow({ seed, market }: { seed: number; market: Market }): JSX.Element {
+    const r = rng(seed);
+    const delta = Math.round((r() * 9 - 4) * 100) / 100;
+    const up = delta >= 0;
+    const color = up ? UP : DOWN;
+
+    return (
+        <div className="flex items-center gap-2.5">
+            <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium text-white">{market.sym}</div>
+                <div className="truncate text-[9px] text-white/35">{market.name}</div>
+            </div>
+            <svg viewBox="0 0 48 16" aria-hidden="true" className="h-4 w-12 shrink-0">
+                <polyline
+                    points={sparkline(r, up)}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="1.3"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                />
+            </svg>
+            <div className="shrink-0 text-right">
+                <div className="font-mono text-[11px] text-white/85">
+                    {formatPrice(market.price * (1 + delta / 100))}
+                </div>
+                <div className="font-mono text-[9px]" style={{ color }}>
+                    {formatChange(delta)}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /** Three seeded rows with a seeded sparkline each. */
 export function Ticker({ seed }: TileProps): JSX.Element {
     const first = Math.abs(seed) % MARKETS.length;
@@ -79,47 +117,9 @@ export function Ticker({ seed }: TileProps): JSX.Element {
             <TileHeader title="Markets" tag="MOCK FEED" />
 
             <div className="flex min-h-0 flex-1 flex-col justify-between py-1">
-                {rows.map((market, i) => {
-                    const r = rng(seed + i * 37 + 5);
-                    const delta = Math.round((r() * 9 - 4) * 100) / 100;
-                    const up = delta >= 0;
-                    const color = up ? UP : DOWN;
-
-                    return (
-                        <div key={market.sym} className="flex items-center gap-2.5">
-                            <div className="min-w-0 flex-1">
-                                <div className="truncate text-[12px] font-medium text-white">
-                                    {market.sym}
-                                </div>
-                                <div className="truncate text-[9px] text-white/35">
-                                    {market.name}
-                                </div>
-                            </div>
-                            <svg
-                                viewBox="0 0 48 16"
-                                aria-hidden="true"
-                                className="h-4 w-12 shrink-0"
-                            >
-                                <polyline
-                                    points={sparkline(r, up)}
-                                    fill="none"
-                                    stroke={color}
-                                    strokeWidth="1.3"
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                />
-                            </svg>
-                            <div className="shrink-0 text-right">
-                                <div className="font-mono text-[11px] text-white/85">
-                                    {formatPrice(market.price * (1 + delta / 100))}
-                                </div>
-                                <div className="font-mono text-[9px]" style={{ color }}>
-                                    {formatChange(delta)}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
+                {rows.map((market, i) => (
+                    <MockRow key={market.sym} seed={seed + i * 37 + 5} market={market} />
+                ))}
             </div>
 
             <div className="flex items-end justify-between">

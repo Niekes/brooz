@@ -17,12 +17,15 @@ export function LiveSlot({
     request: SummonRequest;
 }): JSX.Element | null {
     const chosen = useChosenProvider(tile);
+    // Called whenever the tile declares a loader, before any early return, so
+    // the hook order of this slot stays stable; the slot is keyed by tile id.
+    const loader =
+        chosen && tile.liveData ? tile.liveData(request.args, chosen.channel) : undefined;
     const Live = tile.Live;
-    if (!chosen || !tile.liveData || !Live) {
+    if (!chosen || !loader || !Live) {
         // A live tile always has a provider; the create-tile skill asks for one.
         return null;
     }
-    const loader = tile.liveData(request.args, chosen.channel);
     const label = tile.title;
     const lowConfidence = request.lowConfidence;
     const key = tile.liveKey?.(request.args) ?? tile.id;
