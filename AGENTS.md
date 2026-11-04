@@ -201,9 +201,10 @@ file system or the network, with a parser in `src/main/validate.ts` (see
 `parsePlaceQuery`).
 
 The channels: `brooz:app-version`, `brooz:geocode`, `brooz:style-nonce`,
-the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`
-and `brooz:key-test`, and the provider channels `brooz:weather`,
-`brooz:air-quality`, `brooz:stock-quotes` and `brooz:surf`.
+the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`,
+`brooz:key-test` and `brooz:key-page` (opens the provider's key page in the
+system browser, `docs/adr/0016`), and the provider channels `brooz:weather`,
+`brooz:air-quality`, `brooz:stock-quotes`, `brooz:surf` and `brooz:flight-states`.
 
 ## Provider keys
 
@@ -211,7 +212,7 @@ Tiles that need a keyed service never see its key: the renderer invokes a
 provider channel, the main process holds the key and makes the request
 (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`). Keys belong to
 a _provider_ of the manifest in `src/shared/providers.ts` (today:
-OpenWeatherMap, Finnhub and Stormglass), never to a tile. The key channels are write-only - the renderer can set,
+OpenWeatherMap, Finnhub, Stormglass and OpenSky Network), never to a tile. The key channels are write-only - the renderer can set,
 delete and ask for the status of a key, but no channel returns one. The
 keys live encrypted under `userData` through `safeStorage`, and the app
 fails closed where the OS offers no encryption
