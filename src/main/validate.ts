@@ -35,7 +35,7 @@ export function parsePlaceQuery(value: unknown): PlaceQuery {
     return parseCoordinates(value);
 }
 
-/** Coordinates on the globe, like the surf spot; nothing else reaches the network. */
+/** Coordinates on the globe; nothing else reaches the network. */
 export function parseCoordinates(value: unknown): Coordinates {
     if (typeof value !== 'object' || value === null) {
         throw new TypeError('A place is a city or coordinates.');

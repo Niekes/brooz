@@ -1,13 +1,20 @@
 import type { JSX } from 'react';
 import { TileHeader, WIDGET_BODY } from '../../shell/kit/chrome';
-import { useQuotes } from '../../shell/kit/hooks';
-import { ProviderData } from '../../shell/kit/live';
+import { useProviderData } from '../../shell/kit/hooks';
 import { rng } from '../../shell/kit/seed';
+import { IPC_CHANNELS } from '../../../shared/ipc';
+import type { IpcChannel } from '../../../shared/ipc';
 import { FINNHUB } from '../../../shared/providers';
 import { MAX_QUOTE_SYMBOLS } from '../../../shared/quotes';
 import { formatChange, formatPrice } from '../../../shared/quotes';
 import type { StockQuote } from '../../../shared/quotes';
-import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
+import type {
+    CommandArgs,
+    LiveLoader,
+    LiveTileProps,
+    TileDefinition,
+    TileProps
+} from '../../shell/tile';
 
 const MARKETS = [
     { sym: 'BTC', name: 'Bitcoin', price: 67420 },
@@ -19,6 +26,9 @@ const MARKETS = [
     { sym: 'MSFT', name: 'Microsoft', price: 411.3 },
     { sym: 'SPY', name: 'S&P 500', price: 523.7 }
 ];
+
+/** One entry of the seeded mock feed. */
+type Market = (typeof MARKETS)[number];
 
 /** Semantic red and green: the one place where hue is the data itself. */
 const UP = '#4ade80';
@@ -62,6 +72,41 @@ function sparkline(next: () => number, up: boolean): string {
         .join(' ');
 }
 
+/** One seeded mock row: a market, its sparkline, price and day's change. */
+function MockRow({ seed, market }: { seed: number; market: Market }): JSX.Element {
+    const r = rng(seed);
+    const delta = Math.round((r() * 9 - 4) * 100) / 100;
+    const up = delta >= 0;
+    const color = up ? UP : DOWN;
+
+    return (
+        <div className="flex items-center gap-2.5">
+            <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium text-white">{market.sym}</div>
+                <div className="truncate text-[9px] text-white/35">{market.name}</div>
+            </div>
+            <svg viewBox="0 0 48 16" aria-hidden="true" className="h-4 w-12 shrink-0">
+                <polyline
+                    points={sparkline(r, up)}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="1.3"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                />
+            </svg>
+            <div className="shrink-0 text-right">
+                <div className="font-mono text-[11px] text-white/85">
+                    {formatPrice(market.price * (1 + delta / 100))}
+                </div>
+                <div className="font-mono text-[9px]" style={{ color }}>
+                    {formatChange(delta)}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /** Three seeded rows with a seeded sparkline each. */
 export function Ticker({ seed }: TileProps): JSX.Element {
     const first = Math.abs(seed) % MARKETS.length;
@@ -72,47 +117,9 @@ export function Ticker({ seed }: TileProps): JSX.Element {
             <TileHeader title="Markets" tag="MOCK FEED" />
 
             <div className="flex min-h-0 flex-1 flex-col justify-between py-1">
-                {rows.map((market, i) => {
-                    const r = rng(seed + i * 37 + 5);
-                    const delta = Math.round((r() * 9 - 4) * 100) / 100;
-                    const up = delta >= 0;
-                    const color = up ? UP : DOWN;
-
-                    return (
-                        <div key={market.sym} className="flex items-center gap-2.5">
-                            <div className="min-w-0 flex-1">
-                                <div className="truncate text-[12px] font-medium text-white">
-                                    {market.sym}
-                                </div>
-                                <div className="truncate text-[9px] text-white/35">
-                                    {market.name}
-                                </div>
-                            </div>
-                            <svg
-                                viewBox="0 0 48 16"
-                                aria-hidden="true"
-                                className="h-4 w-12 shrink-0"
-                            >
-                                <polyline
-                                    points={sparkline(r, up)}
-                                    fill="none"
-                                    stroke={color}
-                                    strokeWidth="1.3"
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                />
-                            </svg>
-                            <div className="shrink-0 text-right">
-                                <div className="font-mono text-[11px] text-white/85">
-                                    {formatPrice(market.price * (1 + delta / 100))}
-                                </div>
-                                <div className="font-mono text-[9px]" style={{ color }}>
-                                    {formatChange(delta)}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
+                {rows.map((market, i) => (
+                    <MockRow key={market.sym} seed={seed + i * 37 + 5} market={market} />
+                ))}
             </div>
 
             <div className="flex items-end justify-between">
@@ -147,33 +154,34 @@ function QuoteRow({ quote }: { quote: StockQuote }): JSX.Element {
     );
 }
 
-/** The quotes of the symbols the utterance named, over the provider channel. */
-export function LiveTicker({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
+/** Loads the quotes of the utterance's symbols over the chosen provider's channel. */
+function useLiveQuotes(args: CommandArgs, channel: IpcChannel): LiveLoader<StockQuote[]> {
     const symbols = liveSymbols(args.symbols);
+    return {
+        pending: false,
+        notice: null,
+        state: useProviderData<StockQuote[]>(channel, symbols.join(' '), [symbols])
+    };
+}
+
+/** The quotes of the symbols the utterance named, over the provider channel. */
+export function LiveTicker({ data: quotes }: LiveTileProps<StockQuote[]>): JSX.Element {
     return (
-        <ProviderData
-            label={label}
-            lowConfidence={lowConfidence}
-            provider={FINNHUB}
-            state={useQuotes(symbols)}
-        >
-            {(quotes) => (
-                <div className="flex min-h-0 flex-col justify-between gap-2 py-1">
-                    {quotes.map((quote) => (
-                        <QuoteRow key={quote.symbol} quote={quote} />
-                    ))}
-                </div>
-            )}
-        </ProviderData>
+        <div className="flex min-h-0 flex-col justify-between gap-2 py-1">
+            {quotes.map((quote) => (
+                <QuoteRow key={quote.symbol} quote={quote} />
+            ))}
+        </div>
     );
 }
 
-export const tickerTile: TileDefinition = {
+export const tickerTile: TileDefinition<StockQuote[]> = {
     id: 'ticker',
     title: 'Markets',
     Component: Ticker,
     Live: LiveTicker,
-    providers: [FINNHUB],
+    providers: [{ provider: FINNHUB, channel: IPC_CHANNELS.stockQuotes }],
+    liveData: useLiveQuotes,
     liveKey: ({ symbols }) => `ticker:${liveSymbols(symbols).join(',')}`,
     route: {
         description:
@@ -182,6 +190,6 @@ export const tickerTile: TileDefinition = {
         examples: ['how is apple stock doing', 'price of bitcoin'],
         pattern: /\b(?:stocks?|shares?|markets?|ticker|price|bitcoin|crypto)\b/,
         weight: 3,
-        args: ({ symbols, query }) => ({ symbols, query })
+        args: ({ symbols }) => ({ symbols })
     }
 };

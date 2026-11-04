@@ -126,8 +126,8 @@ Not negotiable, and pinned by unit tests:
   hands it to get-nonce). In dev mode the window loads the
   Vite dev server instead.
 - The renderer fetches nothing from the internet itself: OpenWeatherMap,
-  Stormglass and the Open-Meteo geocoder are called by the main process
-  (`src/main/openweathermap.ts`, `src/main/stormglass.ts`,
+  Finnhub and the Open-Meteo geocoder are called by the main process
+  (`src/main/openweathermap.ts`, `src/main/finnhub.ts`,
   `src/main/open-meteo.ts`, 10 s timeout, bounded cache), and the IPC handlers validate every argument
   (`src/main/validate.ts`) before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
@@ -148,26 +148,40 @@ complete one. A tile directory `src/renderer/tiles/<name>/` (camelCase, so
 - `index.tsx`, which exports the tile's components as `export function`
   and the definition as `export const <name>Tile: TileDefinition = {...}`,
   typed `TileDefinition` from `src/renderer/shell/tile.ts`;
-- any helper module of its own (`moonPhase/moon.ts`), and nothing else: a
-  tile never imports from another tile, and it reaches the main process
-  only through `window.brooz`.
+- any helper module of its own, and nothing else: a tile never imports from
+  another tile, and it reaches the main process only through `window.brooz`.
 
 A definition has:
 
 - `id` and `title` - the id is what the ask bar routes to (`'air-quality'`);
 - `Component` - the resting tile, rendered from a per-cell `seed`. It is
   deterministic: no `Math.random`, no `Date`, no timer;
-- `Live` (optional) - the summoned tile with real data, and `liveKey`,
-  which decides from the utterance's args when it remounts;
+- `Live` (optional) - the summoned tile, which receives the unwrapped `data`
+  and renders only its content; `liveKey` decides from the utterance's args
+  when it remounts. The shell owns the live chrome (status row, loading,
+  error, missing key), see `docs/adr/0010`;
+- `liveData` (with `Live`) - loads the live data over the chosen provider's
+  channel and returns the loader the shell renders;
 - `route` (optional) - a description for the model, keywords, examples, the
   rule pattern and its weight, and `args`, which keeps the utterance's args
   the tile understands. A tile without a route is never summoned;
-- `providers` (optional) - the providers whose keys the live tile needs.
-  Each provider gets a section in the settings, not the tile.
+- `providers` (optional) - the candidate providers with the channel each
+  serves the tile through; the person picks the active one in the tile's
+  settings section (`docs/adr/0011`);
+- `place` / `ownPlace` (optional) - the tile shows a place: `place` tiles
+  (weather, air quality) can save their own location in their settings
+  section, `ownPlace` tiles (today surf) own a place of their own (the surf
+  spot) - both appear in the tile's section (`docs/adr/0014`).
 
-A new tile is registered in `src/renderer/tiles/index.ts`; its position in
-the list is its place in the grid pattern. A tile that is missing there is
-dead code - fallow reports its unused export.
+The settings list General, then one section per registered tile, then the
+providers; the start tile setting in General picks which tile the grid
+centers on at launch (`docs/adr/0015`).
+
+A new tile is registered in `src/renderer/tiles/index.ts`; the slots nearest
+the grid's center carry the registry in order, and every other slot shows the
+default tile (`docs/adr/0009`). Use the create-tile skill
+(`.agents/skills/create-tile`) to scaffold one. A tile that is missing from
+the registry is dead code - fallow reports its unused export.
 
 `scripts/check-template.mjs` enforces the naming and the isolation, fallow
 enforces the zones and the coverage. The routing benchmarks in
@@ -205,12 +219,14 @@ fails closed where the OS offers no encryption
 with the union `ok | missing-key | provider-error` instead of throwing, so
 every tile handles the invitation to the settings. The settings overlay
 (`src/renderer/shell/settings`, ⌘, or Ctrl+,) is the only surface that
-takes a key: a general section first, for the person's own choices (device
-location, default location, temperature unit), then - under a separator -
-one section per provider of the manifest, in manifest order, each with its
-mark, the tiles it serves and its key. A key shows once per provider, however
-many tiles it serves; a tile option that belongs to a keyed tile (today the
-surf spot) lives in that provider's section. A tile without its key renders that invitation, never an
+takes a key: a general section first, for the person's own choices (start
+tile, device location, default location, temperature unit), then - under a
+separator - one section per registered tile with its own settings (its own
+location, its own place like the surf spot, its provider choice), then -
+under another separator - one section per provider of the manifest, in
+manifest order, each with its mark, the tiles it serves and its key - even
+when it serves no tile yet (docs/adr/0014). A
+key shows once per provider, however many tiles it serves. A tile without its key renders that invitation, never an
 input of its own.
 
 ## The local model
@@ -258,9 +274,7 @@ and stays ours. A timeout that restarts when a value changes stays a
 oxlint enforces this in `src/renderer/**`: `localStorage`,
 `sessionStorage`, `matchMedia`, `navigator.geolocation` and ahooks'
 storage hooks fail the lint with the hook to use instead; `browser.ts` is
-the one module allowed to touch them. The other exception is the sticky
-note's storage migration in `main.tsx`, which must read the raw text the
-hook cannot parse.
+the one module allowed to touch them.
 
 ## Code style
 

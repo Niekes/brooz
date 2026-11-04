@@ -1,15 +1,24 @@
 import type { JSX } from 'react';
+import { IPC_CHANNELS } from '../../../shared/ipc';
+import type { IpcChannel } from '../../../shared/ipc';
 import { STORMGLASS } from '../../../shared/providers';
 import type { SurfForecast, SurfHour, SurfRating, SurfWindow } from '../../../shared/surf';
 import { bestWindow, rateSurf, waveRangeM } from '../../../shared/surf';
+import { placeKey } from '../../../shared/weather';
 import type { GeoPlace } from '../../../shared/weather';
 import { WIDGET_BODY } from '../../shell/kit/chrome';
-import { useSurf, useSurfSpot, useTemperatureUnit } from '../../shell/kit/hooks';
-import { LiveFrame, NeedsSetting, ProviderData } from '../../shell/kit/live';
+import { useProviderData } from '../../shell/kit/hooks';
+import { useSurfSpot, useTemperatureUnit } from '../../shell/kit/stored';
 import { pick, rng } from '../../shell/kit/seed';
 import type { TemperatureUnit } from '../../shell/kit/weather';
 import { lengthInUnit, lengthUnit, speedInUnit, speedUnit } from '../../shell/kit/weather';
-import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
+import type {
+    CommandArgs,
+    LiveLoader,
+    LiveTileProps,
+    TileDefinition,
+    TileProps
+} from '../../shell/tile';
 
 const SPOTS = ['Ericeira', 'Hossegor', 'Nazaré', 'Mundaka', 'Sylt', 'Peniche'];
 const NONE = '–';
@@ -93,7 +102,7 @@ function clockAt(iso: string, timeZone: string): string {
     }).format(Date.parse(iso));
 }
 
-function hh(hours: number): string {
+function clockHour(hours: number): string {
     return `${String(hours % 24).padStart(2, '0')}:00`;
 }
 
@@ -183,6 +192,33 @@ function Bars({ view }: { view: SurfView }): JSX.Element {
     );
 }
 
+/** The surf card's footer: range, period, wind, tides and the update time. */
+function SurfFooter({ view }: { view: SurfView }): JSX.Element {
+    return (
+        <>
+            <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-white/60">
+                <span>
+                    {view.range} · {view.period}
+                </span>
+                <span className="flex items-center gap-1">
+                    {view.windDirection !== null ? (
+                        <WindArrow degrees={view.windDirection} />
+                    ) : null}
+                    {view.wind}
+                </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 font-mono text-[9px] text-white/40">
+                <span>
+                    {view.tides
+                        .map((tide) => `${tide.type === 'high' ? 'High' : 'Low'} ${tide.time}`)
+                        .join(' · ')}
+                </span>
+                {view.footer ? <span>{view.footer}</span> : null}
+            </div>
+        </>
+    );
+}
+
 /** The surf card: name and rating on top, the best window, the day as bars. */
 function SurfCard({ view }: { view: SurfView }): JSX.Element {
     const style = RATING_STYLE[view.rating];
@@ -215,25 +251,7 @@ function SurfCard({ view }: { view: SurfView }): JSX.Element {
                     <span>6 PM</span>
                 </div>
             </div>
-            <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-white/60">
-                <span>
-                    {view.range} · {view.period}
-                </span>
-                <span className="flex items-center gap-1">
-                    {view.windDirection !== null ? (
-                        <WindArrow degrees={view.windDirection} />
-                    ) : null}
-                    {view.wind}
-                </span>
-            </div>
-            <div className="flex items-center justify-between gap-2 font-mono text-[9px] text-white/40">
-                <span>
-                    {view.tides
-                        .map((tide) => `${tide.type === 'high' ? 'High' : 'Low'} ${tide.time}`)
-                        .join(' · ')}
-                </span>
-                {view.footer ? <span>{view.footer}</span> : null}
-            </div>
+            <SurfFooter view={view} />
         </div>
     );
 }
@@ -252,8 +270,8 @@ export function Surf({ seed }: TileProps): JSX.Element {
     const current = { ...pick(seed + 7, day), windDirection: Math.round(r() * 360) };
     const start = DAY_START + 2 + Math.floor(r() * 4);
     const view = buildView(pick(seed, SPOTS), current, day, unit, [
-        { type: 'high', time: hh(start + 2) },
-        { type: 'low', time: hh(start + 8) }
+        { type: 'high', time: clockHour(start + 2) },
+        { type: 'low', time: clockHour(start + 8) }
     ]);
     return <SurfCard view={view} />;
 }
@@ -301,57 +319,43 @@ function liveView(
     );
 }
 
-function LiveSpot({
-    label,
-    lowConfidence,
-    spot
-}: {
-    label: string;
-    lowConfidence: boolean;
-    spot: GeoPlace;
-}): JSX.Element {
-    const state = useSurf(spot);
-    const [unit] = useTemperatureUnit();
-    return (
-        <ProviderData
-            label={label}
-            lowConfidence={lowConfidence}
-            provider={STORMGLASS}
-            state={state}
-        >
-            {(data) => {
-                const view = liveView(data, spot, unit, Date.now());
-                if (view === null) {
-                    return (
-                        <NeedsSetting message="No wave data at this spot. Move it onto the water in the settings." />
-                    );
-                }
-                return <SurfCard view={view} />;
-            }}
-        </ProviderData>
-    );
+/** Loads the forecast of the saved surf spot over the chosen provider's channel. */
+function useLiveSurf(_args: CommandArgs, channel: IpcChannel): LiveLoader<SurfForecast> {
+    const [spot] = useSurfSpot();
+    return {
+        pending: false,
+        notice: spot ? null : 'Set a surf spot first.',
+        state: useProviderData<SurfForecast>(channel, spot ? placeKey(spot) : null, [
+            spot && { latitude: spot.latitude, longitude: spot.longitude }
+        ])
+    };
 }
 
 /** The forecast of the surf spot; a city in the utterance never replaces it. */
-export function LiveSurf({ label, lowConfidence }: LiveTileProps): JSX.Element {
+export function LiveSurf({ data }: LiveTileProps<SurfForecast>): JSX.Element {
     const [spot] = useSurfSpot();
-    if (!spot) {
+    const [unit] = useTemperatureUnit();
+    // shortcut: spot is always set here - the shell renders Live only once the
+    // loader produced data, and the surf loader needs a spot for that.
+    const view = liveView(data, spot!, unit, Date.now());
+    if (view === null) {
         return (
-            <LiveFrame label={label} lowConfidence={lowConfidence}>
-                <NeedsSetting message="Set a surf spot first." />
-            </LiveFrame>
+            <div className="flex h-full items-center justify-center px-3 text-center text-[10px] leading-snug text-white/60">
+                No wave data at this spot. Move it onto the water in the settings.
+            </div>
         );
     }
-    return <LiveSpot label={label} lowConfidence={lowConfidence} spot={spot} />;
+    return <SurfCard view={view} />;
 }
 
-export const surfTile: TileDefinition = {
+export const surfTile: TileDefinition<SurfForecast> = {
     id: 'surf',
     title: 'Surf',
     Component: Surf,
     Live: LiveSurf,
-    providers: [STORMGLASS],
-    surfSpot: true,
+    providers: [{ provider: STORMGLASS, channel: IPC_CHANNELS.surf }],
+    ownPlace: true,
+    liveData: useLiveSurf,
     liveKey: () => 'surf',
     route: {
         description: 'Surf forecast at the saved surf spot: waves, swell, wind and tides.',

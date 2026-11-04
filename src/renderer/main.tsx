@@ -3,13 +3,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IPC_CHANNELS } from '../shared/ipc';
 import { App } from './App';
-import { migrateStoredNote } from './tiles/stickyNote';
 import './styles.css';
 
 function render(): void {
-    // The one raw storage access: it rewrites what useStoredValue cannot parse yet.
-    // oxlint-disable-next-line no-restricted-globals
-    migrateStoredNote(localStorage);
     createRoot(document.getElementById('root')!).render(
         <StrictMode>
             <App />

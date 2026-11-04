@@ -82,26 +82,22 @@ describe('the ask bar with the rules', () => {
 
     it('sums up what the utterance said about the tile', () => {
         const { type } = setup();
-        type('show me a photo of mountains');
-        expect(screen.getByText('“mountains”')).toBeTruthy();
-        type('note: ' + 'a'.repeat(60));
-        expect(screen.getByText(`“${'a'.repeat(45)}…”`)).toBeTruthy();
+        type('weather in Rome');
+        expect(screen.getByText('Rome')).toBeTruthy();
         type('how is apple stock doing');
         expect(screen.getByText('AAPL')).toBeTruthy();
-        type('meetings tomorrow');
-        expect(screen.getByText('tomorrow')).toBeTruthy();
-        type('reset the pomodoro');
+        type('weather');
         expect(screen.getByText('Open widget')).toBeTruthy();
     });
 
     it('summons the selection with its args on Enter and clears the field', () => {
         const { type, press, input, onSummon } = setup();
-        type('start a 25 minute timer');
+        type('how is apple stock doing');
         press('Enter');
         expect(onSummon).toHaveBeenCalledWith(
             expect.objectContaining({
-                widget: 'pomodoro',
-                args: { durationMinutes: 25, action: 'start' }
+                widget: 'ticker',
+                args: { symbols: ['AAPL'] }
             })
         );
         expect(input.value).toBe('');
@@ -109,20 +105,9 @@ describe('the ask bar with the rules', () => {
         expect(onSummon).toHaveBeenCalledTimes(1);
     });
 
-    it('says when a summoned tile is only demo data, for a while', () => {
-        const { type, press } = setup();
-        type('show me a photo of mountains');
-        press('Enter');
-        expect(screen.getByText(/^Photo is still demo data — its live source/)).toBeTruthy();
-        act(() => {
-            vi.advanceTimersByTime(6000);
-        });
-        expect(screen.getByText('↑↓ select · Enter open · Esc clears')).toBeTruthy();
-    });
-
     it('opens a low-confidence route only on request, and says so', () => {
         const { type, press, onSummon } = setup();
-        type('lunar rings');
+        type('weekend bitcoin');
         expect(screen.getByText('Low confidence — the top result opens anyway')).toBeTruthy();
         expect(screen.getByText('Low confidence')).toBeTruthy();
         act(() => {
@@ -135,18 +120,18 @@ describe('the ask bar with the rules', () => {
 
     it('moves the selection with the arrows and the mouse, and picks by click', () => {
         const { type, press, onSummon } = setup();
-        type('clock timer');
+        type('weather air quality stocks');
         const selected = () => screen.getByRole('option', { selected: true }).textContent;
-        expect(selected()).toContain('Pomodoro');
+        expect(selected()).toContain('Air Quality');
         press('ArrowDown');
-        expect(selected()).toContain('Analog Clock');
+        expect(selected()).toContain('Weather');
         press('ArrowUp');
         press('ArrowUp');
-        expect(selected()).toContain('World Clock');
+        expect(selected()).toContain('Markets');
         fireEvent.mouseEnter(screen.getAllByRole('option')[1]);
-        expect(selected()).toContain('Analog Clock');
+        expect(selected()).toContain('Weather');
         fireEvent.click(screen.getAllByRole('option')[0]);
-        expect(onSummon).toHaveBeenCalledWith(expect.objectContaining({ widget: 'pomodoro' }));
+        expect(onSummon).toHaveBeenCalledWith(expect.objectContaining({ widget: 'air-quality' }));
     });
 
     it('shows when nothing matched, and ignores the arrows then', async () => {
@@ -154,6 +139,9 @@ describe('the ask bar with the rules', () => {
         await emit({ type: 'load-error', message: 'offline' });
         type('hello there');
         expect(screen.getByText('No widget matched “hello there”.')).toBeTruthy();
+        type(`a very long utterance that matches nothing at all, ${'x'.repeat(30)}`);
+        expect(screen.getByText(/^No widget matched “a very long utterance/)).toBeTruthy();
+        expect(screen.getByText(/…”\.$/)).toBeTruthy();
         press('ArrowDown');
         press('ArrowUp');
         press('Tab');
@@ -179,8 +167,8 @@ describe('the ask bar with the rules', () => {
 
     it('fills the field from an example without summoning on its own', () => {
         const { press, input, onSummon } = setup();
-        fireEvent.click(screen.getByText('note: buy milk'));
-        expect(input.value).toBe('note: buy milk');
+        fireEvent.click(screen.getByText('weather in Rome'));
+        expect(input.value).toBe('weather in Rome');
         expect(document.activeElement).toBe(input);
         act(() => {
             vi.advanceTimersByTime(1000);
@@ -188,7 +176,7 @@ describe('the ask bar with the rules', () => {
         expect(onSummon).not.toHaveBeenCalled();
         press('Enter');
         expect(onSummon).toHaveBeenCalledWith(
-            expect.objectContaining({ widget: 'sticky-note', args: { note: 'buy milk' } })
+            expect.objectContaining({ widget: 'weather', args: { city: 'Rome' } })
         );
     });
 
@@ -267,7 +255,7 @@ describe('the ask bar with the local model', () => {
             result: {
                 widget: 'weather',
                 confidence: 0.91,
-                probabilities: { weather: 0.91, 'air-quality': 0.06, 'moon-phase': 0.03 },
+                probabilities: { weather: 0.91, 'air-quality': 0.06, ticker: 0.03 },
                 latencyMs: 12
             }
         });
@@ -289,7 +277,7 @@ describe('the ask bar with the local model', () => {
     it('keeps a confident rule hit on top when the model disagrees', async () => {
         const { type } = setup();
         await emit(ready);
-        type('surf');
+        type('bitcoin');
         act(() => {
             vi.advanceTimersByTime(240);
         });
@@ -297,17 +285,17 @@ describe('the ask bar with the local model', () => {
             type: 'routed',
             id: 0,
             result: {
-                widget: 'system-stats',
+                widget: 'air-quality',
                 confidence: 0.3,
-                probabilities: { 'system-stats': 0.3, weather: 0.19, surf: 0.05 },
+                probabilities: { 'air-quality': 0.3, weather: 0.19, ticker: 0.05 },
                 latencyMs: 12
             }
         });
         const options = screen.getAllByRole('option').map((option) => option.textContent);
         expect(options).toHaveLength(3);
-        expect(options[0]).toContain('Surf');
+        expect(options[0]).toContain('Markets');
         expect(options[0]).toContain('rules');
-        expect(options[1]).toContain('System');
+        expect(options[1]).toContain('Air Quality');
     });
 
     it('keeps the model answer when it agrees with the rule hit', async () => {

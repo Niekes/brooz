@@ -16,7 +16,7 @@ function misses(cases: readonly RoutingCase[]): string[] {
 // here by name.
 describe('the rules on the routing benchmarks', () => {
     it('route the whole development set', () => {
-        expect(DEVELOPMENT_SET).toHaveLength(45);
+        expect(DEVELOPMENT_SET).toHaveLength(15);
         expect(misses(DEVELOPMENT_SET)).toEqual([]);
     });
 

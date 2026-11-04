@@ -20,12 +20,14 @@
 
 Brooz is an infinite grid of glass tiles on a dome, and every tile is a
 small app of its own. Drag or scroll to pan. Type what you want into the ask
-bar at the bottom (Cmd+K) - "weather in Rome", "start a 25 minute timer",
-"note: buy milk" - and the matching tile flies to the center and comes alive.
+bar at the bottom (Cmd+K) - "weather in Rome", "how is apple stock doing" -
+and the matching tile flies to the center and comes alive. Every registered
+tile sits once near the center; the remaining cells are the default tile,
+which opens the settings.
 
-| Live tiles                                                                               | Demo tiles (seeded data for now)                                    |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Analog Clock, World Clock, Weather, Air Quality, Surf, Moon Phase, Pomodoro, Sticky Note | Now Playing, Activity Rings, System Stats, Markets, Calendar, Photo |
+| Live tiles (keyed providers)                                                | Demo tiles (seeded data for now) |
+| --------------------------------------------------------------------------- | -------------------------------- |
+| Weather, Air Quality (OpenWeatherMap), Markets (Finnhub), Surf (Stormglass) | About                            |
 
 The ask bar routes with keyword rules out of the box. For harder phrasings
 you can enable a small local model (open-jev on Transformers.js) from the
@@ -35,9 +37,12 @@ from the cache in a few seconds.
 
 ### What leaves your machine
 
-- The city of a weather, air quality or world clock tile, sent by
-  the app's main process to [Open-Meteo](https://open-meteo.com) (keyless,
-  no account).
+- The city or coordinates of a weather or air quality tile, sent by
+  the app's main process to [OpenWeatherMap](https://openweathermap.org) with
+  your own key, and looked up via [Open-Meteo](https://open-meteo.com)
+  (keyless, no account).
+- The tickers of a markets tile, sent by the main process to
+  [Finnhub](https://finnhub.io) with your own key.
 - The coordinates of the surf spot, sent by the main process to
   [Stormglass](https://stormglass.io) with your own key, at most a few
   times a day.
@@ -45,8 +50,8 @@ from the cache in a few seconds.
   enable the local model.
 - The update check against this repository's GitHub releases.
 
-Nothing else: the sticky note and the model choice stay in the app's local
-storage.
+Nothing else: the model choice and the app's settings stay in the app's
+local storage.
 
 ## Download
 

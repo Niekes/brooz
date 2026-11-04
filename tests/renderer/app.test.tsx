@@ -28,13 +28,29 @@ describe('the dashboard shell', () => {
         expect(screen.getAllByText('Brooz 0.1.0').length).toBeGreaterThan(0);
     });
 
-    it('summons a tile from the ask bar onto the grid', () => {
+    it('summons a tile from the ask bar onto the grid', async () => {
+        const invoke = vi.fn((channel: string) =>
+            Promise.resolve(
+                channel === 'brooz:app-version'
+                    ? '0.1.0'
+                    : { status: 'missing-key', reason: 'not-set' }
+            )
+        );
+        window.brooz = { invoke: invoke as unknown as typeof window.brooz.invoke };
         render(<App />);
         const input = screen.getByLabelText('Ask your dashboard');
-        fireEvent.change(input, { target: { value: 'start a 10 minute timer' } });
+        fireEvent.change(input, { target: { value: 'weather in Rome' } });
         fireEvent.keyDown(input, { key: 'Enter' });
-        expect(screen.getByText('10:00')).toBeTruthy();
-        expect(screen.getByText('10 min')).toBeTruthy();
+        await act(async () => {});
+        expect(screen.getByText('Needs an API key from OpenWeatherMap.')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { city: 'Rome' });
+    });
+
+    it('opens the settings from an empty tile of the grid', () => {
+        render(<App />);
+        expect(screen.queryByRole('dialog')).toBe(null);
+        fireEvent.click(screen.getAllByLabelText('Default tile, open the settings')[0]);
+        expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
     });
 
     it('opens and closes the settings with the shortcut and the button', () => {

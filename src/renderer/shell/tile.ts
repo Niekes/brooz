@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react';
-import type { ProviderInfo } from '../../shared/providers';
+import type { IpcChannel } from '../../shared/ipc';
+import type { ProviderInfo, ProviderOutcome } from '../../shared/providers';
+import type { AsyncView } from './kit/live';
 
 /**
  * The arguments an utterance can carry. The ask bar extracts all of them,
@@ -7,12 +9,7 @@ import type { ProviderInfo } from '../../shared/providers';
  */
 export interface CommandArgs {
     city?: string;
-    durationMinutes?: number;
-    note?: string;
-    query?: string;
     symbols?: string[];
-    when?: 'today' | 'tomorrow' | 'this week' | 'next week';
-    action?: 'open' | 'start' | 'pause' | 'reset' | 'play' | 'next';
 }
 
 /** A resolved utterance: which tile to activate, with what, and how sure. */
@@ -31,10 +28,10 @@ export interface TileProps {
 }
 
 /** A summoned tile: real data, configured by the utterance. */
-export interface LiveTileProps {
-    readonly label: string;
-    readonly lowConfidence: boolean;
+export interface LiveTileProps<T> {
     readonly args: CommandArgs;
+    /** The live data, already unwrapped from the provider outcome by the shell. */
+    readonly data: T;
 }
 
 /**
@@ -55,22 +52,51 @@ export interface TileRoute {
     readonly args?: (args: CommandArgs) => CommandArgs;
 }
 
+/** One provider a live tile can be served by, and the channel it serves it through. */
+export interface TileProvider {
+    readonly provider: ProviderInfo;
+    readonly channel: IpcChannel;
+}
+
+/**
+ * What a live tile loads before the shell can show it: the provider outcome
+ * of the chosen provider's channel, plus the two states that never reach
+ * the network - the location is still being resolved, or a setting the
+ * tile needs is missing.
+ */
+export interface LiveLoader<T> {
+    readonly pending: boolean;
+    readonly notice: string | null;
+    readonly state: AsyncView<ProviderOutcome<T>>;
+}
+
 /**
  * One kind of cell of the dashboard grid. `Component` is the resting tile,
  * seeded from its position. A tile with `Live` turns into a real one when
  * the ask bar summons it; `liveKey` decides when that live tile remounts.
- * A tile keeps its state to itself and talks to the main process through
- * `window.brooz`.
+ * The shell owns the live chrome - status row, loading, error, missing key -
+ * so `Live` only renders its content from the unwrapped `data` and
+ * `useLiveData` only loads it. A tile keeps its state to itself and talks
+ * to the main process through `window.brooz`.
  */
-export interface TileDefinition {
+export interface TileDefinition<T = unknown> {
     readonly id: string;
     readonly title: string;
     readonly Component: ComponentType<TileProps>;
-    readonly Live?: ComponentType<LiveTileProps>;
+    // `any` keeps the registry heterogeneous: a tile's Live is typed at its own declaration.
+    readonly Live?: ComponentType<LiveTileProps<any>>;
     readonly liveKey?: (args: CommandArgs) => string;
     readonly route?: TileRoute;
-    /** The providers whose keys the live tile needs; each provider gets a settings section. */
-    readonly providers?: readonly ProviderInfo[];
-    /** The live tile shows the surf spot; its provider's settings section takes it. */
-    readonly surfSpot?: boolean;
+    /** The providers whose keys the live tile can use; the first is the default. */
+    readonly providers?: readonly TileProvider[];
+    /** Whether the live tile loads a place it owns (today the surf spot); its settings live in the tile's section. */
+    readonly ownPlace?: boolean;
+    /** Whether the tile shows a place and can save its own location in its settings section. */
+    readonly place?: boolean;
+    /**
+     * Loads the live data over the chosen provider's channel. The shell calls
+     * it while the tile is summoned, so it may use hooks; a live tile always
+     * has a provider.
+     */
+    readonly liveData?: (args: CommandArgs, channel: IpcChannel) => LiveLoader<T>;
 }

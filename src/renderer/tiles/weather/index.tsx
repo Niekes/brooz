@@ -1,14 +1,23 @@
 import type { JSX } from 'react';
+import { IPC_CHANNELS } from '../../../shared/ipc';
+import type { IpcChannel } from '../../../shared/ipc';
+import { OPENWEATHERMAP } from '../../../shared/providers';
 import type { WeatherSnapshot } from '../../../shared/weather';
 import { airCategory } from '../../shell/kit/air';
 import type { AirCategory } from '../../shell/kit/air';
-import { useAirQuality, useTemperatureUnit } from '../../shell/kit/hooks';
-import { LiveWeatherFrame, WEATHER_PROVIDERS } from '../../shell/kit/weather-frame';
+import { useAirQuality, usePlaceData } from '../../shell/kit/hooks';
+import { useTemperatureUnit } from '../../shell/kit/stored';
 import { ConditionIcon } from '../../shell/kit/icons';
 import type { CondName } from '../../shell/kit/icons';
 import { pick, rng } from '../../shell/kit/seed';
 import { inUnit, weatherInfo, weatherTone } from '../../shell/kit/weather';
-import type { LiveTileProps, TileDefinition, TileProps } from '../../shell/tile';
+import type {
+    CommandArgs,
+    LiveLoader,
+    LiveTileProps,
+    TileDefinition,
+    TileProps
+} from '../../shell/tile';
 
 const CITIES = ['Berlin', 'Tokyo', 'Reykjavík', 'Lisbon', 'Oslo', 'Cairo', 'Seattle', 'Melbourne'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -141,13 +150,14 @@ function weekday(date: string): string {
     );
 }
 
+/** Loads the weather of the utterance's place over the chosen provider's channel. */
+function useLiveWeather(args: CommandArgs, channel: IpcChannel): LiveLoader<WeatherSnapshot> {
+    return usePlaceData<WeatherSnapshot>(args.city, channel, 'weather');
+}
+
 /** The weather now and for the next five days, of a city or the device location. */
-export function LiveWeather({ label, lowConfidence, args }: LiveTileProps): JSX.Element {
-    return (
-        <LiveWeatherFrame label={label} lowConfidence={lowConfidence} city={args.city}>
-            {(data) => <LiveWeatherCard data={data} />}
-        </LiveWeatherFrame>
-    );
+export function LiveWeather({ data }: LiveTileProps<WeatherSnapshot>): JSX.Element {
+    return <LiveWeatherCard data={data} />;
 }
 
 /**
@@ -177,12 +187,14 @@ function LiveWeatherCard({ data }: { data: WeatherSnapshot }): JSX.Element {
     );
 }
 
-export const weatherTile: TileDefinition = {
+export const weatherTile: TileDefinition<WeatherSnapshot> = {
     id: 'weather',
     title: 'Weather',
     Component: Weather,
     Live: LiveWeather,
-    providers: WEATHER_PROVIDERS,
+    providers: [{ provider: OPENWEATHERMAP, channel: IPC_CHANNELS.weather }],
+    place: true,
+    liveData: useLiveWeather,
     liveKey: ({ city }) => `weather:${city ?? ''}`,
     route: {
         description:

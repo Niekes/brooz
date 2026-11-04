@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -171,6 +172,78 @@ describe('Stormglass', () => {
         writeFileSync(join(dir, 'stormglass-cache.json'), '{not json');
         const result = await (await stormglass()).fetchSurf('k1', SPOT);
         expect(result.status).toBe('ok');
+    });
+
+    it.each([
+        ['a non-object', '42'],
+        ['an entry that is no object', '{"swell":5}'],
+        ['a null entry', '{"swell":null}'],
+        ['an entry without its spot', '{"swell":{"key":"abc","at":1}}'],
+        ['an entry with a null spot', '{"swell":{"spot":null,"key":"a","at":1,"data":[]}}'],
+        [
+            'an entry with incomplete coordinates',
+            '{"swell":{"spot":{"latitude":1},"key":"a","at":1,"data":[]}}'
+        ],
+        [
+            'an entry with a non-string key',
+            '{"swell":{"spot":{"latitude":1,"longitude":2},"key":1,"at":1,"data":[]}}'
+        ],
+        [
+            'an entry with a non-number age',
+            '{"swell":{"spot":{"latitude":1,"longitude":2},"key":"a","at":"x","data":[]}}'
+        ],
+        [
+            'an entry without data',
+            '{"swell":{"spot":{"latitude":1,"longitude":2},"key":"a","at":1}}'
+        ],
+        [
+            'an entry with non-array data',
+            '{"swell":{"spot":{"latitude":1,"longitude":2},"key":"a","at":1,"data":5}}'
+        ],
+        ['a bad tides entry', '{"tides":5}'],
+        ['a spent mark that is no object', '{"spent":5}'],
+        ['a spent mark with a non-string key', '{"spent":{"key":1,"day":"2026-11-02"}}'],
+        ['a spent mark without its day', '{"spent":{"key":"abc"}}']
+    ])('starts empty from a cache file that is valid JSON but %s', async (_name, content) => {
+        writeFileSync(join(dir, 'stormglass-cache.json'), content);
+        const result = await (await stormglass()).fetchSurf('k1', SPOT);
+        expect(result.status).toBe('ok');
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a well-shaped cache file', async () => {
+        const hashed = createHash('sha256').update('k1').digest('hex').slice(0, 16);
+        const entry = JSON.stringify({
+            swell: { spot: SPOT, key: hashed, at: MORNING, data: [] },
+            spent: { key: 'anotherkey', day: '2026-11-01' }
+        });
+        writeFileSync(join(dir, 'stormglass-cache.json'), entry);
+        const { fetchSurf } = await stormglass();
+        // The swell entry is fresh for this key, so only the tides are fetched.
+        const result = await fetchSurf('k1', SPOT);
+        expect(result.status).toBe('ok');
+        expect(calls().map((url) => url.pathname)).toEqual(['/v2/tide/extremes/point']);
+    });
+
+    it('serves the cached half when only one job hits the quota', async () => {
+        const { fetchSurf } = await stormglass();
+        await fetchSurf('k1', SPOT);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+
+        // Next UTC day: both jobs are stale, but only the tides endpoint is over quota.
+        mockFetch.mockImplementation((url: string) => {
+            const isTide = new URL(url).pathname.includes('tide');
+            return Promise.resolve(isTide ? json({ errors: {} }, 402) : json(weather()));
+        });
+        vi.setSystemTime(Date.UTC(2026, 10, 3, 1));
+        const result = await fetchSurf('k1', SPOT);
+        expect(result.status).toBe('ok');
+        if (result.status === 'ok') {
+            // The new swell, the cached tides.
+            expect(result.data.fetchedAt).toBe('2026-11-03T01:00:00.000Z');
+            expect(result.data.tides[0].time).toBe('2026-11-02T10:12:00+00:00');
+        }
+        expect(mockFetch).toHaveBeenCalledTimes(4);
     });
 
     it('serves the last forecast once the quota is spent, and calls again the next day', async () => {

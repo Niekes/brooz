@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { GeoPlace } from '../../../shared/weather';
-import { errorMessage, useDefaultLocation, useSurfSpot } from '../kit/hooks';
+import { errorMessage } from '../kit/hooks';
+import { useDefaultLocation, useSurfSpot, useTileLocation } from '../kit/stored';
+import type { TileDefinition } from '../tile';
 import { AppButton } from '../ui/app-button';
 import { AppInput } from '../ui/app-input';
 
@@ -179,6 +181,24 @@ export function DefaultLocationOption(): JSX.Element {
             title="Default location"
             description="Where a tile without a city looks when there is no device location. Without one, the tile asks for a location."
             label="City of the default location"
+            place={place}
+            setPlace={setPlace}
+        />
+    );
+}
+
+/**
+ * The location of one tile, saved in the tile's own settings section. Empty
+ * means the tile follows the device location and the default location
+ * (docs/adr/0014).
+ */
+export function TileLocationOption({ tile }: { tile: TileDefinition }): JSX.Element {
+    const [place, setPlace] = useTileLocation(tile.id);
+    return (
+        <PlaceOption
+            title={`${tile.title} location`}
+            description={`Where ${tile.title} looks when the utterance names no city. Without one, it follows the device location and the default location.`}
+            label={`City of the ${tile.title} location`}
             place={place}
             setPlace={setPlace}
         />

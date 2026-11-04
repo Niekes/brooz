@@ -21,7 +21,7 @@ export interface ProviderInfo {
     readonly keyUrl: string;
 }
 
-/** Finnhub quotes stocks and crypto for the markets tiles. */
+/** Finnhub quotes stocks and crypto for the markets tile. */
 export const FINNHUB: ProviderInfo = {
     id: 'finnhub',
     title: 'Finnhub',

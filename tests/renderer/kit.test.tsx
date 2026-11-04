@@ -16,7 +16,7 @@ import { FINNHUB } from '../../src/shared/providers';
 import type { ProviderOutcome } from '../../src/shared/providers';
 import { airCategory } from '../../src/renderer/shell/kit/air';
 import { ConditionIcon } from '../../src/renderer/shell/kit/icons';
-import { HUES, clock, pick, rng } from '../../src/renderer/shell/kit/seed';
+import { pick, rng } from '../../src/renderer/shell/kit/seed';
 import {
     inUnit,
     lengthInUnit,
@@ -26,7 +26,7 @@ import {
     weatherInfo,
     weatherTone
 } from '../../src/renderer/shell/kit/weather';
-import { AIR, PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
+import { PLACE, WEATHER, stubBrooz, stubGeolocation } from './stubs';
 
 describe('the seeded data', () => {
     it('names every step of the air quality index, ends included', () => {
@@ -42,7 +42,6 @@ describe('the seeded data', () => {
     it('picks deterministically, negative seeds too', () => {
         expect(pick(3, ['a', 'b'])).toBe('b');
         expect(pick(-3, ['a', 'b'])).toBe('b');
-        expect(HUES).toHaveLength(8);
     });
 
     it('draws the same series for the same seed', () => {
@@ -52,10 +51,6 @@ describe('the seeded data', () => {
         expect([b(), b(), b()]).toEqual(first);
         expect(first.every((value) => value >= 0 && value < 1)).toBe(true);
         expect(rng(0)()).toBe(rng(1)());
-    });
-
-    it('formats a clock', () => {
-        expect(clock(9, 5)).toBe('09:05');
     });
 });
 
@@ -164,10 +159,15 @@ describe('the live data hooks', () => {
         vi.useRealTimers();
         vi.resetModules();
         vi.unstubAllGlobals();
+        localStorage.clear();
     });
 
     async function hooks() {
         return import('../../src/renderer/shell/kit/hooks');
+    }
+
+    async function stored() {
+        return import('../../src/renderer/shell/kit/stored');
     }
 
     it('follows the device location, a kilometre at a time', async () => {
@@ -191,6 +191,19 @@ describe('the live data hooks', () => {
         const saved = savedLocation(PLACE);
         const { result } = renderHook(() => useDeviceLocation(saved));
         await waitFor(() => expect(result.current).toBe(saved));
+    });
+
+    it('never asks for the device location when disabled', async () => {
+        const getCurrentPosition = vi.fn();
+        vi.stubGlobal('navigator', {
+            userAgent: navigator.userAgent,
+            geolocation: { getCurrentPosition, watchPosition: getCurrentPosition }
+        });
+        const { savedLocation, useDeviceLocation } = await hooks();
+        const saved = savedLocation(PLACE);
+        const { result } = renderHook(() => useDeviceLocation(saved, false));
+        expect(result.current).toBe(saved);
+        expect(getCurrentPosition).not.toHaveBeenCalled();
     });
 
     it('reads the default location as its coordinates and its name, and none as no query', async () => {
@@ -217,60 +230,106 @@ describe('the live data hooks', () => {
         expect(result.current).toEqual({ query: null, pending: true, name: null });
     });
 
-    it('loads the weather and the air quality over IPC', async () => {
-        const weatherOk = { status: 'ok', data: WEATHER };
-        const airOk = { status: 'ok', data: AIR };
-        const invoke = stubBrooz({
-            'brooz:weather': () => weatherOk,
-            'brooz:air-quality': () => airOk
+    it('resolves the live location: the city, else the tile, else the device, else the default', async () => {
+        stubGeolocation({ latitude: 53.55, longitude: 9.99 });
+        const { useLiveLocation } = await hooks();
+        const city = renderHook(() => useLiveLocation('Rome', 'weather'));
+        expect(city.result.current).toEqual({
+            query: { city: 'Rome' },
+            pending: false,
+            name: null
         });
-        const { useAirQuality, useWeather } = await hooks();
-        const weather = renderHook(() => useWeather({ city: 'Rome' }));
-        expect(weather.result.current.loading).toBe(true);
-        await waitFor(() => expect(weather.result.current.data).toEqual(weatherOk));
-        const air = renderHook(() => useAirQuality({ latitude: 1, longitude: 2 }));
-        await waitFor(() => expect(air.result.current.data).toEqual(airOk));
-        expect(invoke).toHaveBeenCalledWith('brooz:air-quality', {
-            latitude: 1,
-            longitude: 2
-        });
+
+        // The tile's own location wins over the device location.
+        localStorage.setItem(
+            'brooz.tile.weather.location',
+            JSON.stringify({ ...PLACE, name: 'Lisbon' })
+        );
+        const tile = renderHook(() => useLiveLocation(undefined, 'weather'));
+        await waitFor(() =>
+            expect(tile.result.current).toEqual({
+                query: { latitude: 41.9, longitude: 12.5 },
+                pending: false,
+                name: 'Lisbon'
+            })
+        );
+
+        // Another tile without its own location follows the device location.
+        const device = renderHook(() => useLiveLocation(undefined, 'air-quality'));
+        await waitFor(() =>
+            expect(device.result.current).toEqual({
+                query: { latitude: 53.55, longitude: 9.99 },
+                pending: false,
+                name: null
+            })
+        );
+
+        localStorage.setItem('brooz.location.default', JSON.stringify(PLACE));
+        localStorage.setItem('brooz.location.enabled', 'false');
+        const fallback = renderHook(() => useLiveLocation(undefined, 'ticker'));
+        await waitFor(() =>
+            expect(fallback.result.current).toEqual({
+                query: { latitude: 41.9, longitude: 12.5 },
+                pending: false,
+                name: 'Rome'
+            })
+        );
     });
 
-    it('waits without a place and without a city', async () => {
-        const invoke = stubBrooz({});
-        const { usePlace, useWeather } = await hooks();
-        const weather = renderHook(() => useWeather(null));
-        const place = renderHook(() => usePlace(undefined));
-        expect(weather.result.current).toMatchObject({ data: null, loading: false });
-        expect(place.result.current).toMatchObject({ data: null, loading: false });
-        expect(invoke).not.toHaveBeenCalled();
+    it('keeps the surf spot and the start tile as stored values', async () => {
+        const { START_TILE_KEY, useStartTile, useSurfSpot } = await stored();
+        expect(START_TILE_KEY).toBe('brooz.start.tile');
+        const spot = renderHook(() => useSurfSpot());
+        expect(spot.result.current[0]).toBe(null);
+        act(() => spot.result.current[1](PLACE));
+        expect(localStorage.getItem('brooz.surf.spot')).toBe(JSON.stringify(PLACE));
+        const start = renderHook(() => useStartTile());
+        expect(start.result.current[0]).toBe('about');
+        act(() => start.result.current[1]('surf'));
+        expect(localStorage.getItem(START_TILE_KEY)).toBe('"surf"');
+    });
+
+    it('loads a provider channel over IPC, and nothing without a key', async () => {
+        const invoke = stubBrooz({
+            'brooz:stock-quotes': () => ({ status: 'ok', data: [] }),
+            'brooz:weather': () => ({ status: 'ok', data: WEATHER })
+        });
+        const { useProviderData } = await hooks();
+        const quotes = renderHook(() => useProviderData('brooz:stock-quotes', 'AAPL', [['AAPL']]));
+        expect(quotes.result.current.loading).toBe(true);
+        await waitFor(() => expect(quotes.result.current.data?.status).toBe('ok'));
+        expect(invoke).toHaveBeenCalledWith('brooz:stock-quotes', ['AAPL']);
+        const idle = renderHook(() => useProviderData('brooz:weather', null, [null]));
+        expect(idle.result.current).toMatchObject({ data: null, loading: false });
+        expect(invoke).toHaveBeenCalledTimes(1);
     });
 
     it('unwraps an IPC error and loads again on reload', async () => {
         let fail = true;
         stubBrooz({
-            'brooz:geocode': () => {
+            'brooz:weather': () => {
                 if (fail) {
                     throw new Error(
-                        "Error invoking remote method 'brooz:geocode': Error: I couldn't find “X”."
+                        "Error invoking remote method 'brooz:weather': Error: Offline."
                     );
                 }
-                return PLACE;
+                return { status: 'ok', data: WEATHER };
             }
         });
-        const { usePlace } = await hooks();
-        const { result } = renderHook(() => usePlace('X'));
-        await waitFor(() => expect(result.current.error).toBe("I couldn't find “X”."));
+        const { useProviderData } = await hooks();
+        const { result } = renderHook(() =>
+            useProviderData('brooz:weather', 'Rome', [{ city: 'Rome' }])
+        );
+        await waitFor(() => expect(result.current.error).toBe('Offline.'));
         fail = false;
         act(() => result.current.reload());
-        await waitFor(() => expect(result.current.data).toBe(PLACE));
+        await waitFor(() => expect(result.current.data?.status).toBe('ok'));
     });
 
     it('says something went wrong when the failure is not an Error', async () => {
-        stubBrooz({ 'brooz:geocode': () => Promise.reject(new Error('plain')) });
-        window.brooz.invoke = vi.fn(() => Promise.reject('nope')) as never;
-        const { usePlace } = await hooks();
-        const { result } = renderHook(() => usePlace('Y'));
+        window.brooz = { invoke: vi.fn(() => Promise.reject('nope')) as never };
+        const { useProviderData } = await hooks();
+        const { result } = renderHook(() => useProviderData('brooz:weather', 'Rome', [{}]));
         await waitFor(() =>
             expect(result.current.error).toBe('Something went wrong while loading.')
         );
@@ -288,64 +347,83 @@ describe('the live data hooks', () => {
                     })
             ) as never
         };
-        const { usePlace } = await hooks();
-        const { result, rerender } = renderHook(({ city }) => usePlace(city), {
-            initialProps: { city: 'A' }
-        });
+        const { useProviderData } = await hooks();
+        const { result, rerender } = renderHook(
+            ({ city }) => useProviderData('brooz:weather', city, [{ city }]),
+            {
+                initialProps: { city: 'A' }
+            }
+        );
         rerender({ city: 'B' });
         rerender({ city: 'C' });
         await act(async () => {
-            answers[0]({ ...PLACE, name: 'A' });
+            answers[0]({ status: 'ok', data: { name: 'A' } });
             failures[1](new Error('late'));
-            answers[2]({ ...PLACE, name: 'C' });
+            answers[2]({ status: 'ok', data: { name: 'C' } });
             await Promise.resolve();
         });
-        await waitFor(() => expect(result.current.data?.name).toBe('C'));
+        await waitFor(() => expect(result.current.data).toMatchObject({ data: { name: 'C' } }));
         expect(result.current.error).toBe(null);
     });
 
-    it('ticks every second', async () => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-10-24T10:00:00'));
-        const { useNow } = await hooks();
-        const { result, unmount } = renderHook(() => useNow());
-        expect(result.current.getSeconds()).toBe(0);
-        act(() => {
-            vi.advanceTimersByTime(2000);
+    it('loads a place-based tile: the city, or a notice when there is no location', async () => {
+        stubGeolocation();
+        const invoke = stubBrooz({ 'brooz:weather': () => ({ status: 'ok', data: WEATHER }) });
+        const { usePlaceData } = await hooks();
+        const withCity = renderHook(() => usePlaceData('Rome', 'brooz:weather', 'weather'));
+        expect(withCity.result.current.notice).toBe(null);
+        await waitFor(() => expect(withCity.result.current.state.data?.status).toBe('ok'));
+        expect(invoke).toHaveBeenCalledWith('brooz:weather', { city: 'Rome' });
+
+        localStorage.removeItem('brooz.location.default');
+        localStorage.setItem('brooz.location.enabled', 'false');
+        const without = renderHook(() => usePlaceData(undefined, 'brooz:weather', 'weather'));
+        expect(without.result.current.notice).toBe('Set a location first.');
+        expect(without.result.current.state.data).toBe(null);
+        expect(invoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks a place-based tile pending while the device location is unsettled', async () => {
+        vi.stubGlobal('navigator', {
+            geolocation: {
+                getCurrentPosition: () => undefined,
+                watchPosition: () => 1,
+                clearWatch: () => undefined
+            }
         });
-        expect(result.current.getSeconds()).toBe(2);
-        unmount();
-    });
-});
-
-describe('the quotes hook', () => {
-    afterEach(() => {
-        vi.resetModules();
-        vi.unstubAllGlobals();
+        stubBrooz({});
+        const { usePlaceData } = await hooks();
+        const { result } = renderHook(() => usePlaceData(undefined, 'brooz:weather', 'weather'));
+        expect(result.current.pending).toBe(true);
+        expect(result.current.notice).toBe(null);
     });
 
-    async function hooks() {
-        return import('../../src/renderer/shell/kit/hooks');
-    }
-
-    it('loads quotes over the provider channel', async () => {
-        const QUOTES = [
-            { symbol: 'AAPL', price: 189.4, changePercent: -1.2 },
-            { symbol: 'BTC-USD', price: 67420, changePercent: 0.8 }
-        ];
-        const invoke = stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'ok', data: QUOTES }) });
-        const { useQuotes } = await hooks();
-        const { result } = renderHook(() => useQuotes(['AAPL', 'BTC-USD']));
-        await waitFor(() => expect(result.current.data).toEqual({ status: 'ok', data: QUOTES }));
-        expect(invoke).toHaveBeenCalledWith('brooz:stock-quotes', ['AAPL', 'BTC-USD']);
-    });
-
-    it('asks nothing without symbols', async () => {
-        const invoke = stubBrooz({ 'brooz:stock-quotes': () => ({ status: 'ok', data: [] }) });
-        const { useQuotes } = await hooks();
-        const { result } = renderHook(() => useQuotes(null));
-        expect(result.current).toMatchObject({ data: null, loading: false });
-        expect(invoke).not.toHaveBeenCalled();
+    it('picks the stored provider of a tile, or its first candidate', async () => {
+        const { chosenProviderKey, useChosenProvider } = await stored();
+        const { OPENWEATHERMAP, FINNHUB } = await import('../../src/shared/providers');
+        const tile = {
+            id: 'demo',
+            title: 'Demo',
+            Component: () => null,
+            providers: [
+                { provider: OPENWEATHERMAP, channel: 'brooz:weather' },
+                { provider: FINNHUB, channel: 'brooz:stock-quotes' }
+            ]
+        } as const;
+        expect(chosenProviderKey('demo')).toBe('brooz.tile.demo.provider');
+        const first = renderHook(() => useChosenProvider(tile));
+        expect(first.result.current?.provider.id).toBe('openweathermap');
+        localStorage.setItem(chosenProviderKey('demo'), JSON.stringify('finnhub'));
+        const chosen = renderHook(() => useChosenProvider(tile));
+        expect(chosen.result.current?.provider.id).toBe('finnhub');
+        expect(chosen.result.current?.channel).toBe('brooz:stock-quotes');
+        localStorage.setItem(chosenProviderKey('demo'), JSON.stringify('not-a-provider'));
+        const stale = renderHook(() => useChosenProvider(tile));
+        expect(stale.result.current?.provider.id).toBe('openweathermap');
+        const keyless = renderHook(() =>
+            useChosenProvider({ id: 'x', title: 'X', Component: () => null })
+        );
+        expect(keyless.result.current).toBeUndefined();
     });
 });
 

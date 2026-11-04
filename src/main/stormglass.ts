@@ -70,11 +70,54 @@ function cachePath(): string {
     return join(app.getPath('userData'), CACHE_FILE);
 }
 
-/** Loads the cache once per session; a missing or corrupt file starts empty. */
+/** Whether a spot has the coordinates `placeKey` relies on. */
+function hasCoords(spot: unknown): boolean {
+    if (typeof spot !== 'object' || spot === null) {
+        return false;
+    }
+    const { latitude, longitude } = spot as Record<string, unknown>;
+    return typeof latitude === 'number' && typeof longitude === 'number';
+}
+
+/** Whether a cache entry has the shape `through` and `fetchSurf` rely on. */
+function isEntry(value: unknown): value is Entry<unknown> {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    const { spot, key, at, data } = value as Record<string, unknown>;
+    return (
+        hasCoords(spot) && typeof key === 'string' && typeof at === 'number' && Array.isArray(data)
+    );
+}
+
+/** Whether a spent mark has the shape `isSpent` relies on. */
+function isSpentMark(value: unknown): boolean {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    const { key, day } = value as Record<string, unknown>;
+    return typeof key === 'string' && typeof day === 'string';
+}
+
+/** Whether parsed cache JSON has the expected shape; anything else starts empty. */
+function isStore(value: unknown): value is Store {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    const { swell, tides, spent } = value as Record<string, unknown>;
+    return (
+        (swell === undefined || isEntry(swell)) &&
+        (tides === undefined || isEntry(tides)) &&
+        (spent === undefined || isSpentMark(spent))
+    );
+}
+
+/** Loads the cache once per session; a missing, corrupt or wrong-shaped file starts empty. */
 function load(): Store {
     if (store === null) {
         try {
-            store = JSON.parse(readFileSync(cachePath(), 'utf8')) as Store;
+            const parsed: unknown = JSON.parse(readFileSync(cachePath(), 'utf8'));
+            store = isStore(parsed) ? parsed : {};
         } catch {
             store = {};
         }

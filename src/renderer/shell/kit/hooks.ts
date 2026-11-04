@@ -1,19 +1,13 @@
-import { useInterval } from 'ahooks';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useGeolocation, useStoredValue } from './browser';
+import { useGeolocation } from './browser';
+import { useDefaultLocation, useDeviceLocationSetting, useTileLocation } from './stored';
 import { IPC_CHANNELS } from '../../../shared/ipc';
+import type { IpcChannel } from '../../../shared/ipc';
 import { placeKey } from '../../../shared/weather';
-import type {
-    AirQualitySnapshot,
-    GeoPlace,
-    PlaceQuery,
-    WeatherSnapshot
-} from '../../../shared/weather';
+import type { AirQualitySnapshot, GeoPlace, PlaceQuery } from '../../../shared/weather';
 import type { AsyncView } from './live';
-import type { TemperatureUnit } from './weather';
 import type { KeyStatus, ProviderInfo, ProviderOutcome } from '../../../shared/providers';
-import type { StockQuote } from '../../../shared/quotes';
-import type { SurfForecast } from '../../../shared/surf';
+import type { LiveLoader } from '../tile';
 
 /**
  * Electron wraps an error thrown by an IPC handler as
@@ -102,24 +96,6 @@ function coarse(degrees: number): number {
     return Math.round(degrees * 100) / 100;
 }
 
-/** Whether tiles may follow the device location: on until the person turns it off. */
-export function useDeviceLocationSetting(): [boolean, (on: boolean) => void] {
-    return useStoredValue<boolean>('brooz.location.enabled', true);
-}
-
-/** The default location the person saved in the settings, or `null`; every tile follows a change. */
-export function useDefaultLocation(): [GeoPlace | null, (place: GeoPlace | null) => void] {
-    return useStoredValue<GeoPlace | null>('brooz.location.default', null);
-}
-
-/**
- * The surf spot the person saved in the settings, or `null`: a place on the
- * water, not a location, so no city and no device location replace it.
- */
-export function useSurfSpot(): [GeoPlace | null, (spot: GeoPlace | null) => void] {
-    return useStoredValue<GeoPlace | null>('brooz.surf.spot', null);
-}
-
 /** No location at all: the tile asks for one instead of guessing. */
 export const NO_LOCATION: LiveLocation = { query: null, pending: false, name: null };
 
@@ -134,19 +110,13 @@ export function savedLocation(place: GeoPlace | null): LiveLocation {
         : NO_LOCATION;
 }
 
-/** The temperature unit: Celsius until the person picks Fahrenheit. */
-export function useTemperatureUnit(): [TemperatureUnit, (unit: TemperatureUnit) => void] {
-    const [unit, setUnit] = useStoredValue<TemperatureUnit>('brooz.temperature.unit', 'C');
-    // The stored value is untyped JSON: anything but 'F' reads as Celsius.
-    return [unit === 'F' ? 'F' : 'C', setUnit];
-}
-
 /**
  * The device location, followed while the tile is open. Without one (denied
- * or unsupported) the tile shows the fallback it is given.
+ * or unsupported) the tile shows the fallback it is given. Disabled, the
+ * position is never asked for.
  */
-export function useDeviceLocation(fallback: LiveLocation): LiveLocation {
-    const { latitude, longitude, loading } = useGeolocation(GEO_OPTIONS);
+export function useDeviceLocation(fallback: LiveLocation, enabled = true): LiveLocation {
+    const { latitude, longitude, loading } = useGeolocation(GEO_OPTIONS, enabled);
     if (latitude !== null && longitude !== null) {
         return {
             query: { latitude: coarse(latitude), longitude: coarse(longitude) },
@@ -160,10 +130,25 @@ export function useDeviceLocation(fallback: LiveLocation): LiveLocation {
     return fallback;
 }
 
-export function useWeather(query: PlaceQuery | null): AsyncView<ProviderOutcome<WeatherSnapshot>> {
-    return useAsync(query && `weather:${placeKey(query)}`, () =>
-        window.brooz.invoke(IPC_CHANNELS.weather, query!)
-    );
+/**
+ * Where a live tile shows its data: the city of the utterance, else the
+ * tile's own location, else the device location while the person allows it,
+ * else the default location under its saved name (docs/adr/0014). Without
+ * any, the tile asks for a location.
+ */
+export function useLiveLocation(city: string | undefined, tileId: string): LiveLocation {
+    const [followDevice] = useDeviceLocationSetting();
+    const [place] = useDefaultLocation();
+    const [tilePlace] = useTileLocation(tileId);
+    const fallback = savedLocation(place);
+    const device = useDeviceLocation(fallback, !city && !tilePlace && followDevice);
+    if (city) {
+        return { query: { city }, pending: false, name: null };
+    }
+    if (tilePlace) {
+        return savedLocation(tilePlace);
+    }
+    return followDevice ? device : fallback;
 }
 
 export function useAirQuality(
@@ -174,30 +159,65 @@ export function useAirQuality(
     );
 }
 
-export function useSurf(spot: GeoPlace | null): AsyncView<ProviderOutcome<SurfForecast>> {
-    return useAsync(spot && `surf:${placeKey(spot)}`, () =>
-        window.brooz.invoke(IPC_CHANNELS.surf, {
-            latitude: spot!.latitude,
-            longitude: spot!.longitude
-        })
-    );
-}
-
-export function usePlace(city: string | undefined): AsyncView<GeoPlace> {
-    return useAsync(city ? `place:${city}` : null, () =>
-        window.brooz.invoke(IPC_CHANNELS.geocode, city!)
+/**
+ * Invokes a provider channel chosen at runtime; the contract's per-channel
+ * argument types only exist per literal channel, so the shell passes them
+ * as the union here and the main process validates them.
+ */
+function invokeChannel(channel: IpcChannel, args: readonly unknown[]): Promise<unknown> {
+    return (window.brooz.invoke as (channel: IpcChannel, ...args: unknown[]) => Promise<unknown>)(
+        channel,
+        ...args
     );
 }
 
 /**
- * Live market quotes over the provider channel. The result is the provider
- * union, so the tile can answer a missing key with an invitation instead
- * of an error.
+ * Loads a provider channel's outcome, the way every provider tile loads:
+ * `key` is null while no request can be made, and the tile builds it from
+ * its args, so an arg change reloads. The result is the provider union, so
+ * the shell can answer a missing key with an invitation instead of an error.
  */
-export function useQuotes(symbols: string[] | null): AsyncView<ProviderOutcome<StockQuote[]>> {
-    return useAsync(symbols && `quotes:${symbols.join(' ')}`, () =>
-        window.brooz.invoke(IPC_CHANNELS.stockQuotes, symbols!)
+export function useProviderData<T>(
+    channel: IpcChannel,
+    key: string | null,
+    args: readonly unknown[]
+): AsyncView<ProviderOutcome<T>> {
+    return useAsync(key === null ? null : `${channel}:${key}`, () =>
+        invokeChannel(channel, args).then((result) => result as ProviderOutcome<T>)
     );
+}
+
+/**
+ * The loader of a place-based live tile: the location of the utterance's
+ * city, the device location or the default location, loaded over the chosen
+ * provider's channel. The saved name of the default location replaces the
+ * one the service gives. Without any location, no request is made and the
+ * tile asks for one.
+ */
+export function usePlaceData<T extends { place: GeoPlace }>(
+    city: string | undefined,
+    channel: IpcChannel,
+    tileId: string
+): LiveLoader<T> {
+    const location = useLiveLocation(city, tileId);
+    const state = useProviderData<T>(channel, location.query ? placeKey(location.query) : null, [
+        location.query
+    ]);
+    const named =
+        state.data?.status === 'ok' && location.name !== null
+            ? {
+                  ...state.data,
+                  data: {
+                      ...state.data.data,
+                      place: { ...state.data.data.place, name: location.name }
+                  }
+              }
+            : state.data;
+    return {
+        pending: location.pending,
+        notice: !location.query && !location.pending ? 'Set a location first.' : null,
+        state: { ...state, data: named }
+    };
 }
 
 /** Whether a provider's key is stored, and whether this system can store keys. */
@@ -205,13 +225,4 @@ export function useKeyStatus(provider: ProviderInfo): AsyncView<KeyStatus> {
     return useAsync(`key-status:${provider.id}`, () =>
         window.brooz.invoke(IPC_CHANNELS.keyStatus, provider.id)
     );
-}
-
-/** The current time, refreshed every second. */
-export function useNow(): Date {
-    const [now, setNow] = useState(() => new Date());
-
-    useInterval(() => setNow(new Date()), 1000);
-
-    return now;
 }

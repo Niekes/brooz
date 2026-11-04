@@ -1,5 +1,5 @@
 import { useEventListener } from 'ahooks';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { RefObject } from 'react';
 import { useStoredValue } from '../kit/browser';
 import type { SummonRequest } from '../tile';
@@ -9,7 +9,6 @@ import type { ModelStatus } from './use-local-model';
 
 /** Pause after the last keystroke before a confident route activates its tile. */
 const AUTO_SUMMON_DELAY = 400;
-const NOTICE_MS = 6000;
 
 /** Cmd+K or Ctrl+K focuses the field from anywhere. */
 export function useFocusShortcut(input: RefObject<HTMLInputElement | null>): void {
@@ -19,19 +18,6 @@ export function useFocusShortcut(input: RefObject<HTMLInputElement | null>): voi
             input.current!.focus();
         }
     });
-}
-
-/** A message that goes away on its own after a while. */
-export function useNotice(): [string | null, (notice: string) => void] {
-    const [notice, setNotice] = useState<string | null>(null);
-    useEffect(() => {
-        if (!notice) {
-            return;
-        }
-        const id = setTimeout(() => setNotice(null), NOTICE_MS);
-        return () => clearTimeout(id);
-    }, [notice]);
-    return [notice, setNotice];
 }
 
 /**
@@ -92,15 +78,8 @@ export function useModelWarmup(status: ModelStatus, load: () => void): () => voi
     };
 }
 
-/** The line under the field: a notice, a warning, a failure or the keys. */
-export function hintFor(
-    notice: string | null,
-    lowConfidence: boolean,
-    failure: string | null
-): string {
-    if (notice) {
-        return notice;
-    }
+/** The line under the field: a warning, a failure or the keys. */
+export function hintFor(lowConfidence: boolean, failure: string | null): string {
     if (lowConfidence) {
         return 'Low confidence — the top result opens anyway';
     }

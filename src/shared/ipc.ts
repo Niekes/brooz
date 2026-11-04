@@ -6,16 +6,11 @@
  * no change.
  */
 
-import type {
-    AirQualitySnapshot,
-    Coordinates,
-    GeoPlace,
-    PlaceQuery,
-    WeatherSnapshot
-} from './weather';
+import type { AirQualitySnapshot, GeoPlace, PlaceQuery, WeatherSnapshot } from './weather';
 import type { ProviderId, KeySave, KeyStatus, ProviderProbe, ProviderOutcome } from './providers';
 import type { StockQuote } from './quotes';
 import type { SurfForecast } from './surf';
+import type { Coordinates } from './weather';
 
 export const IPC_CHANNELS = {
     appVersion: 'brooz:app-version',

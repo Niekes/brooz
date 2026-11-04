@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
+    DEFAULT_TILE,
     DOME_PRESETS,
     SIZES,
     domeShape,
@@ -39,25 +40,31 @@ describe('the dome geometry', () => {
         expect(big.rows).toBe(Math.ceil(3000 / SIZES.cellH) + 2);
     });
 
-    it('places tiles so that orthogonal neighbours never match', () => {
-        expect(tileIndexAt(0, pool, 15)).toBe(0);
-        expect(tileIndexAt(1, pool, 15)).toBe(3);
-        expect(tileIndexAt(7, pool, 15)).toBe(5);
+    it('gives each registered tile the center-nearest slot, in registry order, once per pool', () => {
+        // The pool is 7x5, so its center is slot 17 (row 2, col 3).
+        expect(tileIndexAt(17, pool, 4)).toBe(0);
+        // The four slots at distance one follow, ordered by row then column.
+        expect(tileIndexAt(10, pool, 4)).toBe(1);
+        expect(tileIndexAt(16, pool, 4)).toBe(2);
+        expect(tileIndexAt(18, pool, 4)).toBe(3);
+        expect(tileIndexAt(24, pool, 4)).toBe(DEFAULT_TILE);
+        const kinds = Array.from({ length: 35 }, (_, slot) => tileIndexAt(slot, pool, 4));
+        for (let kind = 0; kind < 4; kind++) {
+            expect(kinds.filter((other) => other === kind)).toHaveLength(1);
+        }
+        expect(kinds.filter((kind) => kind === DEFAULT_TILE)).toHaveLength(35 - 4);
+    });
+
+    it('shows the default tile on every slot when no tile is registered', () => {
         for (let slot = 0; slot < 35; slot++) {
-            const kind = tileIndexAt(slot, pool, 15);
-            if (slot % 7 < 6) {
-                expect(tileIndexAt(slot + 1, pool, 15)).not.toBe(kind);
-            }
-            if (slot < 28) {
-                expect(tileIndexAt(slot + 7, pool, 15)).not.toBe(kind);
-            }
+            expect(tileIndexAt(slot, pool, 0)).toBe(DEFAULT_TILE);
         }
     });
 
-    it('knows no tile outside the pool', () => {
-        expect(tileIndexAt(-1, pool, 15)).toBe(null);
-        expect(tileIndexAt(35, pool, 15)).toBe(null);
-        expect(tileIndexAt(1.5, pool, 15)).toBe(null);
+    it('shows the default tile outside the pool too', () => {
+        expect(tileIndexAt(-1, pool, 15)).toBe(DEFAULT_TILE);
+        expect(tileIndexAt(35, pool, 15)).toBe(DEFAULT_TILE);
+        expect(tileIndexAt(1.5, pool, 15)).toBe(DEFAULT_TILE);
     });
 
     it('seeds every slot from its position', () => {

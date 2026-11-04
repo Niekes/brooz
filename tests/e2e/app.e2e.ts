@@ -21,8 +21,8 @@ const violations: string[] = [];
 
 test.beforeEach(async () => {
     violations.length = 0;
-    // A fresh profile per test: the model opt-in and the sticky note of a
-    // developer's own runs never leak into the suite.
+    // A fresh profile per test: the model opt-in of a developer's own runs
+    // never leaks into the suite.
     profile = mkdtempSync(join(tmpdir(), 'brooz-e2e-'));
     app = await _electron.launch({ args: ['.', `--user-data-dir=${profile}`] });
     window = await app.firstWindow();
@@ -47,12 +47,18 @@ test('the dome fills the window with tiles', async () => {
     expect(await window.locator('[data-index]').count()).toBeGreaterThanOrEqual(25);
 });
 
-test('the ask bar summons a live pomodoro without the network', async () => {
+test('the ask bar summons a live weather tile, which invites to the settings without a key', async () => {
     const input = window.getByLabel('Ask your dashboard');
-    await input.fill('start a 10 minute timer');
+    await input.fill('weather in Rome');
     await input.press('Enter');
-    await expect(window.getByText('10 min')).toBeVisible();
-    await expect(window.getByText('In focus')).toBeVisible();
+    await expect(window.getByText('Needs an API key from OpenWeatherMap.')).toBeVisible();
+});
+
+test('the ask bar summons the surf tile, which asks for a surf spot before any request', async () => {
+    const input = window.getByLabel('Ask your dashboard');
+    await input.fill('surf forecast');
+    await input.press('Enter');
+    await expect(window.getByText('Set a surf spot first.')).toBeVisible();
 });
 
 test('the window is cross-origin isolated and breaks no policy', async () => {
@@ -73,8 +79,11 @@ test('the settings open on the shortcut, close on Esc, and break no policy', asy
     const settings = window.getByRole('dialog', { name: 'Settings' });
     await expect(settings).toBeVisible();
     await expect(settings.getByRole('heading', { name: 'General' })).toBeVisible();
-    await settings.getByRole('button', { name: 'Weather' }).click();
+    await settings.getByRole('button', { name: 'OpenWeatherMap' }).click();
     await expect(settings.getByText('No key')).toBeVisible();
+    await settings.getByRole('button', { name: 'Surf' }).click();
+    await expect(settings.getByText('Surf spot')).toBeVisible();
+    await expect(settings.getByLabel('Town of the surf spot')).toBeVisible();
     await window.screenshot({ path: 'test-results/settings.png' });
     await window.keyboard.press('Escape');
     await expect(settings).toBeHidden();
