@@ -10,6 +10,11 @@ One cell of the dashboard grid - a small app of its own, with a resting state
 and an optional live one.
 _Avoid_: widget, card, cell
 
+**Route**:
+The ask bar's path from an utterance to a tile, scored by the deterministic
+rules and the local model. A tile without a route is never summoned.
+_Avoid_: intent, command, matcher
+
 **Provider**:
 An external service a tile's live data can come from, and the unit of an API
 key: several tiles may share one.

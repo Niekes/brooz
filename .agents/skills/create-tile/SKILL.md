@@ -1,11 +1,13 @@
 ---
 name: create-tile
-description: Scaffold a new dashboard tile. Asks whether the tile needs a provider and which, then generates the tile directory on the shared shell chrome and registers it. Use when the user wants to add a tile to brooz.
+description: Scaffold a new dashboard tile, or upgrade one (a Live state, a route, a provider). Asks whether the tile needs a provider and which, then generates the tile directory on the shared shell chrome and registers it. Use when the user wants to add a tile to brooz or extend an existing tile.
 ---
 
 Scaffold a new tile for the brooz dashboard. The tile is code, not a runtime
 addition: it lands in `src/renderer/tiles/<name>/` and in the registry, and
-the default tile in the grid shrinks by one slot.
+the default tile in the grid shrinks by one slot. Upgrading a tile - adding
+`Live`, a route or a provider to an existing one - re-enters this flow at
+that step.
 
 ## Ask first
 
@@ -20,10 +22,17 @@ the default tile in the grid shrinks by one slot.
       provider**: then the checklist below applies.
     - Several candidates -> list them all in `providers`; the person picks
       the active one in the provider's settings section (ADR 0011).
+    - The service signs in with OAuth, IMAP or any account login instead of
+      a plain API key (a Mail tile, say) -> stop before any code: a
+      provider is one key in `safeStorage` (ADR 0001, ADR 0002), and
+      extending that model takes an ADR in `docs/adr/` first.
 3. **Route**: should the ask bar summon it? If yes, ask for 2-3 example
    utterances; derive keywords and the rule pattern from them, and set a
    weight (3-3.5 like the existing routes). Add benchmark cases to
-   `tests/fixtures/routing.ts` and run `tests/renderer/command/rules-accuracy.test.ts`.
+   `tests/fixtures/routing.ts` (the development set and the holdout sets),
+   then run `npm run bench:model` - mandatory for any route change, it is
+   the only check that the model summons the tile; the rules half already
+   runs in `npm run verify`.
 
 ## New provider checklist (only when the answer above needs one)
 
