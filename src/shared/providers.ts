@@ -17,7 +17,7 @@ export interface ProviderInfo {
     readonly title: string;
     /** Where the key comes from, in one sentence. */
     readonly description: string;
-    /** The domain the key is created at, shown as text: the app opens no links. */
+    /** The domain the key is created at; `brooz:key-page` opens it in the system browser. */
     readonly keyUrl: string;
 }
 
@@ -51,6 +51,18 @@ export const PROVIDERS: readonly ProviderInfo[] = [OPENWEATHERMAP, FINNHUB, STOR
 /** Whether `value` names a provider of the manifest. */
 export function providerExists(value: string): value is ProviderId {
     return PROVIDERS.some((provider) => provider.id === value);
+}
+
+/** The manifest entry of a provider id; the Record keeps the lookup total. */
+const PROVIDER_INFO: Record<ProviderId, ProviderInfo> = {
+    finnhub: FINNHUB,
+    openweathermap: OPENWEATHERMAP,
+    stormglass: STORMGLASS
+};
+
+/** The manifest entry a provider id names. */
+export function providerInfo(id: ProviderId): ProviderInfo {
+    return PROVIDER_INFO[id];
 }
 
 /**

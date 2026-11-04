@@ -21,6 +21,7 @@ export const IPC_CHANNELS = {
     keyDelete: 'brooz:key-delete',
     keyStatus: 'brooz:key-status',
     keyTest: 'brooz:key-test',
+    keyPage: 'brooz:key-page',
     stockQuotes: 'brooz:stock-quotes',
     surf: 'brooz:surf',
     styleNonce: 'brooz:style-nonce'
@@ -61,6 +62,10 @@ export interface IpcContract {
     [IPC_CHANNELS.keyTest]: {
         args: [provider: ProviderId];
         result: ProviderProbe;
+    };
+    [IPC_CHANNELS.keyPage]: {
+        args: [provider: ProviderId];
+        result: void;
     };
     [IPC_CHANNELS.stockQuotes]: {
         args: [symbols: string[]];

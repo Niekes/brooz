@@ -146,8 +146,15 @@ function KeyHeader({
             <p className="text-xs text-white/45">
                 {locked
                     ? 'This system offers no encrypted place for keys, so none can be stored here.'
-                    : `${provider.description} Get a key at ${provider.keyUrl}. One key serves every tile of ${provider.title}.`}
+                    : `${provider.description} One key serves every tile of ${provider.title}.`}
             </p>
+            <AppButton
+                variant="link"
+                className="self-start px-0 text-xs text-white/60"
+                onClick={() => void window.brooz.invoke(IPC_CHANNELS.keyPage, provider.id)}
+            >
+                Get a key at {provider.keyUrl}
+            </AppButton>
         </>
     );
 }

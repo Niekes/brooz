@@ -201,8 +201,9 @@ file system or the network, with a parser in `src/main/validate.ts` (see
 `parsePlaceQuery`).
 
 The channels: `brooz:app-version`, `brooz:geocode`, `brooz:style-nonce`,
-the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`
-and `brooz:key-test`, and the provider channels `brooz:weather`,
+the key channels `brooz:key-set`, `brooz:key-delete`, `brooz:key-status`,
+`brooz:key-test` and `brooz:key-page` (opens the provider's key page in the
+system browser, `docs/adr/0016`), and the provider channels `brooz:weather`,
 `brooz:air-quality`, `brooz:stock-quotes` and `brooz:surf`.
 
 ## Provider keys

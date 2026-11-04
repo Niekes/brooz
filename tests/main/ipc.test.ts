@@ -13,6 +13,7 @@ const mockCanStoreKeys = vi.fn(() => true);
 const mockProbeProvider = vi.fn();
 const mockStockQuotes = vi.fn();
 const mockSurf = vi.fn();
+const mockOpenExternal = vi.fn((_url: unknown) => Promise.resolve());
 
 vi.mock('electron', () => ({
     app: {
@@ -20,6 +21,9 @@ vi.mock('electron', () => ({
     },
     ipcMain: {
         handle: (...args: unknown[]) => mockHandle(...args)
+    },
+    shell: {
+        openExternal: (url: unknown) => mockOpenExternal(url)
     }
 }));
 
@@ -72,6 +76,7 @@ describe('the IPC handlers', () => {
             'brooz:key-delete',
             'brooz:key-status',
             'brooz:key-test',
+            'brooz:key-page',
             'brooz:stock-quotes',
             'brooz:surf',
             'brooz:style-nonce'
@@ -104,6 +109,7 @@ describe('the IPC handlers', () => {
         'brooz:key-delete',
         'brooz:key-status',
         'brooz:key-test',
+        'brooz:key-page',
         'brooz:stock-quotes',
         'brooz:style-nonce'
     ])('rejects any other sender on %s', (channel) => {
@@ -118,6 +124,7 @@ describe('the IPC handlers', () => {
         expect(mockDeleteKey).not.toHaveBeenCalled();
         expect(mockProbeProvider).not.toHaveBeenCalled();
         expect(mockStockQuotes).not.toHaveBeenCalled();
+        expect(mockOpenExternal).not.toHaveBeenCalled();
     });
 
     it('geocodes a trimmed city', () => {
@@ -191,6 +198,14 @@ describe('the IPC handlers', () => {
         expect(mockProbeProvider).toHaveBeenCalledWith('finnhub');
     });
 
+    it('opens the key page of a provider of the manifest, never a renderer URL', () => {
+        registerIpcHandlers();
+        handlerFor('brooz:key-page')(app, 'finnhub');
+        expect(mockOpenExternal).toHaveBeenCalledWith('https://finnhub.io/register');
+        handlerFor('brooz:key-page')(app, 'stormglass');
+        expect(mockOpenExternal).toHaveBeenLastCalledWith('https://stormglass.io');
+    });
+
     it('quotes symbols through the provider side', async () => {
         mockStockQuotes.mockResolvedValue({ status: 'ok', data: [] });
         registerIpcHandlers();
@@ -217,6 +232,9 @@ describe('the IPC handlers', () => {
         );
         expect(() => handlerFor('brooz:key-delete')(app, 42)).toThrow(/Unknown provider/);
         expect(() => handlerFor('brooz:key-test')(app, 'unknown')).toThrow(/Unknown provider/);
+        expect(() => handlerFor('brooz:key-page')(app, 'https://evil.example')).toThrow(
+            /Unknown provider/
+        );
         expect(() => handlerFor('brooz:stock-quotes')(app, 'AAPL')).toThrow(/a list of/);
         await expect(handlerFor('brooz:key-status')(app, 'unknown')).rejects.toThrow(
             /Unknown provider/
@@ -229,5 +247,6 @@ describe('the IPC handlers', () => {
         expect(mockDeleteKey).not.toHaveBeenCalled();
         expect(mockProbeProvider).not.toHaveBeenCalled();
         expect(mockStockQuotes).not.toHaveBeenCalled();
+        expect(mockOpenExternal).not.toHaveBeenCalled();
     });
 });

@@ -287,6 +287,15 @@ describe('a provider key in the settings', () => {
         expect(screen.getByText('Delete')).toBeTruthy();
     });
 
+    it('opens the key page over the main process on a click', async () => {
+        const invoke = stubBrooz({
+            'brooz:key-status': () => ({ present: false, canStore: true })
+        });
+        render(<ProviderKey provider={FINNHUB} />);
+        fireEvent.click(await screen.findByText('Get a key at finnhub.io/register'));
+        expect(invoke).toHaveBeenCalledWith('brooz:key-page', 'finnhub');
+    });
+
     it('takes a key and saves it, then asks for the new status', async () => {
         const invoke = stubBrooz({
             'brooz:key-status': () => ({ present: false, canStore: true }),
