@@ -1,12 +1,12 @@
 name: CI
 
 # A pull request runs its checks once, through the pull_request event; the
-# push event stays for master alone, so no commit is ever checked twice and
+# push event stays for main alone, so no commit is ever checked twice and
 # the scarce macOS runners are not queued twice per change.
 on:
     pull_request:
     push:
-        branches: [master]
+        branches: [main]
 
 jobs:
     typecheck:
@@ -108,7 +108,7 @@ jobs:
             - run: npm ci
             - run: npm run build
             - name: Update the health and coverage badges
-              if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+              if: github.ref == 'refs/heads/main' && github.event_name == 'push'
               run: |
                   npx fallow health --format badge > .github/badges/health.svg
                   npm run coverage

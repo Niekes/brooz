@@ -59,7 +59,7 @@ For non-skill agents, treat the task map below as the local onboarding source: r
 ## Releasing
 
 Releases are automatic. release-please reads the Conventional Commits on
-`master` and keeps one release pull request open ("chore(master): release
+`main` and keeps one release pull request open ("chore(main): release
 X.Y.Z"): `feat` raises the minor version, `fix` the patch version, a `!`
 breaking change the minor version while Brooz is 0.x. It writes the version
 into `package.json` and `.release-please-manifest.json` and generates the

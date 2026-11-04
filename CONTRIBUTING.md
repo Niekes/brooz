@@ -91,7 +91,7 @@ another tile. A primitive is added or updated only with
 
 Releases are automatic, see the Releasing section of [AGENTS.md](./AGENTS.md):
 release-please keeps a release pull request open from the Conventional
-Commits on `master`, and merging it builds the installers, smoke tests the
+Commits on `main`, and merging it builds the installers, smoke tests the
 packaged app on macOS, Windows and Linux, and publishes the release. Write
 `feat:` and `fix:` commits for what users should read in the release notes;
 do not push version tags and do not bump the version by hand.

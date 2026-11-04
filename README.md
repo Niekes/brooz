@@ -9,11 +9,11 @@
 
 <p align="center">
   <a href="https://github.com/Niekes/brooz/actions/workflows/ci.yml"><img src="https://github.com/Niekes/brooz/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/Niekes/brooz/actions"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Niekes/brooz/master/.github/badges/coverage.json" alt="Coverage"></a>
-  <a href="https://fallow.tools/docs/explanations/health/"><img src="https://raw.githubusercontent.com/Niekes/brooz/master/.github/badges/health.svg" alt="fallow health"></a>
+  <a href="https://github.com/Niekes/brooz/actions"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Niekes/brooz/main/.github/badges/coverage.json" alt="Coverage"></a>
+  <a href="https://fallow.tools/docs/explanations/health/"><img src="https://raw.githubusercontent.com/Niekes/brooz/main/.github/badges/health.svg" alt="fallow health"></a>
   <a href="https://github.com/Niekes/brooz/releases"><img src="https://img.shields.io/github/downloads/Niekes/brooz/total" alt="GitHub downloads"></a>
   <a href="https://github.com/Niekes/brooz/releases/latest"><img src="https://img.shields.io/github/v/release/Niekes/brooz" alt="Latest version"></a>
-  <a href="https://github.com/Niekes/brooz/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License"></a>
+  <a href="https://github.com/Niekes/brooz/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License"></a>
 </p>
 
 ---

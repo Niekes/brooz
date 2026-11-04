@@ -2,8 +2,8 @@ name: Release
 
 # The whole release runs without a click once the release PR is merged:
 #
-#   1. release-please keeps a "chore(master): release X.Y.Z" PR open. It
-#      reads the Conventional Commits on master (feat -> minor, fix -> patch
+#   1. release-please keeps a "chore(main): release X.Y.Z" PR open. It
+#      reads the Conventional Commits on main (feat -> minor, fix -> patch
 #      while the version is 0.x) and writes the version and CHANGELOG.md.
 #   2. Merging that PR makes release-please tag vX.Y.Z and create the
 #      GitHub release as a draft, with the CHANGELOG section as its notes.
@@ -15,7 +15,7 @@ name: Release
 
 on:
     push:
-        branches: [master]
+        branches: [main]
     # Builds, tests and publishes an existing draft again, e.g. after a
     # flaky runner failed the first attempt.
     workflow_dispatch:
