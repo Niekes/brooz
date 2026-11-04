@@ -54,6 +54,13 @@ test('the ask bar summons a live weather tile, which invites to the settings wit
     await expect(window.getByText('Needs an API key from OpenWeatherMap.')).toBeVisible();
 });
 
+test('the ask bar summons the surf tile, which asks for a surf spot before any request', async () => {
+    const input = window.getByLabel('Ask your dashboard');
+    await input.fill('surf forecast');
+    await input.press('Enter');
+    await expect(window.getByText('Set a surf spot first.')).toBeVisible();
+});
+
 test('the window is cross-origin isolated and breaks no policy', async () => {
     expect(await window.evaluate(() => crossOriginIsolated)).toBe(true);
     await expect(window.getByLabel('Ask your dashboard')).toBeVisible();
@@ -74,6 +81,9 @@ test('the settings open on the shortcut, close on Esc, and break no policy', asy
     await expect(settings.getByRole('heading', { name: 'General' })).toBeVisible();
     await settings.getByRole('button', { name: 'OpenWeatherMap' }).click();
     await expect(settings.getByText('No key')).toBeVisible();
+    await settings.getByRole('button', { name: 'Surf' }).click();
+    await expect(settings.getByText('Surf spot')).toBeVisible();
+    await expect(settings.getByLabel('Town of the surf spot')).toBeVisible();
     await window.screenshot({ path: 'test-results/settings.png' });
     await window.keyboard.press('Escape');
     await expect(settings).toBeHidden();
