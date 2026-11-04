@@ -6,6 +6,29 @@ From 0.2.1 on, release-please writes the entries from the Conventional
 Commits on `master`; the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/Niekes/brooz/compare/v0.5.0...v0.6.0) (2026-11-04)
+
+
+### Added
+
+* key the settings sections by provider, with marks and a separator ([daad3ae](https://github.com/Niekes/brooz/commit/daad3ae12a03aed908f26491296c548403cc196c))
+* key the settings sections by provider, with marks and a separator ([9c45803](https://github.com/Niekes/brooz/commit/9c458031bcb68e2cb607ddaea2f26bfca4b52331))
+* keyed tiles only, default tile fills the grid, shell owns the live chrome ([d5cdaaf](https://github.com/Niekes/brooz/commit/d5cdaaf3673ca3d84646480484321ad5e56fe0d2))
+* keyed tiles with per-tile settings, surf back, default tile, start tile ([#22](https://github.com/Niekes/brooz/issues/22)) ([dbe6c06](https://github.com/Niekes/brooz/commit/dbe6c06d4f59f337c2f9fc10afa1fa18d7e33421))
+* redesign the surf tile as a rated day card ([7edf60d](https://github.com/Niekes/brooz/commit/7edf60d248afd899dd24b80dcebaa1495d9b5d5d))
+* redesign the surf tile as a rated day card ([2262c1a](https://github.com/Niekes/brooz/commit/2262c1a0303e4db2f62d77b212e2cf511ab4e444))
+* surf tile and Stormglass are back, settings gain per-tile sections, start tile ([6b639ca](https://github.com/Niekes/brooz/commit/6b639ca43863af6f6f8d49644aa3737060fe48e5))
+
+
+### Fixed
+
+* a confident rule hit stays on top of the model's suggestions ([69ecc50](https://github.com/Niekes/brooz/commit/69ecc503ae8d2dda953e2cc5675ff84cff59e8c8))
+* a confident rule hit stays on top of the model's suggestions ([d8dc179](https://github.com/Niekes/brooz/commit/d8dc179bfd8e40d7c0a5543d9e9246b6ec622df3))
+* a re-encrypted key never overwrites a newer save or delete ([9c6ef05](https://github.com/Niekes/brooz/commit/9c6ef052c08175d8968e12c3cb097407ca1c03ff))
+* npm run dev works on a fresh install ([330d41f](https://github.com/Niekes/brooz/commit/330d41fc716ccd94eb3a7f639138e9b799bfe3e2))
+* smoke test summons the weather tile, not the removed pomodoro ([067452f](https://github.com/Niekes/brooz/commit/067452f393c24ac1d658e209c205974a929cf26d))
+* the key store uses the async safeStorage API ([3da1394](https://github.com/Niekes/brooz/commit/3da13949a17f03e80660ecb93216b2fc46949d51))
+
 ## [0.5.0](https://github.com/Niekes/brooz/compare/v0.4.0...v0.5.0) (2026-11-02)
 
 
