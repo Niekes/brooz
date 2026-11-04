@@ -7,7 +7,8 @@ const SMOKE_TIMEOUT = 60_000;
 /**
  * The check, run inside the window: the dome renders its tiles, the title
  * is the product name, the window is cross-origin isolated, and the ask bar
- * turns a pomodoro live. It needs no network, so it runs on any CI runner.
+ * summons the weather tile, which invites to the settings without a key.
+ * It needs no network, so it runs on any CI runner.
  */
 const CHECK = `new Promise((resolve, reject) => {
     const deadline = Date.now() + ${SMOKE_TIMEOUT - 5_000};
@@ -21,11 +22,13 @@ const CHECK = `new Promise((resolve, reject) => {
         if (!crossOriginIsolated) return reject(new Error('the window is not cross-origin isolated'));
         const input = document.querySelector('input[aria-label="Ask your dashboard"]');
         const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-        setValue.call(input, 'start a 10 minute timer');
+        setValue.call(input, 'weather in Rome');
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        waitFor(() => document.body.textContent.includes('In focus'), 'the live pomodoro', () =>
-            resolve('ok')
+        waitFor(
+            () => document.body.textContent.includes('Needs an API key from OpenWeatherMap.'),
+            'the summoned weather tile',
+            () => resolve('ok')
         );
     });
 })`;

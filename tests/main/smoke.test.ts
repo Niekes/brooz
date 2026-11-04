@@ -50,7 +50,7 @@ describe('the release smoke test', () => {
         load();
         await vi.waitFor(() => expect(mockExit).toHaveBeenCalledWith(0));
         expect(executeJavaScript.mock.calls[0]).toEqual([
-            expect.stringContaining('start a 10 minute timer')
+            expect.stringContaining('weather in Rome')
         ]);
         expect(console.log).toHaveBeenCalledWith('smoke: ok');
         vi.advanceTimersByTime(60_000);
