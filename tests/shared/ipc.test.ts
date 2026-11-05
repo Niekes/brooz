@@ -14,6 +14,7 @@ describe('the IPC contract', () => {
             keyTest: 'brooz:key-test',
             stockQuotes: 'brooz:stock-quotes',
             surf: 'brooz:surf',
+            flightStates: 'brooz:flight-states',
             styleNonce: 'brooz:style-nonce'
         });
     });

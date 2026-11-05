@@ -13,6 +13,7 @@ const mockCanStoreKeys = vi.fn(() => true);
 const mockProbeProvider = vi.fn();
 const mockStockQuotes = vi.fn();
 const mockSurf = vi.fn();
+const mockFlightStates = vi.fn();
 
 vi.mock('electron', () => ({
     app: {
@@ -41,7 +42,8 @@ vi.mock('../../src/main/providers', () => ({
     stockQuotes: (...args: unknown[]) => mockStockQuotes(...args),
     weather: (...args: unknown[]) => mockWeather(...args),
     airQuality: (...args: unknown[]) => mockAirQuality(...args),
-    surf: (...args: unknown[]) => mockSurf(...args)
+    surf: (...args: unknown[]) => mockSurf(...args),
+    flightStates: (...args: unknown[]) => mockFlightStates(...args)
 }));
 
 type Handler = (event: { senderFrame: { url: string } | null }, ...args: unknown[]) => unknown;
@@ -74,6 +76,7 @@ describe('the IPC handlers', () => {
             'brooz:key-test',
             'brooz:stock-quotes',
             'brooz:surf',
+            'brooz:flight-states',
             'brooz:style-nonce'
         ]);
     });
@@ -105,6 +108,7 @@ describe('the IPC handlers', () => {
         'brooz:key-status',
         'brooz:key-test',
         'brooz:stock-quotes',
+        'brooz:flight-states',
         'brooz:style-nonce'
     ])('rejects any other sender on %s', (channel) => {
         registerIpcHandlers('http://localhost:5173/');
@@ -118,6 +122,7 @@ describe('the IPC handlers', () => {
         expect(mockDeleteKey).not.toHaveBeenCalled();
         expect(mockProbeProvider).not.toHaveBeenCalled();
         expect(mockStockQuotes).not.toHaveBeenCalled();
+        expect(mockFlightStates).not.toHaveBeenCalled();
     });
 
     it('geocodes a trimmed city', () => {
@@ -199,6 +204,14 @@ describe('the IPC handlers', () => {
         expect(mockStockQuotes).toHaveBeenCalledWith(['AAPL']);
     });
 
+    it('fetches the live states of normalized flight numbers', async () => {
+        mockFlightStates.mockResolvedValue({ status: 'ok', data: [] });
+        registerIpcHandlers();
+        const flights = handlerFor('brooz:flight-states')(app, ['lh-123', 'BA456', 'lh123']);
+        await expect(flights).resolves.toEqual({ status: 'ok', data: [] });
+        expect(mockFlightStates).toHaveBeenCalledWith(['LH123', 'BA456']);
+    });
+
     it('hands the renderer the style nonce of this launch', () => {
         registerIpcHandlers();
         expect(handlerFor('brooz:style-nonce')(app)).toBe('n0nce');
@@ -222,6 +235,8 @@ describe('the IPC handlers', () => {
             /Unknown provider/
         );
         expect(() => handlerFor('brooz:stock-quotes')(app, ['ok!'])).toThrow(/at most 12/);
+        expect(() => handlerFor('brooz:flight-states')(app, 'LH123')).toThrow(/a list of/);
+        expect(() => handlerFor('brooz:flight-states')(app, ['AAPL'])).toThrow(/flight number/);
         expect(mockGeocode).not.toHaveBeenCalled();
         expect(mockWeather).not.toHaveBeenCalled();
         expect(mockAirQuality).not.toHaveBeenCalled();
@@ -229,5 +244,6 @@ describe('the IPC handlers', () => {
         expect(mockDeleteKey).not.toHaveBeenCalled();
         expect(mockProbeProvider).not.toHaveBeenCalled();
         expect(mockStockQuotes).not.toHaveBeenCalled();
+        expect(mockFlightStates).not.toHaveBeenCalled();
     });
 });

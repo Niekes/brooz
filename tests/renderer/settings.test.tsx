@@ -29,10 +29,12 @@ describe('the settings', () => {
             'Air Quality',
             'Markets',
             'Surf',
+            'Flights',
             'About',
             'OpenWeatherMap',
             'Finnhub',
-            'Stormglass'
+            'Stormglass',
+            'OpenSky Network'
         ]);
         expect(
             buttons.map((button) => button.querySelector('[data-icon]')?.getAttribute('data-icon'))
@@ -43,9 +45,11 @@ describe('the settings', () => {
             undefined,
             undefined,
             undefined,
+            undefined,
             'openweathermap',
             'finnhub',
-            'stormglass'
+            'stormglass',
+            'opensky'
         ]);
         expect(within(nav).getByText('Tiles')).toBeTruthy();
         expect(within(nav).getByText('Provider keys')).toBeTruthy();
@@ -56,6 +60,14 @@ describe('the settings', () => {
         expect(screen.getByText('Serves Weather and Air Quality')).toBeTruthy();
         const heading = screen.getByRole('heading', { name: 'OpenWeatherMap' });
         expect(heading.querySelector('[data-icon="openweathermap"]')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'OpenSky Network' }));
+        expect(await screen.findByLabelText('OpenSky Network API key')).toBeTruthy();
+        expect(screen.getByText('Serves Flights')).toBeTruthy();
+        expect(
+            screen
+                .getByRole('heading', { name: 'OpenSky Network' })
+                .querySelector('[data-icon="opensky"]')
+        ).toBeTruthy();
     });
 
     it('picks the start tile in the general section, About by default', () => {

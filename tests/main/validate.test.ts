@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
     parseCity,
     parseCoordinates,
+    parseFlights,
     parseKeyInput,
     parsePlaceQuery,
     parseProviderId,
@@ -94,5 +95,26 @@ describe('the symbols validation', () => {
     it('refuses a ticker of the wrong shape', () => {
         expect(() => parseSymbols(['aapl-x!'])).toThrow(/at most 12/);
         expect(() => parseSymbols([''])).toThrow(/at most 12/);
+    });
+});
+
+describe('the flights validation', () => {
+    it('accepts, normalizes and dedupes flight numbers', () => {
+        expect(parseFlights(['lh-123', 'BA456', 'lh123'])).toEqual(['LH123', 'BA456']);
+    });
+
+    it.each([
+        ['nothing', undefined, /a list of/],
+        ['a string', 'LH123', /a list of/],
+        ['an empty list', [], /a list of/],
+        ['too many flights', ['LH1', 'LH2', 'LH3', 'LH4', 'LH5', 'LH6'], /a list of/],
+        ['a non-string entry', ['LH123', 42], /a list of/]
+    ])('refuses %s', (_name, flights, error) => {
+        expect(() => parseFlights(flights)).toThrow(error);
+    });
+
+    it('refuses a flight number of the wrong shape', () => {
+        expect(() => parseFlights(['AAPL'])).toThrow(/flight number/);
+        expect(() => parseFlights(['???'])).toThrow(/flight number/);
     });
 });

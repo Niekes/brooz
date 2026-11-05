@@ -9,7 +9,7 @@
  * `docs/adr/0002-safe-storage-fail-closed.md`.
  */
 
-export type ProviderId = 'finnhub' | 'openweathermap' | 'stormglass';
+export type ProviderId = 'finnhub' | 'openweathermap' | 'stormglass' | 'opensky';
 
 export interface ProviderInfo {
     readonly id: ProviderId;
@@ -45,8 +45,22 @@ export const STORMGLASS: ProviderInfo = {
     keyUrl: 'stormglass.io'
 };
 
+/**
+ * OpenSky Network: the live positions of flights for the flight tracker tile.
+ * The service signs in with the account's credentials, so the key is the
+ * account written as `username:password` - still one string in the key
+ * store, sent as a Basic header by the main process alone.
+ */
+export const OPEN_SKY: ProviderInfo = {
+    id: 'opensky',
+    title: 'OpenSky Network',
+    description:
+        'Live positions of flights for the flight tracker. The key is an OpenSky account, written as username:password.',
+    keyUrl: 'opensky-network.org'
+};
+
 /** Every provider of the manifest. */
-export const PROVIDERS: readonly ProviderInfo[] = [OPENWEATHERMAP, FINNHUB, STORMGLASS];
+export const PROVIDERS: readonly ProviderInfo[] = [OPENWEATHERMAP, FINNHUB, STORMGLASS, OPEN_SKY];
 
 /** Whether `value` names a provider of the manifest. */
 export function providerExists(value: string): value is ProviderId {

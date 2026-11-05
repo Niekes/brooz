@@ -1,6 +1,7 @@
 import type { Coordinates, PlaceQuery } from '../shared/weather';
 import { providerExists } from '../shared/providers';
 import { MAX_QUOTE_SYMBOLS } from '../shared/quotes';
+import { isFlightNumber, normalizeFlight, MAX_FLIGHTS } from '../shared/flights';
 import type { ProviderId } from '../shared/providers';
 
 const MAX_CITY_LENGTH = 100;
@@ -85,4 +86,25 @@ export function parseSymbols(value: unknown): string[] {
         throw new RangeError('A ticker is at most 12 letters, digits, dots or dashes.');
     }
     return [...new Set(symbols)];
+}
+
+/**
+ * A handful of flight numbers. The renderer is untrusted input, so a flight
+ * is a short airline code with digits, normalized to upper case; anything
+ * else never reaches the network.
+ */
+export function parseFlights(value: unknown): string[] {
+    if (!Array.isArray(value) || value.length === 0 || value.length > MAX_FLIGHTS) {
+        throw new TypeError(`Flights are a list of 1 to ${MAX_FLIGHTS} flight numbers.`);
+    }
+    const flights = value.map((flight) => {
+        if (typeof flight !== 'string') {
+            throw new TypeError('Flights are a list of flight numbers.');
+        }
+        return normalizeFlight(flight);
+    });
+    if (!flights.every(isFlightNumber)) {
+        throw new RangeError('A flight number is 2-3 letters, 1-4 digits and an optional letter.');
+    }
+    return [...new Set(flights)];
 }

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { tiles } from '../../src/renderer/tiles';
 import { AboutTileBody } from '../../src/renderer/tiles/about';
 import { AirQuality, LiveAirQuality } from '../../src/renderer/tiles/airQuality';
+import { Flightracker, LiveFlightracker } from '../../src/renderer/tiles/flightracker';
 import { LiveSurf, Surf } from '../../src/renderer/tiles/surf';
 import { LiveTicker, Ticker } from '../../src/renderer/tiles/ticker';
 import { LiveWeather, Weather } from '../../src/renderer/tiles/weather';
@@ -61,6 +62,7 @@ describe('every resting tile', () => {
             AirQuality,
             Ticker,
             Surf,
+            Flightracker,
             AboutTileBody
         ]);
     });
@@ -74,7 +76,10 @@ describe('every resting tile', () => {
         const keys = Object.fromEntries(
             tiles.map((tile) => [
                 tile.id,
-                [tile.liveKey?.({}), tile.liveKey?.({ city: 'Rome', symbols: ['AAPL', 'TSLA'] })]
+                [
+                    tile.liveKey?.({}),
+                    tile.liveKey?.({ city: 'Rome', symbols: ['AAPL', 'TSLA'], flights: ['LH123'] })
+                ]
             ])
         );
         expect(keys).toMatchObject({
@@ -82,6 +87,7 @@ describe('every resting tile', () => {
             'air-quality': ['air-quality:', 'air-quality:Rome'],
             ticker: ['ticker:AAPL,MSFT,NVDA', 'ticker:AAPL,TSLA'],
             surf: ['surf', 'surf'],
+            flightracker: ['flightracker:', 'flightracker:LH123'],
             about: [undefined, undefined]
         });
     });
@@ -93,6 +99,7 @@ describe('every resting tile', () => {
                 [['openweathermap', 'brooz:air-quality']],
                 [['finnhub', 'brooz:stock-quotes']],
                 [['stormglass', 'brooz:surf']],
+                [['opensky', 'brooz:flight-states']],
                 undefined
             ]
         );
@@ -185,6 +192,49 @@ describe('the live tile content', () => {
         expect(screen.getByText('▼ 1.20%')).toBeTruthy();
         expect(screen.getByText('▲ 2.40%')).toBeTruthy();
         expect(screen.getByText('Market')).toBeTruthy();
+        expect(screen.getByText('—')).toBeTruthy();
+    });
+
+    it('shows the live states of the flights the utterance named', () => {
+        render(
+            <LiveFlightracker
+                args={{ flights: ['LH123', 'BA456'] }}
+                data={[
+                    {
+                        callsign: 'DLH123',
+                        latitude: 50.1,
+                        longitude: 8.7,
+                        altitudeM: 10000,
+                        speedKmh: 850,
+                        onGround: false,
+                        lastSeen: '2026-11-02T09:30:00.000Z'
+                    },
+                    {
+                        callsign: 'BA456',
+                        latitude: null,
+                        longitude: null,
+                        altitudeM: null,
+                        speedKmh: null,
+                        onGround: true,
+                        lastSeen: '2026-11-02T09:31:00.000Z'
+                    }
+                ]}
+            />
+        );
+        expect(screen.getByText('LH123')).toBeTruthy();
+        expect(screen.getByText('DLH123 · seen 09:30 UTC')).toBeTruthy();
+        expect(screen.getByText('En route')).toBeTruthy();
+        expect(screen.getByText('32,808 ft')).toBeTruthy();
+        expect(screen.getByText('850 km/h')).toBeTruthy();
+        expect(screen.getByText('BA456')).toBeTruthy();
+        expect(screen.getByText('On ground')).toBeTruthy();
+    });
+
+    it('shows no live state for a flight the feed does not carry', () => {
+        render(<LiveFlightracker args={{ flights: ['QF11'] }} data={[]} />);
+        expect(screen.getByText('QF11')).toBeTruthy();
+        expect(screen.getByText('No live state')).toBeTruthy();
+        expect(screen.getByText('No position')).toBeTruthy();
         expect(screen.getByText('—')).toBeTruthy();
     });
 });

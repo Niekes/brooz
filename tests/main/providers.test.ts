@@ -15,6 +15,11 @@ const fetchAirQuality = vi.fn(async (_key: string, _query: unknown) => ({
 const probeWeatherKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
 const fetchSurf = vi.fn(async (_key: string, _spot: unknown) => ({ status: 'ok', data: 's' }));
 const probeSurfKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
+const fetchFlights = vi.fn(async (_key: string, _flights: string[]) => ({
+    status: 'ok',
+    data: [{ callsign: 'DLH123' }]
+}));
+const probeOpenSkyKey = vi.fn(async (_key: string) => ({ status: 'ok' }));
 
 vi.mock('electron', () => ({}));
 vi.mock('../../src/main/key-store', () => ({
@@ -33,6 +38,10 @@ vi.mock('../../src/main/openweathermap', () => ({
 vi.mock('../../src/main/stormglass', () => ({
     fetchSurf: (key: string, spot: unknown) => fetchSurf(key, spot),
     probeKey: (key: string) => probeSurfKey(key)
+}));
+vi.mock('../../src/main/opensky', () => ({
+    fetchFlights: (key: string, flights: string[]) => fetchFlights(key, flights),
+    probeKey: (key: string) => probeOpenSkyKey(key)
 }));
 
 describe('the provider side of the contract', () => {
@@ -132,5 +141,32 @@ describe('the provider side of the contract', () => {
         await expect(api.surf(spot)).resolves.toEqual({ status: 'ok', data: 's' });
         expect(providerKey).toHaveBeenCalledWith('stormglass');
         expect(fetchSurf).toHaveBeenCalledWith('k1', spot);
+    });
+
+    it('fetches the flight states with the OpenSky key', async () => {
+        const api = await import('../../src/main/providers');
+        await expect(api.flightStates(['LH123'])).resolves.toEqual({
+            status: 'ok',
+            data: [{ callsign: 'DLH123' }]
+        });
+        expect(providerKey).toHaveBeenCalledWith('opensky');
+        expect(fetchFlights).toHaveBeenCalledWith('k1', ['LH123']);
+    });
+
+    it('answers missing-key for the flights without a key', async () => {
+        providerKey.mockReturnValue(null);
+        const api = await import('../../src/main/providers');
+        await expect(api.flightStates(['LH123'])).resolves.toEqual({
+            status: 'missing-key',
+            reason: 'not-set'
+        });
+        expect(fetchFlights).not.toHaveBeenCalled();
+    });
+
+    it('probes OpenSky with its own service', async () => {
+        const api = await import('../../src/main/providers');
+        await api.probeProvider('opensky');
+        expect(probeOpenSkyKey).toHaveBeenCalledWith('k1');
+        expect(probeSurfKey).not.toHaveBeenCalled();
     });
 });

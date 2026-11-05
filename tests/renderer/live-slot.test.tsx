@@ -13,6 +13,7 @@ import { useProviderData } from '../../src/renderer/shell/kit/hooks';
 import { useDefaultLocation } from '../../src/renderer/shell/kit/stored';
 import type { SummonRequest, TileDefinition } from '../../src/renderer/shell/tile';
 import { airQualityTile } from '../../src/renderer/tiles/airQuality';
+import { flightrackerTile } from '../../src/renderer/tiles/flightracker';
 import { surfTile } from '../../src/renderer/tiles/surf';
 import { tickerTile } from '../../src/renderer/tiles/ticker';
 import { weatherTile } from '../../src/renderer/tiles/weather';
@@ -273,6 +274,55 @@ describe('the live slot: the shell chrome around a summoned tile', () => {
         stubBrooz({ 'brooz:surf': () => ({ status: 'missing-key', reason: 'not-set' }) });
         render(<LiveSlot tile={surfTile} request={request('surf', {})} />);
         expect(await screen.findByText('Needs an API key from Stormglass.')).toBeTruthy();
+    });
+
+    it('asks for a flight before it spends a request', async () => {
+        const invoke = stubBrooz({});
+        render(<LiveSlot tile={flightrackerTile} request={request('flightracker', {})} />);
+        expect(await screen.findByText('Name a flight first, like LH123.')).toBeTruthy();
+        expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('loads the flight states over the provider channel and shows them with the status row', async () => {
+        const invoke = stubBrooz({
+            'brooz:flight-states': () => ({
+                status: 'ok',
+                data: [
+                    {
+                        callsign: 'DLH123',
+                        latitude: 50.1,
+                        longitude: 8.7,
+                        altitudeM: 10000,
+                        speedKmh: 850,
+                        onGround: false,
+                        lastSeen: '2026-11-02T09:30:00.000Z'
+                    }
+                ]
+            })
+        });
+        render(
+            <LiveSlot
+                tile={flightrackerTile}
+                request={request('flightracker', { flights: ['LH123'] })}
+            />
+        );
+        expect(await screen.findByText('En route')).toBeTruthy();
+        expect(screen.getByText('Flights')).toBeTruthy();
+        expect(screen.getByText('OpenSky Network')).toBeTruthy();
+        expect(invoke).toHaveBeenCalledWith('brooz:flight-states', ['LH123']);
+    });
+
+    it('invites to the settings without an OpenSky key', async () => {
+        stubBrooz({
+            'brooz:flight-states': () => ({ status: 'missing-key', reason: 'not-set' })
+        });
+        render(
+            <LiveSlot
+                tile={flightrackerTile}
+                request={request('flightracker', { flights: ['LH123'] })}
+            />
+        );
+        expect(await screen.findByText('Needs an API key from OpenSky Network.')).toBeTruthy();
     });
 
     it('reloads when the key arrives meanwhile', async () => {
