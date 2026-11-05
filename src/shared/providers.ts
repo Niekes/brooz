@@ -47,15 +47,16 @@ export const STORMGLASS: ProviderInfo = {
 
 /**
  * OpenSky Network: the live positions of flights for the flight tracker tile.
- * The service signs in with the account's credentials, so the key is the
- * account written as `username:password` - still one string in the key
- * store, sent as a Basic header by the main process alone.
+ * The service signs in with an OAuth2 client, so the key is the API client
+ * written as `clientId:clientSecret` - still one string in the key store,
+ * split and exchanged for a bearer token by the main process alone
+ * (docs/adr/0017).
  */
 export const OPEN_SKY: ProviderInfo = {
     id: 'opensky',
     title: 'OpenSky Network',
     description:
-        'Live positions of flights for the flight tracker. The key is an OpenSky account, written as username:password.',
+        'Live positions of flights for the flight tracker. The key is an OpenSky API client, written as clientId:clientSecret.',
     keyUrl: 'opensky-network.org'
 };
 

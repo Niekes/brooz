@@ -14,15 +14,17 @@ const MAX_ENTRIES = 100;
 /**
  * Fetches JSON from `service`. A status that is not ok becomes an error
  * whose message `rejected` words, so a provider can explain its own codes.
+ * `init` carries a method and body for the posts, like a token exchange.
  */
 export async function fetchJson<T>(
     url: URL,
     service: string,
     rejected: (status: number) => string = (status) => `${service} replied with ${status}.`,
-    headers: Record<string, string> = {}
+    headers: Record<string, string> = {},
+    init: { method?: string; body?: string } = {}
 ): Promise<T> {
     const response = await net
-        .fetch(url.toString(), { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT) })
+        .fetch(url.toString(), { ...init, headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT) })
         .catch((cause: unknown) => {
             if (cause instanceof DOMException && cause.name === 'TimeoutError') {
                 throw new Error(`${service} did not answer in time.`);

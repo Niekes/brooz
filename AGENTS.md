@@ -126,9 +126,11 @@ Not negotiable, and pinned by unit tests:
   hands it to get-nonce). In dev mode the window loads the
   Vite dev server instead.
 - The renderer fetches nothing from the internet itself: OpenWeatherMap,
-  Finnhub and the Open-Meteo geocoder are called by the main process
-  (`src/main/openweathermap.ts`, `src/main/finnhub.ts`,
-  `src/main/open-meteo.ts`, 10 s timeout, bounded cache), and the IPC handlers validate every argument
+  Finnhub, Stormglass, OpenSky (and its token endpoint), the Open-Meteo
+  geocoder and the OurAirports dataset (ICAO to IATA airport codes, cached on
+  disk) are called by the main process
+  (`src/main/openweathermap.ts`, `src/main/finnhub.ts`, `src/main/stormglass.ts`,
+  `src/main/opensky.ts`, `src/main/open-meteo.ts`, `src/main/airports.ts`, 10 s timeout, bounded cache), and the IPC handlers validate every argument
   (`src/main/validate.ts`) before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
 - `session.setPermissionRequestHandler` defaults to deny; the allowlist
@@ -214,7 +216,7 @@ Tiles that need a keyed service never see its key: the renderer invokes a
 provider channel, the main process holds the key and makes the request
 (`docs/adr/0001-provider-keys-never-reach-the-renderer.md`). Keys belong to
 a _provider_ of the manifest in `src/shared/providers.ts` (today:
-OpenWeatherMap, Finnhub, Stormglass and OpenSky Network), never to a tile. The key channels are write-only - the renderer can set,
+OpenWeatherMap, Finnhub, Stormglass and OpenSky Network), never to a tile. The OpenSky key is its OAuth2 API client written as `clientId:clientSecret` (`docs/adr/0017`). The key channels are write-only - the renderer can set,
 delete and ask for the status of a key, but no channel returns one. The
 keys live encrypted under `userData` through `safeStorage`, and the app
 fails closed where the OS offers no encryption

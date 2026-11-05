@@ -203,12 +203,17 @@ describe('the IPC handlers', () => {
         expect(mockProbeProvider).toHaveBeenCalledWith('finnhub');
     });
 
-    it('opens the key page of a provider of the manifest, never a renderer URL', () => {
+    it('opens the key page of a provider of the manifest, never a renderer URL', async () => {
         registerIpcHandlers();
         handlerFor('brooz:key-page')(app, 'finnhub');
         expect(mockOpenExternal).toHaveBeenCalledWith('https://finnhub.io/register');
         handlerFor('brooz:key-page')(app, 'stormglass');
         expect(mockOpenExternal).toHaveBeenLastCalledWith('https://stormglass.io');
+        // A browser that fails to open is swallowed, not an unhandled rejection.
+        mockOpenExternal.mockRejectedValueOnce(new Error('no browser'));
+        handlerFor('brooz:key-page')(app, 'opensky');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(mockOpenExternal).toHaveBeenLastCalledWith('https://opensky-network.org');
     });
 
     it('quotes symbols through the provider side', async () => {

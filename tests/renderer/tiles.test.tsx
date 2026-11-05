@@ -195,39 +195,54 @@ describe('the live tile content', () => {
         expect(screen.getByText('—')).toBeTruthy();
     });
 
-    it('shows the live states of the flights the utterance named', () => {
+    it('shows the live flights as cards: callsign, phase, the arc between the airports, times and numbers', () => {
         render(
             <LiveFlightracker
                 args={{ flights: ['LH123', 'BA456'] }}
                 data={[
                     {
+                        icao24: 'abc123',
                         callsign: 'DLH123',
                         latitude: 50.1,
                         longitude: 8.7,
                         altitudeM: 10000,
                         speedKmh: 850,
                         onGround: false,
-                        lastSeen: '2026-11-02T09:30:00.000Z'
+                        lastSeen: '2026-11-02T09:30:00.000Z',
+                        origin: 'FRA',
+                        destination: 'JFK',
+                        departureAt: '2026-11-02T08:00:00.000Z',
+                        arrivalAt: '2026-11-02T15:00:00.000Z'
                     },
                     {
+                        icao24: 'def456',
                         callsign: 'BA456',
                         latitude: null,
                         longitude: null,
                         altitudeM: null,
                         speedKmh: null,
                         onGround: true,
-                        lastSeen: '2026-11-02T09:31:00.000Z'
+                        lastSeen: '2026-11-02T09:31:00.000Z',
+                        origin: null,
+                        destination: null,
+                        departureAt: null,
+                        arrivalAt: null
                     }
                 ]}
             />
         );
-        expect(screen.getByText('LH123')).toBeTruthy();
-        expect(screen.getByText('DLH123 · seen 09:30 UTC')).toBeTruthy();
+        expect(screen.getByText('DLH123')).toBeTruthy();
         expect(screen.getByText('En route')).toBeTruthy();
-        expect(screen.getByText('32,808 ft')).toBeTruthy();
-        expect(screen.getByText('850 km/h')).toBeTruthy();
+        expect(screen.getByText('FRA')).toBeTruthy();
+        expect(screen.getByText('JFK')).toBeTruthy();
+        expect(screen.getByText('Dep 08:00 · Land 15:00')).toBeTruthy();
+        expect(screen.getByText('32,808 ft · 850 km/h')).toBeTruthy();
         expect(screen.getByText('BA456')).toBeTruthy();
         expect(screen.getByText('On ground')).toBeTruthy();
+        // Without a leg, the airports are dashes and the footer falls back to the seen time.
+        expect(screen.getAllByText('—')).toHaveLength(2);
+        expect(screen.getByText('Seen 09:31 UTC')).toBeTruthy();
+        expect(screen.getByText('— · —')).toBeTruthy();
     });
 
     it('shows no live state for a flight the feed does not carry', () => {
@@ -235,7 +250,6 @@ describe('the live tile content', () => {
         expect(screen.getByText('QF11')).toBeTruthy();
         expect(screen.getByText('No live state')).toBeTruthy();
         expect(screen.getByText('No position')).toBeTruthy();
-        expect(screen.getByText('—')).toBeTruthy();
     });
 });
 

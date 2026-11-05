@@ -8,7 +8,7 @@ import type { RouteResult } from './route-intent';
 import type { ModelStatus } from './use-local-model';
 
 /** Pause after the last keystroke before the model is asked. */
-const MODEL_DELAY = 240;
+export const MODEL_DELAY = 240;
 
 export interface ModelRouting {
     /** The model's answer first, then up to two runners-up. */
