@@ -84,16 +84,27 @@ describe('the symbols', () => {
     });
 });
 
+describe('the flights', () => {
+    it('come from flight numbers in the utterance', () => {
+        expect(args('where is flight lh123')).toMatchObject({ flights: ['LH123'] });
+        expect(args('track DLH4321 and ba456')).toMatchObject({ flights: ['DLH4321', 'BA456'] });
+        expect(args('price of apple').flights).toBeUndefined();
+        expect(args('weather in Rome').flights).toBeUndefined();
+    });
+});
+
 describe('the args of a tile', () => {
     const all = {
         city: 'Rome',
-        symbols: ['AAPL']
+        symbols: ['AAPL'],
+        flights: ['LH123']
     };
 
     it.each([
         ['weather', { city: 'Rome' }],
         ['air-quality', { city: 'Rome' }],
         ['ticker', { symbols: ['AAPL'] }],
+        ['flightracker', { flights: ['LH123'] }],
         ['about', {}],
         ['not-a-tile', {}]
     ])('%s keeps %j', (id, kept) => {

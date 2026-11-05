@@ -138,16 +138,33 @@ function FinnhubIcon({ className }: { className?: string }): JSX.Element {
     );
 }
 
+/** OpenSky Network's mark: a paper plane in the brand's sky blue. */
+function OpenSkyIcon({ className }: { className?: string }): JSX.Element {
+    return (
+        <BrandSvg
+            id="opensky"
+            viewBox="0 0 24 24"
+            stroke="#38bdf8"
+            strokeWidth={1.8}
+            className={className}
+        >
+            <path d="M22 2 11 13" />
+            <path d="M22 2 15 22l-4-9-9-4Z" />
+        </BrandSvg>
+    );
+}
+
 /** Every provider's mark, keyed by provider id. */
 const PROVIDER_ICONS: Record<ProviderId, ComponentType<{ className?: string }>> = {
     openweathermap: OpenWeatherMapIcon,
     stormglass: StormglassIcon,
-    finnhub: FinnhubIcon
+    finnhub: FinnhubIcon,
+    opensky: OpenSkyIcon
 };
 
 /**
  * A provider's mark in the settings, in the provider's brand color.
- * Hand-kept, so the app needs no icon dependency for three glyphs.
+ * Hand-kept, so the app needs no icon dependency for four glyphs.
  */
 export function ProviderIcon({
     id,

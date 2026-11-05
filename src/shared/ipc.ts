@@ -10,6 +10,7 @@ import type { AirQualitySnapshot, GeoPlace, PlaceQuery, WeatherSnapshot } from '
 import type { ProviderId, KeySave, KeyStatus, ProviderProbe, ProviderOutcome } from './providers';
 import type { StockQuote } from './quotes';
 import type { SurfForecast } from './surf';
+import type { FlightState } from './flights';
 import type { Coordinates } from './weather';
 
 export const IPC_CHANNELS = {
@@ -21,8 +22,10 @@ export const IPC_CHANNELS = {
     keyDelete: 'brooz:key-delete',
     keyStatus: 'brooz:key-status',
     keyTest: 'brooz:key-test',
+    keyPage: 'brooz:key-page',
     stockQuotes: 'brooz:stock-quotes',
     surf: 'brooz:surf',
+    flightStates: 'brooz:flight-states',
     styleNonce: 'brooz:style-nonce'
 } as const;
 
@@ -62,6 +65,10 @@ export interface IpcContract {
         args: [provider: ProviderId];
         result: ProviderProbe;
     };
+    [IPC_CHANNELS.keyPage]: {
+        args: [provider: ProviderId];
+        result: void;
+    };
     [IPC_CHANNELS.stockQuotes]: {
         args: [symbols: string[]];
         result: ProviderOutcome<StockQuote[]>;
@@ -69,6 +76,10 @@ export interface IpcContract {
     [IPC_CHANNELS.surf]: {
         args: [spot: Coordinates];
         result: ProviderOutcome<SurfForecast>;
+    };
+    [IPC_CHANNELS.flightStates]: {
+        args: [flights: string[]];
+        result: ProviderOutcome<FlightState[]>;
     };
     [IPC_CHANNELS.styleNonce]: {
         args: [];

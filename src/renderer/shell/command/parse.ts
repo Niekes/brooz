@@ -1,4 +1,5 @@
 import type { CommandArgs } from '../tile';
+import { normalizeFlight } from '../../../shared/flights';
 import { ROUTED_TILES, argsFor } from './manifest';
 
 export interface CommandMatch {
@@ -93,6 +94,22 @@ function extractSymbols(raw: string): string[] | undefined {
     return symbols.size > 0 ? [...symbols] : undefined;
 }
 
+/** An airline code with digits, the way a flight number is written: LH123, DLH4321. */
+const FLIGHT_TOKEN = /\b[A-Za-z]{2,3}[0-9]{1,4}[A-Za-z]?\b/g;
+
+/**
+ * Pulls flight numbers out of "flight LH123" or "track DLH4321". Tickers are
+ * letters alone and never match; the token pattern already shapes a flight
+ * number, so normalizing is all a match needs.
+ */
+function extractFlights(raw: string): string[] | undefined {
+    const flights = new Set<string>();
+    for (const token of raw.matchAll(FLIGHT_TOKEN)) {
+        flights.add(normalizeFlight(token[0]));
+    }
+    return flights.size > 0 ? [...flights] : undefined;
+}
+
 function scoreTiles(text: string): Array<[string, number]> {
     const scores: Array<[string, number]> = [];
     for (const { id, route } of ROUTED_TILES) {
@@ -128,7 +145,8 @@ function confidenceAt(ranked: Array<[string, number]>, index: number): number {
 export function parseCommand(raw: string): ParseResult {
     const args: CommandArgs = {
         city: extractCity(raw),
-        symbols: extractSymbols(raw)
+        symbols: extractSymbols(raw),
+        flights: extractFlights(raw)
     };
 
     const ranked = scoreTiles(normalize(raw));

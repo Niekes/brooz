@@ -35,7 +35,12 @@ export const DEVELOPMENT_SET: readonly RoutingCase[] = [
     // surf
     { text: 'is it worth surfing today', expected: 'surf' },
     { text: 'how big is the swell this morning', expected: 'surf' },
-    { text: 'when is high tide', expected: 'surf' }
+    { text: 'when is high tide', expected: 'surf' },
+
+    // flightracker
+    { text: 'where is flight LH123', expected: 'flightracker' },
+    { text: 'track flight BA456', expected: 'flightracker' },
+    { text: 'has my flight landed', expected: 'flightracker' }
 ];
 
 export const HOLDOUT_SET: readonly RoutingCase[] = [
@@ -48,7 +53,9 @@ export const HOLDOUT_SET: readonly RoutingCase[] = [
     { text: 'how are the markets doing today', expected: 'ticker' },
     { text: "what's Apple's stock price", expected: 'ticker' },
     { text: 'is it worth surfing today', expected: 'surf' },
-    { text: 'how big is the swell', expected: 'surf' }
+    { text: 'how big is the swell', expected: 'surf' },
+    { text: 'status of flight UA900', expected: 'flightracker' },
+    { text: 'is the plane on time', expected: 'flightracker' }
 ];
 
 /** A second holdout set, written after the first pass but before testing. */
@@ -60,5 +67,6 @@ export const HOLDOUT_SET_2: readonly RoutingCase[] = [
     { text: "how's the air in Paris", expected: 'air-quality' },
     { text: "what's the weather like in Oslo", expected: 'weather' },
     { text: 'stock price of Microsoft', expected: 'ticker' },
-    { text: 'when is high tide', expected: 'surf' }
+    { text: 'when is high tide', expected: 'surf' },
+    { text: 'departure time of LH123', expected: 'flightracker' }
 ];

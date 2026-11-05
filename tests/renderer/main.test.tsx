@@ -15,7 +15,14 @@ describe('the renderer entry', () => {
         vi.resetModules();
     });
 
-    afterEach(() => {
+    afterEach(async () => {
+        // main.tsx mounts its own root, which the testing library's cleanup
+        // does not unmount: let the command bar's mount debounce (240 ms in
+        // use-model-routing) fire while the DOM is still alive, or its timer
+        // outlives the jsdom environment and fails the run as unhandled.
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        });
         vi.unstubAllGlobals();
     });
 

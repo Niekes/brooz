@@ -1,5 +1,6 @@
 import { aboutTile } from './about';
 import { airQualityTile } from './airQuality';
+import { flightrackerTile } from './flightracker';
 import { surfTile } from './surf';
 import { tickerTile } from './ticker';
 import { weatherTile } from './weather';
@@ -16,5 +17,6 @@ export const tiles: readonly TileDefinition[] = [
     airQualityTile,
     tickerTile,
     surfTile,
+    flightrackerTile,
     aboutTile
 ];

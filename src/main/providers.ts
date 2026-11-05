@@ -1,4 +1,4 @@
-import { FINNHUB, OPENWEATHERMAP, STORMGLASS } from '../shared/providers';
+import { FINNHUB, OPEN_SKY, OPENWEATHERMAP, STORMGLASS } from '../shared/providers';
 import type {
     MissingKeyReason,
     ProviderId,
@@ -6,6 +6,7 @@ import type {
     ProviderOutcome,
     ProviderProbe
 } from '../shared/providers';
+import type { FlightState } from '../shared/flights';
 import type { StockQuote } from '../shared/quotes';
 import type { SurfForecast } from '../shared/surf';
 import type {
@@ -16,6 +17,7 @@ import type {
 } from '../shared/weather';
 import { fetchQuotes, probeKey as probeFinnhub } from './finnhub';
 import { canStoreKeys, providerKey } from './key-store';
+import { fetchFlights, probeKey as probeOpenSky } from './opensky';
 import { fetchAirQuality, fetchWeather, probeKey as probeOpenWeatherMap } from './openweathermap';
 import { fetchSurf, probeKey as probeStormglass } from './stormglass';
 
@@ -28,7 +30,8 @@ import { fetchSurf, probeKey as probeStormglass } from './stormglass';
 const PROBES: Record<ProviderId, (key: string) => Promise<ProviderProbe>> = {
     finnhub: probeFinnhub,
     openweathermap: probeOpenWeatherMap,
-    stormglass: probeStormglass
+    stormglass: probeStormglass,
+    opensky: probeOpenSky
 };
 
 /** Why a key reads as missing: never set, or this OS cannot store keys. */
@@ -66,6 +69,11 @@ export function airQuality(query: PlaceQuery): Promise<ProviderOutcome<AirQualit
 /** The swell and the tides of the surf spot, through Stormglass. */
 export function surf(spot: Coordinates): Promise<ProviderOutcome<SurfForecast>> {
     return withKey(STORMGLASS, (key) => fetchSurf(key, spot));
+}
+
+/** The live states of the flights, through OpenSky Network. */
+export function flightStates(flights: readonly string[]): Promise<ProviderOutcome<FlightState[]>> {
+    return withKey(OPEN_SKY, (key) => fetchFlights(key, flights));
 }
 
 /** Checks the provider's stored key against its service, for the settings. */

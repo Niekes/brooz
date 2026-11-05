@@ -10,6 +10,7 @@ import type { AsyncView } from './kit/live';
 export interface CommandArgs {
     city?: string;
     symbols?: string[];
+    flights?: string[];
 }
 
 /** A resolved utterance: which tile to activate, with what, and how sure. */
