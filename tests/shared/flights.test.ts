@@ -19,6 +19,8 @@ describe('the flight numbers', () => {
         ['LH123', true],
         ['DLH4321', true],
         ['BA456A', true],
+        ['OR1638', true],
+        ['TFL2DW', true],
         ['AAPL', false],
         ['LH', false],
         ['!!!', false],

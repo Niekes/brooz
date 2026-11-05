@@ -7,8 +7,11 @@
 /** How many flights one live flight tile tracks. */
 export const MAX_FLIGHTS = 5;
 
-/** A flight number the way a person writes it: an airline code and digits, like LH123. */
-const FLIGHT_PATTERN = /^[A-Z]{2,3}[0-9]{1,4}[A-Z]?$/;
+/**
+ * A flight number or callsign the way a person writes it: an airline code,
+ * digits and up to two suffix letters, like LH123, OR1638 or TFL2DW.
+ */
+const FLIGHT_PATTERN = /^[A-Z]{2,3}[0-9]{1,4}[A-Z]{0,2}$/;
 
 /** The flight number as a comparable token: upper case, letters and digits only. */
 export function normalizeFlight(value: string): string {

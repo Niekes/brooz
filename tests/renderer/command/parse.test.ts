@@ -85,9 +85,11 @@ describe('the symbols', () => {
 });
 
 describe('the flights', () => {
-    it('come from flight numbers in the utterance', () => {
+    it('come from flight numbers and callsigns in the utterance', () => {
         expect(args('where is flight lh123')).toMatchObject({ flights: ['LH123'] });
         expect(args('track DLH4321 and ba456')).toMatchObject({ flights: ['DLH4321', 'BA456'] });
+        expect(args('track TFL2DW')).toMatchObject({ flights: ['TFL2DW'] });
+        expect(args('status of OR1638')).toMatchObject({ flights: ['OR1638'] });
         expect(args('price of apple').flights).toBeUndefined();
         expect(args('weather in Rome').flights).toBeUndefined();
     });
