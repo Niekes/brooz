@@ -427,7 +427,7 @@ describe('a provider key in the settings', () => {
 describe('the quick actions in the settings', () => {
     afterEach(() => localStorage.clear());
 
-    const KEY = 'brooz.quick-actions';
+    const KEY = 'brooz.ask.quick-actions';
     const DEFAULTS = [
         'weather in Rome',
         'air quality in Beijing',

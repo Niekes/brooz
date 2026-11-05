@@ -4,7 +4,7 @@ Amends ADR 0014: the Quick actions section sits between General and the
 tile sections.
 
 The row above the ask bar offers quick actions: a label and an utterance,
-stored as `brooz.quick-actions` and edited in their own settings section
+stored as `brooz.ask.quick-actions` and edited in their own settings section
 right after General. A click puts the utterance into the field, where the
 rules - and the local model, once the person enabled it - route it like a
 typed one; the suggestion row names the arguments found ("Flight LH123"),
@@ -15,6 +15,9 @@ Until the person changes the list, it is derived from the registry: the
 first example of every routed tile with a live version. The first change
 stores the whole list, and from then on only that list counts - an emptied
 list stays empty, and a tile added in a later release does not join it.
+The stored list is read defensively: an entry without a string label and a
+non-empty utterance is skipped, a value that is no list reads as the
+defaults, and more than 8 are cut.
 
 ## Considered options
 

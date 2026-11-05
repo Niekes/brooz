@@ -5,6 +5,47 @@ import type { QuickAction } from '../command/quick-actions';
 import { AppButton } from '../ui/app-button';
 import { AppInput } from '../ui/app-input';
 
+const EMPTY: QuickAction = { label: '', utterance: '' };
+
+function trimmed({ label, utterance }: QuickAction): QuickAction {
+    return { label: label.trim(), utterance: utterance.trim() };
+}
+
+/** The two inputs of a quick action, named for where they sit. */
+function QuickActionFields({
+    value,
+    onChange,
+    onBlur,
+    labelName,
+    utteranceName
+}: {
+    value: QuickAction;
+    onChange: (value: QuickAction) => void;
+    onBlur?: () => void;
+    labelName: string;
+    utteranceName: string;
+}): JSX.Element {
+    return (
+        <>
+            <AppInput
+                value={value.label}
+                onChange={(event) => onChange({ ...value, label: event.target.value })}
+                onBlur={onBlur}
+                placeholder="Label (optional)"
+                aria-label={labelName}
+                className="w-40 shrink-0"
+            />
+            <AppInput
+                value={value.utterance}
+                onChange={(event) => onChange({ ...value, utterance: event.target.value })}
+                onBlur={onBlur}
+                placeholder="Utterance, like track flight LH123"
+                aria-label={utteranceName}
+            />
+        </>
+    );
+}
+
 /**
  * One quick action, edited in place and saved when the field is left; an
  * emptied utterance is not saved, the field takes the saved one back.
@@ -29,7 +70,7 @@ function QuickActionRow({
         setDraft(action);
     }
     const commit = (): void => {
-        const next = { label: draft.label.trim(), utterance: draft.utterance.trim() };
+        const next = trimmed(draft);
         if (!next.utterance) {
             setDraft(action);
         } else if (next.label !== action.label || next.utterance !== action.utterance) {
@@ -38,20 +79,12 @@ function QuickActionRow({
     };
     return (
         <li className="flex items-center gap-2">
-            <AppInput
-                value={draft.label}
-                onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+            <QuickActionFields
+                value={draft}
+                onChange={setDraft}
                 onBlur={commit}
-                placeholder="Label (optional)"
-                aria-label={`Label ${index + 1}`}
-                className="w-40 shrink-0"
-            />
-            <AppInput
-                value={draft.utterance}
-                onChange={(event) => setDraft({ ...draft, utterance: event.target.value })}
-                onBlur={commit}
-                placeholder="Utterance"
-                aria-label={`Utterance ${index + 1}`}
+                labelName={`Label ${index + 1}`}
+                utteranceName={`Utterance ${index + 1}`}
             />
             <AppButton onClick={onDelete} aria-label={`Delete quick action ${index + 1}`}>
                 Delete
@@ -68,32 +101,23 @@ function NewQuickAction({
     full: boolean;
     onAdd: (action: QuickAction) => void;
 }): JSX.Element {
-    const [label, setLabel] = useState('');
-    const [utterance, setUtterance] = useState('');
+    const [draft, setDraft] = useState(EMPTY);
     return (
         <form
             className="flex items-center gap-2"
             onSubmit={(event) => {
                 event.preventDefault();
-                onAdd({ label: label.trim(), utterance: utterance.trim() });
-                setLabel('');
-                setUtterance('');
+                onAdd(trimmed(draft));
+                setDraft(EMPTY);
             }}
         >
-            <AppInput
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                placeholder="Label (optional)"
-                aria-label="New label"
-                className="w-40 shrink-0"
+            <QuickActionFields
+                value={draft}
+                onChange={setDraft}
+                labelName="New label"
+                utteranceName="New utterance"
             />
-            <AppInput
-                value={utterance}
-                onChange={(event) => setUtterance(event.target.value)}
-                placeholder="Utterance, like track flight LH123"
-                aria-label="New utterance"
-            />
-            <AppButton type="submit" disabled={full || utterance.trim().length === 0}>
+            <AppButton type="submit" disabled={full || trimmed(draft).utterance === ''}>
                 Add
             </AppButton>
         </form>

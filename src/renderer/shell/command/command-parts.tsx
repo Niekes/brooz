@@ -30,18 +30,14 @@ function truncate(value: string, limit: number): string {
     return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
-/** One kind of argument, named: "Flight LH123", "Symbols AAPL · TSLA". */
-function named(one: string, values: readonly string[] | undefined): string | undefined {
-    return values ? `${one}${values.length > 1 ? 's' : ''} ${values.join(' · ')}` : undefined;
+/** Values of one kind under its noun, plural from two on: "Flights LH123 · BA456". */
+function labelled(noun: string, values: readonly string[] | undefined): string | undefined {
+    return values && `${noun}${values.length > 1 ? 's' : ''} ${values.join(' · ')}`;
 }
 
-/** The arguments of a match in one line: "City Rome", "Flights LH123 · BA456". */
-function summaryFor(args: CommandArgs): string {
-    return [
-        named('City', args.city ? [args.city] : undefined),
-        named('Symbol', args.symbols),
-        named('Flight', args.flights)
-    ]
+/** The arguments of a match in one line: "City Rome", "Symbol AAPL · Flight LH123". */
+function summaryFor({ city, symbols, flights }: CommandArgs): string {
+    return [city && `City ${city}`, labelled('Symbol', symbols), labelled('Flight', flights)]
         .filter(Boolean)
         .join(' · ');
 }
@@ -83,9 +79,16 @@ export function QuickActions({
 }: {
     actions: readonly QuickAction[];
     onPick: (utterance: string) => void;
-}): JSX.Element {
+}): JSX.Element | null {
+    if (actions.length === 0) {
+        return null;
+    }
     return (
-        <div className="mb-2 flex flex-wrap justify-center gap-1.5">
+        <div
+            role="group"
+            aria-label="Quick actions"
+            className="mb-2 flex flex-wrap justify-center gap-1.5"
+        >
             {actions.map(({ label, utterance }, index) => (
                 <button
                     key={index}
@@ -202,7 +205,7 @@ export function SuggestionList({
         <div
             id="command-suggestions"
             role="listbox"
-            aria-label="Widget suggestions"
+            aria-label="Tile suggestions"
             className="mb-2 overflow-hidden rounded-2xl border border-white/15 bg-[#0b0c11]/95 text-white shadow-[0_24px_70px_rgba(0,0,0,0.6)] backdrop-blur-xl"
         >
             {suggestions.length > 0 ? (
@@ -220,7 +223,7 @@ export function SuggestionList({
                 </div>
             ) : (
                 <div className="px-4 py-3 text-[11px] text-white/40">
-                    {emptyText || `No widget matched “${truncate(query, 48)}”.`}
+                    {emptyText || `No tile matched “${truncate(query, 48)}”.`}
                 </div>
             )}
         </div>

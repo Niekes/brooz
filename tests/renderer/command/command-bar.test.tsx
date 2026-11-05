@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { CommandBar } from '../../../src/renderer/shell/command/command-bar';
 import { useLocalModel } from '../../../src/renderer/shell/command/use-local-model';
@@ -27,6 +27,9 @@ async function emit(data: unknown) {
 }
 
 const ready = { type: 'ready', runtime: { device: 'webgpu', dtype: 'q4f16' } };
+
+const QUICK_ACTIONS = 'brooz.ask.quick-actions';
+const quickActions = () => screen.queryByRole('group', { name: 'Quick actions' });
 
 describe('the ask bar with the rules', () => {
     beforeEach(() => {
@@ -144,9 +147,9 @@ describe('the ask bar with the rules', () => {
         const { type, press } = setup();
         await emit({ type: 'load-error', message: 'offline' });
         type('hello there');
-        expect(screen.getByText('No widget matched “hello there”.')).toBeTruthy();
+        expect(screen.getByText('No tile matched “hello there”.')).toBeTruthy();
         type(`a very long utterance that matches nothing at all, ${'x'.repeat(30)}`);
-        expect(screen.getByText(/^No widget matched “a very long utterance/)).toBeTruthy();
+        expect(screen.getByText(/^No tile matched “a very long utterance/)).toBeTruthy();
         expect(screen.getByText(/…”\.$/)).toBeTruthy();
         press('ArrowDown');
         press('ArrowUp');
@@ -173,7 +176,7 @@ describe('the ask bar with the rules', () => {
 
     it('offers the saved quick actions by label, and puts the utterance into the field', () => {
         localStorage.setItem(
-            'brooz.quick-actions',
+            QUICK_ACTIONS,
             JSON.stringify([
                 { label: 'My flight', utterance: 'track flight LH1234' },
                 { label: '', utterance: 'weather in Oslo' }
@@ -190,10 +193,45 @@ describe('the ask bar with the rules', () => {
     });
 
     it('offers no quick action once the person removed them all', () => {
-        localStorage.setItem('brooz.quick-actions', '[]');
+        localStorage.setItem(QUICK_ACTIONS, '[]');
         setup();
-        expect(screen.queryByText('weather in Rome')).toBeNull();
-        expect(screen.queryAllByRole('button', { name: /in Rome|LH123/ })).toEqual([]);
+        expect(quickActions()).toBeNull();
+    });
+
+    it('offers at most eight quick actions', () => {
+        const cities = ['Oslo', 'Rome', 'Lima', 'Pune', 'Kyiv', 'Doha', 'Riga', 'Bern', 'Baku'];
+        localStorage.setItem(
+            QUICK_ACTIONS,
+            JSON.stringify(cities.map((city) => ({ label: city, utterance: `weather in ${city}` })))
+        );
+        setup();
+        expect(within(quickActions()!).getAllByRole('button')).toHaveLength(8);
+        expect(screen.queryByText('Baku')).toBeNull();
+    });
+
+    it('skips what it cannot read as a quick action, and keeps the defaults for a broken list', () => {
+        localStorage.setItem(
+            QUICK_ACTIONS,
+            JSON.stringify([
+                null,
+                { label: 'No utterance' },
+                { label: 7, utterance: 'surf' },
+                {
+                    label: '',
+                    utterance: 'weather in Oslo'
+                }
+            ])
+        );
+        const view = setup();
+        expect(
+            within(quickActions()!)
+                .getAllByRole('button')
+                .map((b) => b.textContent)
+        ).toEqual(['weather in Oslo']);
+        view.unmount();
+        localStorage.setItem(QUICK_ACTIONS, '{"label":"not a list"}');
+        setup();
+        expect(screen.getByText('weather in Rome')).toBeTruthy();
     });
 
     it('fills the field from a quick action without summoning on its own', () => {

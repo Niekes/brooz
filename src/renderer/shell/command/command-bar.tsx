@@ -181,9 +181,9 @@ function useAskActions(
 
     return {
         execute,
-        pickQuickAction: (text: string): void => {
+        pickQuickAction: (utterance: string): void => {
             suppress.current = true;
-            replaceQuery(text);
+            replaceQuery(utterance);
             inputRef.current!.focus();
         },
         onChange: (event: ChangeEvent<HTMLInputElement>): void => {
