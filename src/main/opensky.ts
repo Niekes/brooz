@@ -18,10 +18,13 @@ import { createCache, fetchJson, outcome } from './http';
  */
 
 const API = 'https://opensky-network.org/api/states/all';
+const LEGS_API = 'https://opensky-network.org/api/flights/aircraft';
 const TOKEN_URL =
     'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token';
 const SERVICE = 'OpenSky';
 const STATES_TTL = 60_000;
+/** A leg changes rarely: the airports of a flight stay the same for hours. */
+const LEG_TTL = 10 * 60_000;
 /** Refresh the token this long before it expires. */
 const TOKEN_MARGIN = 30_000;
 /** The feed's 401/403 message: the one signal that means refresh and retry. */
@@ -52,7 +55,19 @@ interface TokenRaw {
     expires_in?: unknown;
 }
 
+/** One leg of an aircraft, as the flights endpoint reports it. */
+interface LegRaw {
+    estDepartureAirport?: string | null;
+    estArrivalAirport?: string | null;
+    firstSeen?: number | null;
+    lastSeen?: number | null;
+}
+
+/** The leg fields the tile reads. */
+type Leg = Pick<FlightState, 'origin' | 'destination' | 'departureAt' | 'arrivalAt'>;
+
 const statesCache = createCache(STATES_TTL);
+const legsCache = createCache(LEG_TTL);
 
 /** The bearer token of one key, cached until shortly before it expires. */
 let tokenCache: { hashed: string; token: string; notAfter: number } | null = null;
@@ -137,15 +152,31 @@ async function fetchFeed(key: string): Promise<StatesRaw> {
 }
 
 function toState(raw: RawState, feedTime: number): FlightState {
-    const [, callsign, , , lastContact, longitude, latitude, altitudeM, onGround, velocityMs] = raw;
+    const [
+        icao24,
+        callsign,
+        ,
+        ,
+        lastContact,
+        longitude,
+        latitude,
+        altitudeM,
+        onGround,
+        velocityMs
+    ] = raw;
     return {
+        icao24,
         callsign: callsign ?? '',
         latitude,
         longitude,
         altitudeM,
         speedKmh: velocityMs === null ? null : Math.round(velocityMs * 3.6 * 10) / 10,
         onGround,
-        lastSeen: new Date((lastContact ?? feedTime) * 1000).toISOString()
+        lastSeen: new Date((lastContact ?? feedTime) * 1000).toISOString(),
+        origin: null,
+        destination: null,
+        departureAt: null,
+        arrivalAt: null
     };
 }
 
@@ -176,6 +207,55 @@ function statesOf(states: readonly FlightState[], flight: string): FlightState[]
     return states.filter((state) => callsignCoreMatches(state.callsign, flight));
 }
 
+/** The leg in progress, or the latest one that has departed; null without times. */
+function pickLeg(legs: readonly LegRaw[], now: number): Leg | null {
+    const timed = legs.filter((leg) => typeof leg.firstSeen === 'number');
+    const inProgress = timed.filter(
+        (leg) => leg.firstSeen! <= now && (leg.lastSeen == null || leg.lastSeen >= now)
+    );
+    const chosen = inProgress[0] ?? [...timed].sort((a, b) => b.firstSeen! - a.firstSeen!)[0];
+    if (chosen === undefined) {
+        return null;
+    }
+    return {
+        origin: chosen.estDepartureAirport ?? null,
+        destination: chosen.estArrivalAirport ?? null,
+        departureAt: new Date(chosen.firstSeen! * 1000).toISOString(),
+        arrivalAt:
+            typeof chosen.lastSeen === 'number'
+                ? new Date(chosen.lastSeen * 1000).toISOString()
+                : null
+    };
+}
+
+/**
+ * The leg of an aircraft, from the flights endpoint, cached per aircraft. A
+ * leg that cannot be fetched is null - the states are the primary data, so a
+ * leg failure never fails the tile.
+ */
+async function legOf(key: string, state: FlightState): Promise<Leg | null> {
+    const cacheKey = `${hashOf(key)}:${state.icao24}`;
+    const cached = legsCache.read<Leg | null>(cacheKey);
+    if (cached !== undefined) {
+        return cached;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const url = new URL(LEGS_API);
+    url.searchParams.set('icao24', state.icao24);
+    url.searchParams.set('begin', String(now - 12 * 3600));
+    url.searchParams.set('end', String(now + 6 * 3600));
+    let leg: Leg | null = null;
+    try {
+        const legs = await fetchJson<LegRaw[]>(url, SERVICE, rejected, {
+            Authorization: `Bearer ${await accessToken(key)}`
+        });
+        leg = pickLeg(legs, now);
+    } catch {
+        leg = null;
+    }
+    return legsCache.write(cacheKey, leg);
+}
+
 /** The live states of the flights, or the provider's own error - never a throw. */
 export async function fetchFlights(
     key: string,
@@ -183,7 +263,10 @@ export async function fetchFlights(
 ): Promise<ProviderOutcome<FlightState[]>> {
     return outcome(SERVICE, async () => {
         const states = await allStates(key);
-        return flights.map(normalizeFlight).flatMap((flight) => statesOf(states, flight));
+        const matched = flights.map(normalizeFlight).flatMap((flight) => statesOf(states, flight));
+        return Promise.all(
+            matched.map(async (state) => ({ ...state, ...(await legOf(key, state)) }))
+        );
     });
 }
 

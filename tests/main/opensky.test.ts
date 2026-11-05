@@ -14,8 +14,11 @@ async function opensky(): Promise<typeof import('../../src/main/opensky')> {
 const ok = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200 });
 
 const TOKEN_URL = 'https://auth.opensky-network.org';
+const FEED = 'https://opensky-network.org/api/states/all';
+const LEGS = 'https://opensky-network.org/api/flights/aircraft';
 
 const isTokenCall = (url: unknown): boolean => String(url).startsWith(TOKEN_URL);
+const isFeedCall = (url: unknown): boolean => String(url).startsWith(FEED);
 
 const FEED_TIME = 1762086600;
 const LAST_CONTACT = 1762086540;
@@ -46,13 +49,21 @@ function row(
     ];
 }
 
-/** Answers the token endpoint with `token`, the feed with `states`. */
-function mockFlow(token: string, states: unknown[] | null, tokenStatus = 200): void {
+/** Answers the token endpoint with `token`, the feed with `states`, the legs with `legs`. */
+function mockFlow(
+    token: string,
+    states: unknown[] | null,
+    tokenStatus = 200,
+    legs: unknown[] = []
+): void {
     fetchMock.mockImplementation(async (url: unknown) => {
         if (isTokenCall(url)) {
             return tokenStatus === 200
                 ? ok({ access_token: token, expires_in: 1800 })
                 : new Response('no', { status: tokenStatus });
+        }
+        if (String(url).startsWith(LEGS)) {
+            return ok(legs);
         }
         return ok({ time: FEED_TIME, states });
     });
@@ -64,7 +75,7 @@ function callInit(
     index = 0
 ): { method?: string; body?: string; headers: Record<string, string> } {
     const calls = fetchMock.mock.calls.filter(([url]) =>
-        which === 'token' ? isTokenCall(url) : !isTokenCall(url)
+        which === 'token' ? isTokenCall(url) : isFeedCall(url)
     ) as [string, { method?: string; body?: string; headers: Record<string, string> }][];
     return calls[index][1];
 }
@@ -83,13 +94,18 @@ describe('the OpenSky provider', () => {
             status: 'ok',
             data: [
                 {
+                    icao24: 'abc123',
                     callsign: 'DLH123',
                     latitude: 50.1,
                     longitude: 8.7,
                     altitudeM: 10000,
                     speedKmh: 850,
                     onGround: false,
-                    lastSeen: new Date(LAST_CONTACT * 1000).toISOString()
+                    lastSeen: new Date(LAST_CONTACT * 1000).toISOString(),
+                    origin: null,
+                    destination: null,
+                    departureAt: null,
+                    arrivalAt: null
                 }
             ]
         });
@@ -133,13 +149,18 @@ describe('the OpenSky provider', () => {
             status: 'ok',
             data: [
                 {
+                    icao24: 'abc123',
                     callsign: 'BA456',
                     latitude: 50.1,
                     longitude: null,
                     altitudeM: null,
                     speedKmh: null,
                     onGround: true,
-                    lastSeen: new Date(FEED_TIME * 1000).toISOString()
+                    lastSeen: new Date(FEED_TIME * 1000).toISOString(),
+                    origin: null,
+                    destination: null,
+                    departureAt: null,
+                    arrivalAt: null
                 }
             ]
         });
@@ -151,14 +172,15 @@ describe('the OpenSky provider', () => {
         expect(result).toEqual({ status: 'ok', data: [] });
     });
 
-    it('serves a repeat call from the token and feed caches', async () => {
+    it('serves a repeat call from the token, feed and leg caches', async () => {
         mockFlow('tok1', [row('LH123')]);
         const api = await opensky();
         await api.fetchFlights('id:secret', ['LH123']);
         await api.fetchFlights('id:secret', ['LH123']);
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        // First call: token, feed, one leg request. The repeat serves every cache.
+        expect(fetchMock).toHaveBeenCalledTimes(3);
         await api.fetchFlights('other:secret', ['LH123']);
-        expect(fetchMock).toHaveBeenCalledTimes(4);
+        expect(fetchMock).toHaveBeenCalledTimes(6);
     });
 
     it('refreshes the token shortly before it expires, once the feed is due again', async () => {
@@ -170,6 +192,9 @@ describe('the OpenSky provider', () => {
                     tokens += 1;
                     return ok({ access_token: `tok${tokens}`, expires_in: 60 });
                 }
+                if (String(url).startsWith(LEGS)) {
+                    return ok([]);
+                }
                 return ok({ time: FEED_TIME, states: [row('LH123')] });
             });
             const api = await opensky();
@@ -177,12 +202,12 @@ describe('the OpenSky provider', () => {
             // 60 s token minus the 30 s margin, 60 s feed cache: all fresh at +29 s.
             vi.setSystemTime(Date.now() + 29_000);
             await api.fetchFlights('id:secret', ['LH123']);
-            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(fetchMock).toHaveBeenCalledTimes(3);
             // Past both: the feed is fetched again with a fresh token.
             vi.setSystemTime(Date.now() + 32_000);
             await api.fetchFlights('id:secret', ['LH123']);
             expect(fetchMock.mock.calls.filter(([url]) => isTokenCall(url))).toHaveLength(2);
-            const feedCalls = fetchMock.mock.calls.filter(([url]) => !isTokenCall(url)) as [
+            const feedCalls = fetchMock.mock.calls.filter(([url]) => isFeedCall(url)) as [
                 string,
                 { headers: Record<string, string> }
             ][];
@@ -221,6 +246,9 @@ describe('the OpenSky provider', () => {
             if (isTokenCall(url)) {
                 return ok({ access_token: `tok${feedCalls + 1}`, expires_in: 1800 });
             }
+            if (String(url).startsWith(LEGS)) {
+                return ok([]);
+            }
             feedCalls += 1;
             return feedCalls === 1
                 ? new Response('expired', { status: 401 })
@@ -229,7 +257,7 @@ describe('the OpenSky provider', () => {
         const result = await (await opensky()).fetchFlights('id:secret', ['LH123']);
         expect(result.status).toBe('ok');
         expect(fetchMock.mock.calls.filter(([url]) => isTokenCall(url))).toHaveLength(2);
-        const feedCallsList = fetchMock.mock.calls.filter(([url]) => !isTokenCall(url)) as [
+        const feedCallsList = fetchMock.mock.calls.filter(([url]) => isFeedCall(url)) as [
             string,
             { headers: Record<string, string> }
         ][];
@@ -250,7 +278,7 @@ describe('the OpenSky provider', () => {
             message: 'OpenSky replied with 429.'
         });
         // Not an expiry, so no retry.
-        expect(fetchMock.mock.calls.filter(([url]) => !isTokenCall(url))).toHaveLength(1);
+        expect(fetchMock.mock.calls.filter(([url]) => isFeedCall(url))).toHaveLength(1);
     });
 
     it('treats a 403 from the feed like an expired token and retries once', async () => {
@@ -336,6 +364,93 @@ describe('the OpenSky provider', () => {
         expect(result).toEqual({
             status: 'provider-error',
             message: 'OpenSky could not be reached.'
+        });
+    });
+
+    it('enriches a matched state with its leg, the one in progress', async () => {
+        const now = Math.floor(Date.now() / 1000);
+        mockFlow('tok1', [row('UA900')], 200, [
+            // An older, finished leg and the current one.
+            {
+                estDepartureAirport: 'LAX',
+                estArrivalAirport: 'SFO',
+                firstSeen: now - 7200,
+                lastSeen: now - 3600
+            },
+            {
+                estDepartureAirport: 'SFO',
+                estArrivalAirport: 'IAH',
+                firstSeen: now - 3600,
+                lastSeen: now + 3 * 3600
+            },
+            { estDepartureAirport: 'XXX', firstSeen: now - 100, lastSeen: null }
+        ]);
+        const result = await (await opensky()).fetchFlights('id:secret', ['UA900']);
+        expect(result.status === 'ok' && result.data[0]).toMatchObject({
+            callsign: 'UA900',
+            origin: 'SFO',
+            destination: 'IAH',
+            departureAt: new Date((now - 3600) * 1000).toISOString(),
+            arrivalAt: new Date((now + 3 * 3600) * 1000).toISOString()
+        });
+    });
+
+    it('caches the leg per aircraft, and leaves the fields null when the leg endpoint fails', async () => {
+        fetchMock.mockImplementation(async (url: unknown) => {
+            if (isTokenCall(url)) {
+                return ok({ access_token: 'tok', expires_in: 1800 });
+            }
+            if (String(url).startsWith(LEGS)) {
+                return new Response('no', { status: 500 });
+            }
+            return ok({ time: FEED_TIME, states: [row('UA900')] });
+        });
+        const api = await opensky();
+        const first = await api.fetchFlights('id:secret', ['UA900']);
+        expect(first.status === 'ok' && first.data[0]).toMatchObject({
+            origin: null,
+            destination: null,
+            departureAt: null,
+            arrivalAt: null
+        });
+        await api.fetchFlights('id:secret', ['UA900']);
+        // The leg failure is cached too: one legs request in total.
+        expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith(LEGS))).toHaveLength(
+            1
+        );
+    });
+
+    it('picks the latest departed leg when none is in progress, and null without times', async () => {
+        const now = Math.floor(Date.now() / 1000);
+        // Both legs finished; the latest one wins, with no lastSeen -> no arrival time.
+        mockFlow('tok1', [row('QF11')], 200, [
+            {
+                estDepartureAirport: 'SYD',
+                estArrivalAirport: 'MEL',
+                firstSeen: now - 7200,
+                lastSeen: now - 3600
+            },
+            {
+                firstSeen: now + 3600,
+                lastSeen: null
+            }
+        ]);
+        const result = await (await opensky()).fetchFlights('id:secret', ['QF11']);
+        // No leg in progress: the latest one wins the sort, a future one without airports.
+        expect(result.status === 'ok' && result.data[0]).toMatchObject({
+            origin: null,
+            destination: null,
+            departureAt: new Date((now + 3600) * 1000).toISOString(),
+            arrivalAt: null
+        });
+
+        mockFlow('tok1', [row('QF11')], 200, [{ estDepartureAirport: 'SYD' }]);
+        // Another key, so the leg cache of the first part does not answer.
+        const untimed = await (await opensky()).fetchFlights('other:secret', ['QF11']);
+        expect(untimed.status === 'ok' && untimed.data[0]).toMatchObject({
+            origin: null,
+            destination: null,
+            departureAt: null
         });
     });
 

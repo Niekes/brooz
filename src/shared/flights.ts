@@ -52,6 +52,8 @@ export function callsignCoreMatches(callsign: string, flight: string): boolean {
 
 /** One live flight state, as the states feed reports it. */
 export interface FlightState {
+    /** The aircraft's address, so the main process can ask for its leg. */
+    readonly icao24: string;
     readonly callsign: string;
     readonly latitude: number | null;
     readonly longitude: number | null;
@@ -61,6 +63,24 @@ export interface FlightState {
     readonly onGround: boolean;
     /** When the state was last seen, ISO 8601 UTC. */
     readonly lastSeen: string;
+    /** The leg's airports and times, from the flights endpoint; null when unknown. */
+    readonly origin: string | null;
+    readonly destination: string | null;
+    readonly departureAt: string | null;
+    readonly arrivalAt: string | null;
+}
+
+/**
+ * How far along its leg the flight is, 0 at departure, 1 at arrival, from the
+ * leg's times. Without them: parked at the start, else halfway along the arc.
+ */
+export function legProgress(state: FlightState, now: number): number {
+    const departure = state.departureAt === null ? null : Date.parse(state.departureAt);
+    const arrival = state.arrivalAt === null ? null : Date.parse(state.arrivalAt);
+    if (departure !== null && arrival !== null && arrival > departure) {
+        return Math.min(1, Math.max(0, (now - departure) / (arrival - departure)));
+    }
+    return state.onGround ? 0 : 0.5;
 }
 
 /** Where the flight is right now. */
