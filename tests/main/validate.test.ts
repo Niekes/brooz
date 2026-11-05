@@ -100,7 +100,12 @@ describe('the symbols validation', () => {
 
 describe('the flights validation', () => {
     it('accepts, normalizes and dedupes flight numbers', () => {
-        expect(parseFlights(['lh-123', 'BA456', 'lh123'])).toEqual(['LH123', 'BA456']);
+        expect(parseFlights(['lh-123', 'BA456', 'lh123', 'TFL2DW', 'or1638'])).toEqual([
+            'LH123',
+            'BA456',
+            'TFL2DW',
+            'OR1638'
+        ]);
     });
 
     it.each([

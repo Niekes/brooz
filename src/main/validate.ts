@@ -104,7 +104,7 @@ export function parseFlights(value: unknown): string[] {
         return normalizeFlight(flight);
     });
     if (!flights.every(isFlightNumber)) {
-        throw new RangeError('A flight number is 2-3 letters, 1-4 digits and an optional letter.');
+        throw new RangeError('A flight number is 2-3 letters, 1-4 digits and up to two letters.');
     }
     return [...new Set(flights)];
 }

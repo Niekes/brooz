@@ -289,13 +289,18 @@ describe('the live slot: the shell chrome around a summoned tile', () => {
                 status: 'ok',
                 data: [
                     {
+                        icao24: 'abc123',
                         callsign: 'DLH123',
                         latitude: 50.1,
                         longitude: 8.7,
                         altitudeM: 10000,
                         speedKmh: 850,
                         onGround: false,
-                        lastSeen: '2026-11-02T09:30:00.000Z'
+                        lastSeen: '2026-11-02T09:30:00.000Z',
+                        origin: 'FRA',
+                        destination: 'JFK',
+                        departureAt: '2026-11-02T08:00:00.000Z',
+                        arrivalAt: '2026-11-02T15:00:00.000Z'
                     }
                 ]
             })
@@ -307,6 +312,8 @@ describe('the live slot: the shell chrome around a summoned tile', () => {
             />
         );
         expect(await screen.findByText('En route')).toBeTruthy();
+        expect(screen.getByText('FRA')).toBeTruthy();
+        expect(screen.getByText('JFK')).toBeTruthy();
         expect(screen.getByText('Flights')).toBeTruthy();
         expect(screen.getByText('OpenSky Network')).toBeTruthy();
         expect(invoke).toHaveBeenCalledWith('brooz:flight-states', ['LH123']);

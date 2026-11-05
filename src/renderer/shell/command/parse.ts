@@ -94,8 +94,8 @@ function extractSymbols(raw: string): string[] | undefined {
     return symbols.size > 0 ? [...symbols] : undefined;
 }
 
-/** An airline code with digits, the way a flight number is written: LH123, DLH4321. */
-const FLIGHT_TOKEN = /\b[A-Za-z]{2,3}[0-9]{1,4}[A-Za-z]?\b/g;
+/** An airline code with digits and up to two suffix letters: LH123, OR1638, TFL2DW. */
+const FLIGHT_TOKEN = /\b[A-Za-z]{2,3}[0-9]{1,4}[A-Za-z]{0,2}\b/g;
 
 /**
  * Pulls flight numbers out of "flight LH123" or "track DLH4321". Tickers are

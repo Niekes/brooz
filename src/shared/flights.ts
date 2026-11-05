@@ -7,8 +7,11 @@
 /** How many flights one live flight tile tracks. */
 export const MAX_FLIGHTS = 5;
 
-/** A flight number the way a person writes it: an airline code and digits, like LH123. */
-const FLIGHT_PATTERN = /^[A-Z]{2,3}[0-9]{1,4}[A-Z]?$/;
+/**
+ * A flight number or callsign the way a person writes it: an airline code,
+ * digits and up to two suffix letters, like LH123, OR1638 or TFL2DW.
+ */
+const FLIGHT_PATTERN = /^[A-Z]{2,3}[0-9]{1,4}[A-Z]{0,2}$/;
 
 /** The flight number as a comparable token: upper case, letters and digits only. */
 export function normalizeFlight(value: string): string {
@@ -21,8 +24,8 @@ export function isFlightNumber(value: string): boolean {
 }
 
 /**
- * Whether a live callsign belongs to the flight a person asked for: the
- * callsign is the flight number, or carries it as a suffix, because the
+ * Whether a live callsign belongs to the flight a person asked for, strictly:
+ * the callsign is the flight number, or carries it as a suffix, because the
  * service often spells LH123 with the airline's ICAO code, DLH123.
  */
 export function callsignMatches(callsign: string, flight: string): boolean {
@@ -31,8 +34,26 @@ export function callsignMatches(callsign: string, flight: string): boolean {
     return normalized === wanted || (wanted.length >= 3 && normalized.endsWith(wanted));
 }
 
+/** The number core of a flight: digits and suffix letters without the airline code. */
+function coreOf(value: string): string {
+    return normalizeFlight(value).replace(/^[A-Z]+/, '');
+}
+
+/**
+ * Whether a callsign shares the flight's number core, across airline codes:
+ * the person asks for the IATA flight number FR4167, the service spells the
+ * callsign with the ICAO code, RYR4167. Cores shorter than three characters
+ * (BA1) match nothing, so a bare number never matches every airline.
+ */
+export function callsignCoreMatches(callsign: string, flight: string): boolean {
+    const core = coreOf(flight);
+    return core.length >= 3 && coreOf(callsign) === core;
+}
+
 /** One live flight state, as the states feed reports it. */
 export interface FlightState {
+    /** The aircraft's address, so the main process can ask for its leg. */
+    readonly icao24: string;
     readonly callsign: string;
     readonly latitude: number | null;
     readonly longitude: number | null;
@@ -42,6 +63,24 @@ export interface FlightState {
     readonly onGround: boolean;
     /** When the state was last seen, ISO 8601 UTC. */
     readonly lastSeen: string;
+    /** The leg's airports and times, from the flights endpoint; null when unknown. */
+    readonly origin: string | null;
+    readonly destination: string | null;
+    readonly departureAt: string | null;
+    readonly arrivalAt: string | null;
+}
+
+/**
+ * How far along its leg the flight is, 0 at departure, 1 at arrival, from the
+ * leg's times. Without them: parked at the start, else halfway along the arc.
+ */
+export function legProgress(state: FlightState, now: number): number {
+    const departure = state.departureAt === null ? null : Date.parse(state.departureAt);
+    const arrival = state.arrivalAt === null ? null : Date.parse(state.arrivalAt);
+    if (departure !== null && arrival !== null && arrival > departure) {
+        return Math.min(1, Math.max(0, (now - departure) / (arrival - departure)));
+    }
+    return state.onGround ? 0 : 0.5;
 }
 
 /** Where the flight is right now. */
