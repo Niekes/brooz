@@ -33,9 +33,11 @@ import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/stored';
 interface Section {
     id: string;
     title: string;
-    /** The provider's mark, in the nav and the heading; General and tiles have none. */
+    /** The sidebar group: the person's own choices, a tile's, or a provider's key. */
+    group: 'personal' | 'tile' | 'provider';
+    /** The provider's mark, in the nav and the heading; only providers have one. */
     icon?: ProviderId;
-    /** One line under the heading, naming what the section serves. */
+    /** One line under the heading. */
     subtitle?: string;
     terms: string[];
     Body: () => JSX.Element;
@@ -61,6 +63,7 @@ function providerSection(provider: ProviderInfo, servedTiles: readonly TileDefin
     return {
         id: provider.id,
         title: provider.title,
+        group: 'provider',
         icon: provider.id,
         subtitle: servesLine(servedTiles.map((tile) => tile.title)),
         terms: [provider.title, ...servedTiles.map((tile) => tile.title)],
@@ -92,6 +95,7 @@ function tileSection(tile: TileDefinition): Section {
     return {
         id: `tile:${tile.id}`,
         title: tile.title,
+        group: 'tile',
         terms: tileTerms(tile),
         Body: () => (
             <>
@@ -194,11 +198,11 @@ function SectionNav({
     current: Section | undefined;
     onSelect: (id: string) => void;
 }): JSX.Element {
-    const personal = visible.filter((section) => PERSONAL.includes(section));
-    const tileSections = visible.filter((section) => section.id.startsWith('tile:'));
-    const providerSections = visible.filter(
-        (section) => !personal.includes(section) && !tileSections.includes(section)
-    );
+    const inGroup = (group: Section['group']) =>
+        visible.filter((section) => section.group === group);
+    const personal = inGroup('personal');
+    const tileSections = inGroup('tile');
+    const providerSections = inGroup('provider');
     return (
         <nav
             aria-label="Settings sections"
@@ -294,6 +298,7 @@ function TemperatureUnitOption(): JSX.Element {
 const GENERAL: Section = {
     id: 'general',
     title: 'General',
+    group: 'personal',
     terms: [
         'General',
         'Start tile',
@@ -316,19 +321,18 @@ const GENERAL: Section = {
 const QUICK_ACTIONS: Section = {
     id: 'quick-actions',
     title: 'Quick actions',
+    group: 'personal',
     subtitle: `Offered above the ask bar while it is empty, up to ${MAX_QUICK_ACTIONS}; a click puts the utterance into the field.`,
     terms: ['Quick actions', 'Ask bar'],
     Body: QuickActionsOption
 };
 
-/** The sections that belong to the person rather than to a tile or a provider. */
-const PERSONAL = [GENERAL, QUICK_ACTIONS];
-
 // General and the quick actions first, then one section per registered tile,
 // then one per provider of the manifest - every provider has a section, even
 // one that serves no tile yet, so its key has a place before any tile uses it.
 const SECTIONS: Section[] = [
-    ...PERSONAL,
+    GENERAL,
+    QUICK_ACTIONS,
     ...tiles.map(tileSection),
     ...PROVIDERS.map((provider) =>
         providerSection(

@@ -20,8 +20,8 @@ const DEFAULTS: readonly QuickAction[] = ROUTED_TILES.filter((tile) => tile.Live
     (tile) => ({ label: '', utterance: tile.route.examples[0] })
 );
 
-/** The stored value is untyped JSON: an entry counts only with a string label and an utterance. */
-function isQuickAction(entry: unknown): entry is QuickAction {
+/** Whether a value can be a quick action: a string label and an utterance that is not blank. */
+export function isQuickAction(entry: unknown): entry is QuickAction {
     const { label, utterance } = (entry ?? {}) as Partial<Record<keyof QuickAction, unknown>>;
     return typeof label === 'string' && typeof utterance === 'string' && utterance.trim() !== '';
 }

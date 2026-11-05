@@ -24,7 +24,7 @@ A value an utterance carries that a tile understands: a city, a ticker symbol, a
 _Avoid_: param, entity, slot
 
 **Quick action**:
-A saved utterance with a label, offered above the ask bar while the field is empty; picking one puts its utterance into the field to be routed like a typed one.
+A saved utterance with an optional label, offered above the ask bar while the field is empty; picking one puts its utterance into the field to be routed like a typed one.
 _Avoid_: chip, example, shortcut, preset
 
 **Provider**:

@@ -175,9 +175,9 @@ A definition has:
 
 The settings list General, then Quick actions, then one section per
 registered tile, then the providers; the start tile setting in General picks
-which tile the grid centers on at launch (`docs/adr/0015`). A route's first
-example is the tile's default quick action until the person edits the list
-(`docs/adr/0017`).
+which tile the grid centers on at launch (`docs/adr/0015`). A live tile's
+first route example is its default quick action until the person edits the
+list (`docs/adr/0017`).
 
 A new tile is registered in `src/renderer/tiles/index.ts`; the slots nearest
 the grid's center carry the registry in order, and every other slot shows the

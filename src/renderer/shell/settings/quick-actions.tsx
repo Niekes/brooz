@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
-import { MAX_QUICK_ACTIONS, useQuickActions } from '../command/quick-actions';
+import { MAX_QUICK_ACTIONS, isQuickAction, useQuickActions } from '../command/quick-actions';
 import type { QuickAction } from '../command/quick-actions';
 import { AppButton } from '../ui/app-button';
 import { AppInput } from '../ui/app-input';
@@ -71,7 +71,7 @@ function QuickActionRow({
     }
     const commit = (): void => {
         const next = trimmed(draft);
-        if (!next.utterance) {
+        if (!isQuickAction(next)) {
             setDraft(action);
         } else if (next.label !== action.label || next.utterance !== action.utterance) {
             onSave(next);
@@ -117,7 +117,7 @@ function NewQuickAction({
                 labelName="New label"
                 utteranceName="New utterance"
             />
-            <AppButton type="submit" disabled={full || trimmed(draft).utterance === ''}>
+            <AppButton type="submit" disabled={full || !isQuickAction(draft)}>
                 Add
             </AppButton>
         </form>
@@ -127,8 +127,6 @@ function NewQuickAction({
 /** The quick actions the ask bar offers, edited in their own settings section (docs/adr/0017). */
 export function QuickActionsOption(): JSX.Element {
     const [actions, setActions] = useQuickActions();
-    const replace = (index: number, action: QuickAction): void =>
-        setActions(actions.map((current, at) => (at === index ? action : current)));
     return (
         <>
             <ul className="flex flex-col gap-2">
@@ -137,7 +135,11 @@ export function QuickActionsOption(): JSX.Element {
                         key={index}
                         index={index}
                         action={action}
-                        onSave={(saved) => replace(index, saved)}
+                        onSave={(saved) =>
+                            setActions(
+                                actions.map((current, at) => (at === index ? saved : current))
+                            )
+                        }
                         onDelete={() => setActions(actions.filter((_, at) => at !== index))}
                     />
                 ))}
