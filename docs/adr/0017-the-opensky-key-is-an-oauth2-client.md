@@ -8,11 +8,11 @@ one string per provider (`docs/adr/0001`, `docs/adr/0002`), so the one string
 is the client written as `clientId:clientSecret`. Only the main process splits
 it: `src/main/opensky.ts` posts the `client_credentials` grant to the token
 endpoint, caches the token until shortly before it expires, and sends
-`Authorization: Bearer <token>` on the states request. A 401 from the API
-means the token expired: the client refreshes the token once and retries the
-request once. Both requests are made by the main process, so the renderer's
-CSP stays `'self'` and neither the client id nor the secret ever reaches the
-renderer.
+`Authorization: Bearer <token>` on the states request. A 401 or 403 from the
+API means the token expired or the client is wrong: the client refreshes the
+token once and retries the request once. Both requests are made by the main
+process, so the renderer's CSP stays `'self'` and neither the client id nor
+the secret ever reaches the renderer.
 
 ## Considered options
 
@@ -32,5 +32,6 @@ renderer.
 - `brooz:flight-states` is unchanged; only the main-process client changed.
 - A key without a colon is malformed: the channel answers `provider-error`
   with the expected format instead of calling the token endpoint.
-- The settings' "test" key call probes the client by fetching a token and the
-  feed once, so it spends one token request and one feed request.
+- The settings' "test" key call probes the client against the feed; the token
+  and feed caches may serve it, so it spends at most one token request and one
+  feed request.

@@ -1,5 +1,6 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { MODEL_DELAY } from '../../src/renderer/shell/command/use-model-routing';
 import { stubMatchMedia, stubWorker } from './stubs';
 
 const invoke = vi.fn();
@@ -17,11 +18,11 @@ describe('the renderer entry', () => {
 
     afterEach(async () => {
         // main.tsx mounts its own root, which the testing library's cleanup
-        // does not unmount: let the command bar's mount debounce (240 ms in
-        // use-model-routing) fire while the DOM is still alive, or its timer
-        // outlives the jsdom environment and fails the run as unhandled.
+        // does not unmount: let the command bar's mount debounce fire while
+        // the DOM is still alive, or its timer outlives the jsdom environment
+        // and fails the run as unhandled.
         await act(async () => {
-            await new Promise((resolve) => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, MODEL_DELAY + 60));
         });
         vi.unstubAllGlobals();
     });

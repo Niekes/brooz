@@ -57,7 +57,10 @@ export function registerIpcHandlers(devUrl?: string): void {
     // The key page: the renderer names a provider, never a URL; the manifest
     // decides what opens in the system browser (docs/adr/0016).
     handle(IPC_CHANNELS.keyPage, devUrl, (provider) => {
-        void shell.openExternal(`https://${providerInfo(parseProviderId(provider)).keyUrl}`);
+        // The channel answers nothing, so a browser that fails to open is swallowed.
+        void shell
+            .openExternal(`https://${providerInfo(parseProviderId(provider)).keyUrl}`)
+            .catch(() => undefined);
     });
     handle(IPC_CHANNELS.stockQuotes, devUrl, (symbols) => stockQuotes(parseSymbols(symbols)));
     handle(IPC_CHANNELS.surf, devUrl, (spot) => surf(parseCoordinates(spot)));

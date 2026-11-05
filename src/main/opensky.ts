@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { net } from 'electron';
 import type { ProviderOutcome, ProviderProbe } from '../shared/providers';
 import { callsignMatches, normalizeFlight } from '../shared/flights';
 import type { FlightState } from '../shared/flights';
@@ -12,10 +11,10 @@ import { createCache, fetchJson, outcome } from './http';
  * client credentials flow, so the key is the API client written as
  * `clientId:clientSecret` (`docs/adr/0017`): only this module splits it, and
  * only it exchanges it for a bearer token. The token is cached until shortly
- * before it expires; a 401 from the feed means it expired, so the token is
- * refreshed once and the request retried once. The feed itself is cached for
- * a minute, and every cache knows its key by a short hash only, so a rotated
- * key misses them all.
+ * before it expires; a 401 or 403 from the feed means the token expired or
+ * the client is wrong, so the token is refreshed once and the request retried
+ * once. The feed itself is cached for a minute, and every cache knows its key
+ * by a short hash only, so a rotated key misses them all.
  */
 
 const API = 'https://opensky-network.org/api/states/all';
@@ -23,10 +22,10 @@ const TOKEN_URL =
     'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token';
 const SERVICE = 'OpenSky';
 const STATES_TTL = 60_000;
-/** A request that has not answered by then is given up. */
-const REQUEST_TIMEOUT = 10_000;
 /** Refresh the token this long before it expires. */
 const TOKEN_MARGIN = 30_000;
+/** The feed's 401/403 message: the one signal that means refresh and retry. */
+const TOKEN_REJECTED = "OpenSky doesn't accept this key.";
 
 /** One row of the states answer; only the fields the tile reads are typed. */
 type RawState = readonly [
@@ -85,23 +84,13 @@ async function fetchToken(key: string): Promise<string> {
         client_id: clientId,
         client_secret: clientSecret
     });
-    const response = await net
-        .fetch(TOKEN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT)
-        })
-        .catch((cause: unknown) => {
-            if (cause instanceof DOMException && cause.name === 'TimeoutError') {
-                throw new Error(`${SERVICE} did not answer in time.`);
-            }
-            throw cause;
-        });
-    if (!response.ok) {
-        throw new Error(tokenRejected(response.status));
-    }
-    const raw = (await response.json()) as TokenRaw;
+    const raw = await fetchJson<TokenRaw>(
+        new URL(TOKEN_URL),
+        SERVICE,
+        tokenRejected,
+        { 'Content-Type': 'application/x-www-form-urlencoded' },
+        { method: 'POST', body: body.toString() }
+    );
     if (typeof raw.access_token !== 'string' || raw.access_token.length === 0) {
         throw new Error(`${SERVICE} sent no access token.`);
     }
@@ -124,9 +113,7 @@ function accessToken(key: string): Promise<string> {
 }
 
 function rejected(status: number): string {
-    return status === 401 || status === 403
-        ? "OpenSky doesn't accept this key."
-        : `${SERVICE} replied with ${status}.`;
+    return status === 401 || status === 403 ? TOKEN_REJECTED : `${SERVICE} replied with ${status}.`;
 }
 
 /** One feed request with a bearer token. */
@@ -141,7 +128,7 @@ async function fetchFeed(key: string): Promise<StatesRaw> {
     try {
         return await feedOnce(await accessToken(key));
     } catch (cause) {
-        if (cause instanceof Error && cause.message === "OpenSky doesn't accept this key.") {
+        if (cause instanceof Error && cause.message === TOKEN_REJECTED) {
             tokenCache = null;
             return feedOnce(await accessToken(key));
         }
