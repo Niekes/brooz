@@ -6,6 +6,27 @@ From 0.2.1 on, release-please writes the entries from the Conventional
 Commits on `master`; the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/Niekes/brooz/compare/v0.6.0...v0.7.0) (2026-11-05)
+
+
+### Added
+
+* add the flightracker tile ([d9084c2](https://github.com/Niekes/brooz/commit/d9084c223a1e14088c46ce1ed9fb5324bb7ccad8))
+* add the flightracker tile ([f9c3199](https://github.com/Niekes/brooz/commit/f9c31999695e0b11058e85cd6687ed271c0cdfdb))
+* show airport codes as IATA in the flight card ([33b84f7](https://github.com/Niekes/brooz/commit/33b84f77f1e2654450259b7c1064900f097ccf78))
+* the flight tile as a live-activity card ([cb6f328](https://github.com/Niekes/brooz/commit/cb6f328beaf1aaef62e2f5d433164bab65114f33))
+* the OpenSky key is an OAuth2 client ([a0b1fd8](https://github.com/Niekes/brooz/commit/a0b1fd8ef11984eaba01cbaf619d32adbf118f73))
+* the OpenSky key is an OAuth2 client, used by the main process alone ([418ce22](https://github.com/Niekes/brooz/commit/418ce221cdab9ac49e19532d40c4276574f98ea2))
+* the settings open a provider's key page ([5f80cb7](https://github.com/Niekes/brooz/commit/5f80cb76000a631124615e310ffcd3e8d8d9f3d0))
+
+
+### Fixed
+
+* accept callsigns with two suffix letters, like TFL2DW ([cae7788](https://github.com/Niekes/brooz/commit/cae77886b5a0499785f5a003da3a2c80ec4eb621))
+* let the mount debounce settle before the DOM tears down ([a0f0587](https://github.com/Niekes/brooz/commit/a0f058780c6a3a0d1b84ae4afc0f56fb60975875))
+* match flights by number core across airline codes ([d40f6ed](https://github.com/Niekes/brooz/commit/d40f6edfb89e5ac272f2cd709ec6b46c575c4dd2))
+* review follow-ups for the OpenSky client and the key page ([2bbbf37](https://github.com/Niekes/brooz/commit/2bbbf3722fae386ce7c5f90ee5c83916ab94241c))
+
 ## [0.6.0](https://github.com/Niekes/brooz/compare/v0.5.0...v0.6.0) (2026-11-04)
 
 
