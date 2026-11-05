@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { net } from 'electron';
 import type { ProviderOutcome, ProviderProbe } from '../shared/providers';
 import { callsignMatches, normalizeFlight } from '../shared/flights';
 import type { FlightState } from '../shared/flights';
@@ -7,16 +8,25 @@ import { createCache, fetchJson, outcome } from './http';
 /**
  * OpenSky Network, the provider of the flight tracker tile. Its states feed
  * answers the live position of every aircraft, so the tile's flights are the
- * matching callsigns among them. The key is an OpenSky account written as
- * `username:password` and goes in a Basic header; it never enters the cache,
- * which knows its key by a short hash only, so a rotated key misses it.
- * The whole feed is cached for a minute: the states change every few seconds,
- * and switching between live tiles must not refetch them.
+ * matching callsigns among them. OpenSky exclusively supports the OAuth2
+ * client credentials flow, so the key is the API client written as
+ * `clientId:clientSecret` (`docs/adr/0017`): only this module splits it, and
+ * only it exchanges it for a bearer token. The token is cached until shortly
+ * before it expires; a 401 from the feed means it expired, so the token is
+ * refreshed once and the request retried once. The feed itself is cached for
+ * a minute, and every cache knows its key by a short hash only, so a rotated
+ * key misses them all.
  */
 
 const API = 'https://opensky-network.org/api/states/all';
+const TOKEN_URL =
+    'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token';
 const SERVICE = 'OpenSky';
 const STATES_TTL = 60_000;
+/** A request that has not answered by then is given up. */
+const REQUEST_TIMEOUT = 10_000;
+/** Refresh the token this long before it expires. */
+const TOKEN_MARGIN = 30_000;
 
 /** One row of the states answer; only the fields the tile reads are typed. */
 type RawState = readonly [
@@ -38,20 +48,105 @@ interface StatesRaw {
     states: RawState[] | null;
 }
 
-const cache = createCache(STATES_TTL);
+interface TokenRaw {
+    access_token?: unknown;
+    expires_in?: unknown;
+}
 
-function cacheKeyOf(key: string): string {
+const statesCache = createCache(STATES_TTL);
+
+/** The bearer token of one key, cached until shortly before it expires. */
+let tokenCache: { hashed: string; token: string; notAfter: number } | null = null;
+
+function hashOf(key: string): string {
     return createHash('sha256').update(key).digest('hex').slice(0, 16);
 }
 
-function authHeader(key: string): Record<string, string> {
-    return { Authorization: `Basic ${Buffer.from(key, 'utf8').toString('base64')}` };
+/** The key is one string: the API client's id and secret, `clientId:clientSecret`. */
+function credentialsOf(key: string): { clientId: string; clientSecret: string } {
+    const at = key.indexOf(':');
+    if (at <= 0 || at === key.length - 1) {
+        throw new Error('The OpenSky key is the API client written as clientId:clientSecret.');
+    }
+    return { clientId: key.slice(0, at), clientSecret: key.slice(at + 1) };
+}
+
+function tokenRejected(status: number): string {
+    return status === 400 || status === 401 || status === 403
+        ? "OpenSky doesn't accept this client id and secret."
+        : `${SERVICE} replied with ${status}.`;
+}
+
+/** Exchanges the client for a bearer token and caches it until near its expiry. */
+async function fetchToken(key: string): Promise<string> {
+    const { clientId, clientSecret } = credentialsOf(key);
+    const body = new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret
+    });
+    const response = await net
+        .fetch(TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT)
+        })
+        .catch((cause: unknown) => {
+            if (cause instanceof DOMException && cause.name === 'TimeoutError') {
+                throw new Error(`${SERVICE} did not answer in time.`);
+            }
+            throw cause;
+        });
+    if (!response.ok) {
+        throw new Error(tokenRejected(response.status));
+    }
+    const raw = (await response.json()) as TokenRaw;
+    if (typeof raw.access_token !== 'string' || raw.access_token.length === 0) {
+        throw new Error(`${SERVICE} sent no access token.`);
+    }
+    const expiresIn = typeof raw.expires_in === 'number' ? raw.expires_in : 1800;
+    tokenCache = {
+        hashed: hashOf(key),
+        token: raw.access_token,
+        notAfter: Date.now() + Math.max(0, expiresIn * 1000 - TOKEN_MARGIN)
+    };
+    return raw.access_token;
+}
+
+/** A fresh cached token for the key, else a new one. */
+function accessToken(key: string): Promise<string> {
+    const hashed = hashOf(key);
+    if (tokenCache !== null && tokenCache.hashed === hashed && Date.now() < tokenCache.notAfter) {
+        return Promise.resolve(tokenCache.token);
+    }
+    return fetchToken(key);
 }
 
 function rejected(status: number): string {
     return status === 401 || status === 403
         ? "OpenSky doesn't accept this key."
         : `${SERVICE} replied with ${status}.`;
+}
+
+/** One feed request with a bearer token. */
+function feedOnce(token: string): Promise<StatesRaw> {
+    return fetchJson<StatesRaw>(new URL(API), SERVICE, rejected, {
+        Authorization: `Bearer ${token}`
+    });
+}
+
+/** The feed, retrying once with a fresh token when the old one expired. */
+async function fetchFeed(key: string): Promise<StatesRaw> {
+    try {
+        return await feedOnce(await accessToken(key));
+    } catch (cause) {
+        if (cause instanceof Error && cause.message === "OpenSky doesn't accept this key.") {
+            tokenCache = null;
+            return feedOnce(await accessToken(key));
+        }
+        throw cause;
+    }
 }
 
 function toState(raw: RawState, feedTime: number): FlightState {
@@ -69,16 +164,16 @@ function toState(raw: RawState, feedTime: number): FlightState {
 
 /** The whole feed, from the cache while it is fresh. */
 async function allStates(key: string): Promise<FlightState[]> {
-    const cacheKey = cacheKeyOf(key);
-    const cached = cache.read<FlightState[]>(cacheKey);
+    const cacheKey = hashOf(key);
+    const cached = statesCache.read<FlightState[]>(cacheKey);
     if (cached !== undefined) {
         return cached;
     }
-    const raw = await fetchJson<StatesRaw>(new URL(API), SERVICE, rejected, authHeader(key));
+    const raw = await fetchFeed(key);
     const states = (raw.states ?? [])
         .map((row) => toState(row, raw.time))
         .filter((state) => state.callsign.length > 0);
-    return cache.write(cacheKey, states);
+    return statesCache.write(cacheKey, states);
 }
 
 /** The live states of the flights, or the provider's own error - never a throw. */
@@ -95,7 +190,7 @@ export async function fetchFlights(
     });
 }
 
-/** Checks a key against the service with the live states. */
+/** Checks a key by fetching a token and the feed once. */
 export async function probeKey(key: string): Promise<ProviderProbe> {
     const result = await outcome(SERVICE, () => allStates(key));
     return result.status === 'ok' ? { status: 'ok' } : result;
