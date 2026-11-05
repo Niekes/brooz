@@ -2,7 +2,13 @@ import type { JSX } from 'react';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import type { IpcChannel } from '../../../shared/ipc';
 import { OPEN_SKY } from '../../../shared/providers';
-import { callsignMatches, flightPhase, formatAltitude, formatSpeed } from '../../../shared/flights';
+import {
+    callsignCoreMatches,
+    callsignMatches,
+    flightPhase,
+    formatAltitude,
+    formatSpeed
+} from '../../../shared/flights';
 import type { FlightState } from '../../../shared/flights';
 import { MAX_FLIGHTS } from '../../../shared/flights';
 import { TileHeader, WIDGET_BODY } from '../../shell/kit/chrome';
@@ -169,7 +175,11 @@ export function LiveFlightracker({
                 <FlightRow
                     key={flight}
                     flight={flight}
-                    state={states.find((state) => callsignMatches(state.callsign, flight))}
+                    state={states.find(
+                        (state) =>
+                            callsignMatches(state.callsign, flight) ||
+                            callsignCoreMatches(state.callsign, flight)
+                    )}
                 />
             ))}
         </div>

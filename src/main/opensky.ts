@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ProviderOutcome, ProviderProbe } from '../shared/providers';
-import { callsignMatches, normalizeFlight } from '../shared/flights';
+import { callsignCoreMatches, callsignMatches, normalizeFlight } from '../shared/flights';
 import type { FlightState } from '../shared/flights';
 import { createCache, fetchJson, outcome } from './http';
 
@@ -163,6 +163,19 @@ async function allStates(key: string): Promise<FlightState[]> {
     return statesCache.write(cacheKey, states);
 }
 
+/**
+ * The states of one flight: the strict callsign matches win, and only when
+ * there are none does the number core match across airline codes (FR4167 is
+ * served as RYR4167), so a shared number never outranks a real callsign.
+ */
+function statesOf(states: readonly FlightState[], flight: string): FlightState[] {
+    const strict = states.filter((state) => callsignMatches(state.callsign, flight));
+    if (strict.length > 0) {
+        return strict;
+    }
+    return states.filter((state) => callsignCoreMatches(state.callsign, flight));
+}
+
 /** The live states of the flights, or the provider's own error - never a throw. */
 export async function fetchFlights(
     key: string,
@@ -170,10 +183,7 @@ export async function fetchFlights(
 ): Promise<ProviderOutcome<FlightState[]>> {
     return outcome(SERVICE, async () => {
         const states = await allStates(key);
-        const wanted = flights.map(normalizeFlight);
-        return states.filter((state) =>
-            wanted.some((flight) => callsignMatches(state.callsign, flight))
-        );
+        return flights.map(normalizeFlight).flatMap((flight) => statesOf(states, flight));
     });
 }
 

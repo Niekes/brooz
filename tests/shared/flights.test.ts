@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
+    callsignCoreMatches,
     callsignMatches,
     flightPhase,
     formatAltitude,
@@ -39,6 +40,17 @@ describe('the flight numbers', () => {
         // A two-letter want is too short to match as a suffix.
         expect(callsignMatches('XXBA', 'BA')).toBe(false);
         expect(callsignMatches('BA', 'BA')).toBe(true);
+    });
+
+    it('matches a callsign by its number core across airline codes', () => {
+        expect(callsignCoreMatches('RYR4167', 'FR4167')).toBe(true);
+        expect(callsignCoreMatches('TUI1638', 'OR1638')).toBe(true);
+        expect(callsignCoreMatches('DLH123', 'LH123')).toBe(true);
+        expect(callsignCoreMatches('RYR4167', 'FR4168')).toBe(false);
+        expect(callsignCoreMatches('BA456', 'LH123')).toBe(false);
+        // A core shorter than three characters matches nothing.
+        expect(callsignCoreMatches('BAW41', 'FR41')).toBe(false);
+        expect(callsignCoreMatches('XXBA', 'BA')).toBe(false);
     });
 });
 

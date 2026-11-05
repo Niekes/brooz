@@ -24,14 +24,30 @@ export function isFlightNumber(value: string): boolean {
 }
 
 /**
- * Whether a live callsign belongs to the flight a person asked for: the
- * callsign is the flight number, or carries it as a suffix, because the
+ * Whether a live callsign belongs to the flight a person asked for, strictly:
+ * the callsign is the flight number, or carries it as a suffix, because the
  * service often spells LH123 with the airline's ICAO code, DLH123.
  */
 export function callsignMatches(callsign: string, flight: string): boolean {
     const normalized = normalizeFlight(callsign);
     const wanted = normalizeFlight(flight);
     return normalized === wanted || (wanted.length >= 3 && normalized.endsWith(wanted));
+}
+
+/** The number core of a flight: digits and suffix letters without the airline code. */
+function coreOf(value: string): string {
+    return normalizeFlight(value).replace(/^[A-Z]+/, '');
+}
+
+/**
+ * Whether a callsign shares the flight's number core, across airline codes:
+ * the person asks for the IATA flight number FR4167, the service spells the
+ * callsign with the ICAO code, RYR4167. Cores shorter than three characters
+ * (BA1) match nothing, so a bare number never matches every airline.
+ */
+export function callsignCoreMatches(callsign: string, flight: string): boolean {
+    const core = coreOf(flight);
+    return core.length >= 3 && coreOf(callsign) === core;
 }
 
 /** One live flight state, as the states feed reports it. */

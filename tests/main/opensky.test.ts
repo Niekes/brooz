@@ -107,6 +107,17 @@ describe('the OpenSky provider', () => {
         expect(callInit('feed').headers.Authorization).toBe('Bearer tok1');
     });
 
+    it('matches a flight by number core when no callsign matches strictly, and prefers strict matches', async () => {
+        mockFlow('tok1', [row('RYR4167'), row('BAW123'), row('DLH123')]);
+        const api = await opensky();
+        // FR4167 is served under Ryanair's ICAO code: core match.
+        const byCore = await api.fetchFlights('id:secret', ['FR4167']);
+        expect(byCore.status === 'ok' && byCore.data.map((s) => s.callsign)).toEqual(['RYR4167']);
+        // LH123 has a strict match in DLH123, so BAW123 (same number) loses.
+        const strict = await api.fetchFlights('id:secret', ['LH123']);
+        expect(strict.status === 'ok' && strict.data.map((s) => s.callsign)).toEqual(['DLH123']);
+    });
+
     it('maps the missing fields, and falls back to the feed time', async () => {
         mockFlow('tok1', [
             row('BA456', {
