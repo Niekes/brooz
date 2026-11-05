@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { iataOf } from './airports';
 import type { ProviderOutcome, ProviderProbe } from '../shared/providers';
 import { callsignCoreMatches, callsignMatches, normalizeFlight } from '../shared/flights';
 import type { FlightState } from '../shared/flights';
@@ -249,7 +250,20 @@ async function legOf(key: string, state: FlightState): Promise<Leg | null> {
         const legs = await fetchJson<LegRaw[]>(url, SERVICE, rejected, {
             Authorization: `Bearer ${await accessToken(key)}`
         });
-        leg = pickLeg(legs, now);
+        const picked = pickLeg(legs, now);
+        // The feed reports ICAO codes; the tile shows the IATA code when known.
+        leg =
+            picked === null
+                ? null
+                : {
+                      ...picked,
+                      origin: picked.origin
+                          ? ((await iataOf(picked.origin)) ?? picked.origin)
+                          : null,
+                      destination: picked.destination
+                          ? ((await iataOf(picked.destination)) ?? picked.destination)
+                          : null
+                  };
     } catch {
         leg = null;
     }

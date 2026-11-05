@@ -126,10 +126,11 @@ Not negotiable, and pinned by unit tests:
   hands it to get-nonce). In dev mode the window loads the
   Vite dev server instead.
 - The renderer fetches nothing from the internet itself: OpenWeatherMap,
-  Finnhub, Stormglass, OpenSky (and its token endpoint) and the Open-Meteo
-  geocoder are called by the main process
+  Finnhub, Stormglass, OpenSky (and its token endpoint), the Open-Meteo
+  geocoder and the OurAirports dataset (ICAO to IATA airport codes, cached on
+  disk) are called by the main process
   (`src/main/openweathermap.ts`, `src/main/finnhub.ts`, `src/main/stormglass.ts`,
-  `src/main/opensky.ts`, `src/main/open-meteo.ts`, 10 s timeout, bounded cache), and the IPC handlers validate every argument
+  `src/main/opensky.ts`, `src/main/open-meteo.ts`, `src/main/airports.ts`, 10 s timeout, bounded cache), and the IPC handlers validate every argument
   (`src/main/validate.ts`) before it reaches the network.
 - Every IPC handler checks the sender frame's origin against the app.
 - `session.setPermissionRequestHandler` defaults to deny; the allowlist

@@ -6,6 +6,10 @@ vi.mock('electron', () => ({
     net: { fetch: (...args: unknown[]) => fetchMock(...args) }
 }));
 
+vi.mock('../../src/main/airports', () => ({
+    iataOf: async (icao: string) => ({ LFPO: 'ORY', KJFK: 'JFK' })[icao] ?? null
+}));
+
 /** A fresh module, so every test starts with an empty token and states cache. */
 async function opensky(): Promise<typeof import('../../src/main/opensky')> {
     return import('../../src/main/opensky');
@@ -367,29 +371,30 @@ describe('the OpenSky provider', () => {
         });
     });
 
-    it('enriches a matched state with its leg, the one in progress', async () => {
+    it('enriches a matched state with its leg, the one in progress, airports as IATA when known', async () => {
         const now = Math.floor(Date.now() / 1000);
         mockFlow('tok1', [row('UA900')], 200, [
             // An older, finished leg and the current one.
             {
-                estDepartureAirport: 'LAX',
-                estArrivalAirport: 'SFO',
+                estDepartureAirport: 'KLAX',
+                estArrivalAirport: 'KSFO',
                 firstSeen: now - 7200,
                 lastSeen: now - 3600
             },
             {
-                estDepartureAirport: 'SFO',
-                estArrivalAirport: 'IAH',
+                estDepartureAirport: 'LFPO',
+                estArrivalAirport: 'KJFK',
                 firstSeen: now - 3600,
                 lastSeen: now + 3 * 3600
             },
-            { estDepartureAirport: 'XXX', firstSeen: now - 100, lastSeen: null }
+            { estDepartureAirport: 'XXXX', firstSeen: now - 100, lastSeen: null }
         ]);
         const result = await (await opensky()).fetchFlights('id:secret', ['UA900']);
         expect(result.status === 'ok' && result.data[0]).toMatchObject({
             callsign: 'UA900',
-            origin: 'SFO',
-            destination: 'IAH',
+            // LFPO maps to ORY, KJFK to JFK; an unknown code falls back to itself.
+            origin: 'ORY',
+            destination: 'JFK',
             departureAt: new Date((now - 3600) * 1000).toISOString(),
             arrivalAt: new Date((now + 3 * 3600) * 1000).toISOString()
         });
@@ -431,17 +436,31 @@ describe('the OpenSky provider', () => {
                 lastSeen: now - 3600
             },
             {
+                estArrivalAirport: 'ZZZZ',
                 firstSeen: now + 3600,
                 lastSeen: null
             }
         ]);
         const result = await (await opensky()).fetchFlights('id:secret', ['QF11']);
-        // No leg in progress: the latest one wins the sort, a future one without airports.
+        // No leg in progress: the latest one wins the sort. No departure airport
+        // stays null; an ICAO code without an IATA mapping falls back to itself.
         expect(result.status === 'ok' && result.data[0]).toMatchObject({
             origin: null,
-            destination: null,
+            destination: 'ZZZZ',
             departureAt: new Date((now + 3600) * 1000).toISOString(),
             arrivalAt: null
+        });
+
+        mockFlow('tok1', [row('QF11')], 200, [
+            { estDepartureAirport: 'ZZZZ', firstSeen: now + 3600, lastSeen: now + 7200 }
+        ]);
+        // A third key: the chosen leg has an unmapped origin ICAO (falls back to
+        // itself) and no arrival airport (stays null).
+        const fallback = await (await opensky()).fetchFlights('third:secret', ['QF11']);
+        expect(fallback.status === 'ok' && fallback.data[0]).toMatchObject({
+            origin: 'ZZZZ',
+            destination: null,
+            arrivalAt: new Date((now + 7200) * 1000).toISOString()
         });
 
         mockFlow('tok1', [row('QF11')], 200, [{ estDepartureAirport: 'SYD' }]);
