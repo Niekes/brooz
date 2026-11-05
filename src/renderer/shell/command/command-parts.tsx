@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import type { CommandArgs } from '../tile';
 import { routedTile } from './manifest';
 import type { CommandMatch } from './parse';
+import type { QuickAction } from './quick-actions';
 import type { LocalModel } from './use-local-model';
 import { settingsShortcut } from '../kit/shortcut';
 
@@ -29,9 +30,20 @@ function truncate(value: string, limit: number): string {
     return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
-/** The args of a match in one line: "Rome · AAPL · TSLA". */
+/** One kind of argument, named: "Flight LH123", "Symbols AAPL · TSLA". */
+function named(one: string, values: readonly string[] | undefined): string | undefined {
+    return values ? `${one}${values.length > 1 ? 's' : ''} ${values.join(' · ')}` : undefined;
+}
+
+/** The arguments of a match in one line: "City Rome", "Flights LH123 · BA456". */
 function summaryFor(args: CommandArgs): string {
-    return [args.city, args.symbols?.join(' · ')].filter(Boolean).join(' · ');
+    return [
+        named('City', args.city ? [args.city] : undefined),
+        named('Symbol', args.symbols),
+        named('Flight', args.flights)
+    ]
+        .filter(Boolean)
+        .join(' · ');
 }
 
 function titleOf(widget: string): string {
@@ -64,24 +76,24 @@ export function Spinner(): JSX.Element {
     );
 }
 
-/** Example utterances, shown while the field is empty. */
-export function Chips({
-    examples,
+/** The quick actions, shown while the field is empty; a pick hands over the utterance. */
+export function QuickActions({
+    actions,
     onPick
 }: {
-    examples: readonly string[];
-    onPick: (text: string) => void;
+    actions: readonly QuickAction[];
+    onPick: (utterance: string) => void;
 }): JSX.Element {
     return (
         <div className="mb-2 flex flex-wrap justify-center gap-1.5">
-            {examples.map((text) => (
+            {actions.map(({ label, utterance }, index) => (
                 <button
-                    key={text}
+                    key={index}
                     type="button"
-                    onClick={() => onPick(text)}
+                    onClick={() => onPick(utterance)}
                     className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[10px] tracking-[0.08em] text-white/45 backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white/75"
                 >
-                    {text}
+                    {label || utterance}
                 </button>
             ))}
         </div>
@@ -161,7 +173,7 @@ function SuggestionRow({
                     ) : null}
                 </span>
                 <span className="mt-0.5 block truncate text-[9px] tracking-[0.08em] text-white/35 uppercase">
-                    {summaryFor(match.args) || 'Open widget'}
+                    {summaryFor(match.args) || 'Open tile'}
                 </span>
             </span>
 

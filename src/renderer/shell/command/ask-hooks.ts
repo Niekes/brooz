@@ -24,7 +24,7 @@ export function useFocusShortcut(input: RefObject<HTMLInputElement | null>): voi
  * Auto-summon: a confident route summons its tile after a short pause. It
  * sends the tile alone; city, duration and note wait for Enter, so the tile
  * shows its default instead of half-typed input. A tile is summoned once
- * per streak of typing, and never after a chip filled the field.
+ * per streak of typing, and never after a quick action filled the field.
  */
 export function useAutoSummon(
     query: string,

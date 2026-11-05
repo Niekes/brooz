@@ -18,13 +18,14 @@ describe('the settings', () => {
     const status = () =>
         stubBrooz({ 'brooz:key-status': () => ({ present: false, canStore: true }) });
 
-    it('opens on general, then lists every tile, then a marked section for every provider', async () => {
+    it('opens on general, then quick actions, every tile, and a marked section for every provider', async () => {
         status();
         render(<Settings open onOpenChange={vi.fn()} />);
         const nav = screen.getByRole('navigation', { name: 'Settings sections' });
         const buttons = within(nav).getAllByRole('button');
         expect(buttons.map((button) => button.textContent)).toEqual([
             'General',
+            'Quick actions',
             'Weather',
             'Air Quality',
             'Markets',
@@ -39,6 +40,7 @@ describe('the settings', () => {
         expect(
             buttons.map((button) => button.querySelector('[data-icon]')?.getAttribute('data-icon'))
         ).toEqual([
+            undefined,
             undefined,
             undefined,
             undefined,
@@ -419,6 +421,95 @@ describe('a provider key in the settings', () => {
         render(<ProviderKey provider={FINNHUB} />);
         expect(screen.getByText('Checking')).toBeTruthy();
         expect(screen.getByText('Save')).toBeTruthy();
+    });
+});
+
+describe('the quick actions in the settings', () => {
+    afterEach(() => localStorage.clear());
+
+    const KEY = 'brooz.quick-actions';
+    const DEFAULTS = [
+        'weather in Rome',
+        'air quality in Beijing',
+        'how is apple stock doing',
+        'surf forecast',
+        'where is flight LH123'
+    ];
+
+    function open(): void {
+        render(<Settings open onOpenChange={vi.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Quick actions' }));
+    }
+
+    const utterances = () =>
+        (screen.queryAllByLabelText(/^Utterance/) as HTMLInputElement[]).map(
+            (input) => input.value
+        );
+    const stored = () => JSON.parse(localStorage.getItem(KEY)!);
+    const edit = (label: string, value: string) => {
+        const input = screen.getByLabelText(label);
+        fireEvent.change(input, { target: { value } });
+        fireEvent.blur(input);
+    };
+
+    it('lists the defaults until the person changes one, then keeps the whole list', () => {
+        open();
+        expect(utterances()).toEqual(DEFAULTS);
+        expect(localStorage.getItem(KEY)).toBeNull();
+        const label = screen.getByLabelText('Label 5');
+        edit('Label 5', ' My flight ');
+        // The row stays in place when it saves, so the focus can move on within it.
+        expect(label.isConnected).toBe(true);
+        expect(stored()).toEqual([
+            ...DEFAULTS.slice(0, 4).map((utterance) => ({ label: '', utterance })),
+            { label: 'My flight', utterance: 'where is flight LH123' }
+        ]);
+    });
+
+    it('saves nothing for a field left unchanged or an utterance left empty', () => {
+        open();
+        edit('Utterance 1', 'weather in Rome');
+        edit('Utterance 2', '  ');
+        expect(localStorage.getItem(KEY)).toBeNull();
+        expect(utterances()).toEqual(DEFAULTS);
+    });
+
+    it('deletes quick actions, and a list deleted to the last one stays empty', () => {
+        open();
+        const deleteFirst = () =>
+            fireEvent.click(screen.getByRole('button', { name: 'Delete quick action 1' }));
+        deleteFirst();
+        expect(utterances()).toEqual(DEFAULTS.slice(1));
+        DEFAULTS.slice(1).forEach(deleteFirst);
+        expect(stored()).toEqual([]);
+        expect(utterances()).toEqual([]);
+    });
+
+    it('adds a quick action with or without a label, never without an utterance, up to eight', () => {
+        open();
+        const add = screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement;
+        const label = screen.getByLabelText('New label') as HTMLInputElement;
+        const utterance = screen.getByLabelText('New utterance') as HTMLInputElement;
+        const type = (input: HTMLInputElement, value: string) =>
+            fireEvent.change(input, { target: { value } });
+
+        type(label, 'Nothing to ask');
+        type(utterance, '  ');
+        expect(add.disabled).toBe(true);
+        type(label, ' My flight ');
+        type(utterance, ' track flight LH1234 ');
+        fireEvent.click(add);
+        expect(stored()[5]).toEqual({ label: 'My flight', utterance: 'track flight LH1234' });
+        expect([label.value, utterance.value]).toEqual(['', '']);
+
+        type(utterance, 'weather in Oslo');
+        fireEvent.click(add);
+        expect(stored()[6]).toEqual({ label: '', utterance: 'weather in Oslo' });
+        type(utterance, 'surf forecast');
+        fireEvent.click(add);
+        expect(stored()).toHaveLength(8);
+        type(utterance, 'price of bitcoin');
+        expect(add.disabled).toBe(true);
     });
 });
 

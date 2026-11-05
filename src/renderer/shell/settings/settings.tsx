@@ -13,6 +13,8 @@ import { AppSeparator } from '../ui/app-separator';
 import { DefaultLocationOption, SurfSpotOption, TileLocationOption } from './default-location';
 import { ProviderKey } from './provider-key';
 import { TileProviderChoice } from './provider-choice';
+import { QuickActionsOption } from './quick-actions';
+import { MAX_QUICK_ACTIONS } from '../command/quick-actions';
 import { StartTileOption } from './start-tile';
 import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/stored';
 
@@ -20,10 +22,11 @@ import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/stored';
  * The settings: the one surface that manages tiles, keys and options, shown
  * over the dashboard. A sidebar lists the general section first - the
  * choices that belong to the person: the start tile, the device location
- * switch, the default location and the temperature unit - then, under a
- * separator, one section per registered tile with its own settings, then,
- * under another separator, one section per provider of the manifest with its
- * key (docs/adr/0014).
+ * switch, the default location and the temperature unit - and the quick
+ * actions the ask bar offers (docs/adr/0017), then, under a separator, one
+ * section per registered tile with its own settings, then, under another
+ * separator, one section per provider of the manifest with its key
+ * (docs/adr/0014).
  */
 
 /** A sidebar entry: the words the search finds it by, and what it shows. */
@@ -177,7 +180,7 @@ function NavGroup({
     );
 }
 
-/** The sidebar: the search, the general section, then the tiles, then the providers. */
+/** The sidebar: the search, General and the quick actions, the tiles, then the providers. */
 function SectionNav({
     search,
     onSearch,
@@ -191,10 +194,10 @@ function SectionNav({
     current: Section | undefined;
     onSelect: (id: string) => void;
 }): JSX.Element {
-    const general = visible.filter((section) => section.id === 'general');
+    const personal = visible.filter((section) => PERSONAL.includes(section));
     const tileSections = visible.filter((section) => section.id.startsWith('tile:'));
     const providerSections = visible.filter(
-        (section) => section.id !== 'general' && !section.id.startsWith('tile:')
+        (section) => !personal.includes(section) && !tileSections.includes(section)
     );
     return (
         <nav
@@ -211,7 +214,7 @@ function SectionNav({
             <div className="min-h-0 flex-1 overflow-y-auto">
                 <NavGroup
                     label=""
-                    sections={general}
+                    sections={personal}
                     current={current}
                     onSelect={onSelect}
                     withSeparator={false}
@@ -221,14 +224,14 @@ function SectionNav({
                     sections={tileSections}
                     current={current}
                     onSelect={onSelect}
-                    withSeparator={general.length > 0}
+                    withSeparator={personal.length > 0}
                 />
                 <NavGroup
                     label="Provider keys"
                     sections={providerSections}
                     current={current}
                     onSelect={onSelect}
-                    withSeparator={general.length > 0 || tileSections.length > 0}
+                    withSeparator={personal.length > 0 || tileSections.length > 0}
                 />
                 {visible.length === 0 ? (
                     <p className="px-2.5 py-1.5 text-xs text-white/40">No setting matches.</p>
@@ -310,11 +313,22 @@ const GENERAL: Section = {
     )
 };
 
-// General first, then one section per registered tile, then one per provider
-// of the manifest - every provider has a section, even one that serves no
-// tile yet, so its key has a place before any tile uses it.
+const QUICK_ACTIONS: Section = {
+    id: 'quick-actions',
+    title: 'Quick actions',
+    subtitle: `Offered above the ask bar while it is empty, up to ${MAX_QUICK_ACTIONS}; a click puts the utterance into the field.`,
+    terms: ['Quick actions', 'Ask bar'],
+    Body: QuickActionsOption
+};
+
+/** The sections that belong to the person rather than to a tile or a provider. */
+const PERSONAL = [GENERAL, QUICK_ACTIONS];
+
+// General and the quick actions first, then one section per registered tile,
+// then one per provider of the manifest - every provider has a section, even
+// one that serves no tile yet, so its key has a place before any tile uses it.
 const SECTIONS: Section[] = [
-    GENERAL,
+    ...PERSONAL,
     ...tiles.map(tileSection),
     ...PROVIDERS.map((provider) =>
         providerSection(

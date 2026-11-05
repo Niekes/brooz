@@ -62,7 +62,7 @@ describe('the ask bar with the rules', () => {
         const { type, onSummon } = setup();
         type('weather in Rome');
         expect(screen.getByRole('option', { selected: true }).textContent).toContain('Weather');
-        expect(screen.getByText('Rome')).toBeTruthy();
+        expect(screen.getByText('City Rome')).toBeTruthy();
         act(() => {
             vi.advanceTimersByTime(400);
         });
@@ -80,14 +80,20 @@ describe('the ask bar with the rules', () => {
         expect(onSummon).toHaveBeenCalledTimes(1);
     });
 
-    it('sums up what the utterance said about the tile', () => {
+    it('names each argument the utterance carries for the tile', () => {
         const { type } = setup();
         type('weather in Rome');
-        expect(screen.getByText('Rome')).toBeTruthy();
+        expect(screen.getByText('City Rome')).toBeTruthy();
         type('how is apple stock doing');
-        expect(screen.getByText('AAPL')).toBeTruthy();
+        expect(screen.getByText('Symbol AAPL')).toBeTruthy();
+        type('price of apple and tesla');
+        expect(screen.getByText('Symbols AAPL · TSLA')).toBeTruthy();
+        type('track flight LH1234');
+        expect(screen.getByText('Flight LH1234')).toBeTruthy();
+        type('track flights LH123 and BA456');
+        expect(screen.getByText('Flights LH123 · BA456')).toBeTruthy();
         type('weather');
-        expect(screen.getByText('Open widget')).toBeTruthy();
+        expect(screen.getByText('Open tile')).toBeTruthy();
     });
 
     it('summons the selection with its args on Enter and clears the field', () => {
@@ -165,7 +171,32 @@ describe('the ask bar with the rules', () => {
         expect(document.activeElement).not.toBe(input);
     });
 
-    it('fills the field from an example without summoning on its own', () => {
+    it('offers the saved quick actions by label, and puts the utterance into the field', () => {
+        localStorage.setItem(
+            'brooz.quick-actions',
+            JSON.stringify([
+                { label: 'My flight', utterance: 'track flight LH1234' },
+                { label: '', utterance: 'weather in Oslo' }
+            ])
+        );
+        const { input, type } = setup();
+        expect(screen.queryByText('weather in Rome')).toBeNull();
+        expect(screen.getByText('weather in Oslo')).toBeTruthy();
+        fireEvent.click(screen.getByText('My flight'));
+        expect(input.value).toBe('track flight LH1234');
+        expect(screen.getByText('Flight LH1234')).toBeTruthy();
+        type('');
+        expect(screen.getByText('My flight')).toBeTruthy();
+    });
+
+    it('offers no quick action once the person removed them all', () => {
+        localStorage.setItem('brooz.quick-actions', '[]');
+        setup();
+        expect(screen.queryByText('weather in Rome')).toBeNull();
+        expect(screen.queryAllByRole('button', { name: /in Rome|LH123/ })).toEqual([]);
+    });
+
+    it('fills the field from a quick action without summoning on its own', () => {
         const { press, input, onSummon } = setup();
         fireEvent.click(screen.getByText('weather in Rome'));
         expect(input.value).toBe('weather in Rome');

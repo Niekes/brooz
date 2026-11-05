@@ -15,13 +15,25 @@ The ask bar's path from an utterance to a tile, scored by the deterministic
 rules and the local model. A tile without a route is never summoned.
 _Avoid_: intent, command, matcher
 
+**Utterance**:
+The English sentence a person types into the ask bar, routed to a tile.
+_Avoid_: query, prompt, command
+
+**Argument**:
+A value an utterance carries that a tile understands: a city, a ticker symbol, a flight number. The rules find them in the text, whichever router picks the tile.
+_Avoid_: param, entity, slot
+
+**Quick action**:
+A saved utterance with a label, offered above the ask bar while the field is empty; picking one puts its utterance into the field to be routed like a typed one.
+_Avoid_: chip, example, shortcut, preset
+
 **Provider**:
 An external service a tile's live data can come from, and the unit of an API
 key: several tiles may share one.
 _Avoid_: service, API, backend, key source
 
 **Settings section**:
-One entry of the settings sidebar: General, one per registered tile with its own settings, or one per provider of the manifest with its key. Tile sections sit between General and the providers; a provider section exists even when the provider serves no tile yet.
+One entry of the settings sidebar: General, Quick actions, one per registered tile with its own settings, or one per provider of the manifest with its key. Quick actions follows General; tile sections sit between it and the providers; a provider section exists even when the provider serves no tile yet.
 _Avoid_: tab, page, panel
 
 **API key**:

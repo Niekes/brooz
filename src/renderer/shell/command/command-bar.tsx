@@ -4,7 +4,7 @@ import { AppCard } from '../glass/app-card';
 import type { SummonRequest } from '../tile';
 import { hintFor, useAutoSummon, useFocusShortcut, useModelWarmup, waitingText } from './ask-hooks';
 import {
-    Chips,
+    QuickActions,
     SearchIcon,
     Spinner,
     StatusLine,
@@ -12,18 +12,13 @@ import {
     isLowConfidence,
     mergeMatches
 } from './command-parts';
-import { ROUTED_TILES } from './manifest';
 import { parseCommand } from './parse';
 import type { CommandMatch } from './parse';
+import { useQuickActions } from './quick-actions';
 import { useLocalModel } from './use-local-model';
 import type { LocalModel } from './use-local-model';
 import { useModelRouting } from './use-model-routing';
 import type { ModelRouting } from './use-model-routing';
-
-/** Example utterances for the empty field, one per routed tile with a live version. */
-const EXAMPLES = ROUTED_TILES.filter((tile) => tile.Live !== undefined).map(
-    (tile) => tile.route.examples[0]
-);
 
 /** The ask field rides on the glass surface, tuned through its custom properties. */
 const INPUT_CARD_STYLE = {
@@ -160,7 +155,7 @@ function keyActions(
     };
 }
 
-/** What a pick, a chip, a keystroke and an edit do to the bar. */
+/** What a pick, a quick action, a keystroke and an edit do to the bar. */
 function useAskActions(
     bar: AskBar,
     onSummon: (request: SummonRequest) => void,
@@ -186,7 +181,7 @@ function useAskActions(
 
     return {
         execute,
-        pickExample: (text: string): void => {
+        pickQuickAction: (text: string): void => {
             suppress.current = true;
             replaceQuery(text);
             inputRef.current!.focus();
@@ -220,7 +215,7 @@ export function CommandBar({
     onSummon: (request: SummonRequest) => void;
     onOpenSettings: () => void;
 }): JSX.Element {
-    /** Set when a chip filled the field: the person chose it, so Enter decides. */
+    /** Set when a quick action filled the field: the person chose it, so Enter decides. */
     const suppressAutoRef = useRef(false);
     /** The tile the last auto-summon activated; repeats are skipped. */
     const autoWidgetRef = useRef<string | null>(null);
@@ -228,6 +223,7 @@ export function CommandBar({
     const actions = useAskActions(bar, onSummon, suppressAutoRef, autoWidgetRef);
     const { query, suggestions, activeIndex, active, lowConfidence, model, enableModel, routing } =
         bar;
+    const [quickActions] = useQuickActions();
     const typing = query.trim().length > 0;
 
     return (
@@ -243,7 +239,7 @@ export function CommandBar({
                         onPick={actions.execute}
                     />
                 ) : (
-                    <Chips examples={EXAMPLES} onPick={actions.pickExample} />
+                    <QuickActions actions={quickActions} onPick={actions.pickQuickAction} />
                 )}
 
                 <AskField

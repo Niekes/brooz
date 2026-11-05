@@ -173,9 +173,11 @@ A definition has:
   section, `ownPlace` tiles (today surf) own a place of their own (the surf
   spot) - both appear in the tile's section (`docs/adr/0014`).
 
-The settings list General, then one section per registered tile, then the
-providers; the start tile setting in General picks which tile the grid
-centers on at launch (`docs/adr/0015`).
+The settings list General, then Quick actions, then one section per
+registered tile, then the providers; the start tile setting in General picks
+which tile the grid centers on at launch (`docs/adr/0015`). A route's first
+example is the tile's default quick action until the person edits the list
+(`docs/adr/0017`).
 
 A new tile is registered in `src/renderer/tiles/index.ts`; the slots nearest
 the grid's center carry the registry in order, and every other slot shows the
@@ -221,7 +223,8 @@ with the union `ok | missing-key | provider-error` instead of throwing, so
 every tile handles the invitation to the settings. The settings overlay
 (`src/renderer/shell/settings`, ⌘, or Ctrl+,) is the only surface that
 takes a key: a general section first, for the person's own choices (start
-tile, device location, default location, temperature unit), then - under a
+tile, device location, default location, temperature unit), and a quick
+actions section with the saved utterances above the ask bar, then - under a
 separator - one section per registered tile with its own settings (its own
 location, its own place like the surf spot, its provider choice), then -
 under another separator - one section per provider of the manifest, in
