@@ -23,7 +23,7 @@ import { useDeviceLocationSetting, useTemperatureUnit } from '../kit/stored';
  * over the dashboard. A sidebar lists the general section first - the
  * choices that belong to the person: the start tile, the device location
  * switch, the default location and the temperature unit - and the quick
- * actions the ask bar offers (docs/adr/0017), then, under a separator, one
+ * actions the ask bar offers (docs/adr/0018), then, under a separator, one
  * section per registered tile with its own settings, then, under another
  * separator, one section per provider of the manifest with its key
  * (docs/adr/0014).

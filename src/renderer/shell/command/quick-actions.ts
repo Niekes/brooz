@@ -6,7 +6,7 @@ import { ROUTED_TILES } from './manifest';
  * their defaults come from the registry, which the kit never imports.
  */
 
-/** A saved utterance with a label; without a label the utterance shows (docs/adr/0017). */
+/** A saved utterance with a label; without a label the utterance shows (docs/adr/0018). */
 export interface QuickAction {
     readonly label: string;
     readonly utterance: string;

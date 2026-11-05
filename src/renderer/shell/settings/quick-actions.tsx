@@ -124,7 +124,7 @@ function NewQuickAction({
     );
 }
 
-/** The quick actions the ask bar offers, edited in their own settings section (docs/adr/0017). */
+/** The quick actions the ask bar offers, edited in their own settings section (docs/adr/0018). */
 export function QuickActionsOption(): JSX.Element {
     const [actions, setActions] = useQuickActions();
     return (
